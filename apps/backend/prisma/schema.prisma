@@ -1,0 +1,45 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum EnrollmentStatus {
+  CONFIRMED
+  WAITLISTED
+}
+
+enum Side {
+  LEFT
+  RIGHT
+}
+
+model ClassSession {
+  id          Int          @id @default(autoincrement())
+  date        DateTime
+  startTime   String
+  endTime     String
+  classLevel  String
+  capacity    Int          @default(8)
+  lockAt      String?
+  enrollments Enrollment[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([date])
+}
+
+model Enrollment {
+  id             Int              @id @default(autoincrement())
+  classSession   ClassSession     @relation(fields: [classSessionId], references: [id], onDelete: Cascade)
+  classSessionId Int
+  studentName    String
+  side           Side
+  status         EnrollmentStatus @default(CONFIRMED)
+  createdAt      DateTime         @default(now())
+
+  @@index([classSessionId, status])
+}
