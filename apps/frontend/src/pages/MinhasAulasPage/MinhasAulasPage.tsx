@@ -2,7 +2,7 @@ import { FormEvent, useState } from "react";
 import { Button, Card, Tabs } from "../../components";
 import {
   enrollmentService,
-  enrollmentTypes,
+  MyEnrollmentSummary,
   useGetMyEnrollments,
 } from "../../domain/enrollment";
 import { MyEnrollmentCard } from "./components/MyEnrollmentCard";
@@ -24,7 +24,7 @@ const FILTER_LABELS: Record<ReceiptFilter, string> = {
 };
 
 function matchesFilter(
-  entry: enrollmentTypes.MyEnrollmentSummary,
+  entry: MyEnrollmentSummary,
   filter: ReceiptFilter,
 ): boolean {
   if (filter === "ALL") return true;

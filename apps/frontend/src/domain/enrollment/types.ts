@@ -1,4 +1,4 @@
-import type { ReceiptSummary } from "../receipt/types";
+import { ReceiptSummary } from "../receipt/types";
 
 export type Side = "LEFT" | "RIGHT";
 export type EnrollmentStatus = "CONFIRMED" | "WAITLISTED";

@@ -1,11 +1,14 @@
 import { FormEvent, useState } from "react";
 import { Button, Card } from "../../../components";
-import { enrollmentService, enrollmentTypes } from "../../../domain/enrollment";
+import {
+  enrollmentService,
+  MyEnrollmentSummary,
+} from "../../../domain/enrollment";
 import { receiptService, useSubmitReceipt } from "../../../domain/receipt";
 import { formatDateLabel } from "../../../utils/date";
 
 type Props = {
-  entry: enrollmentTypes.MyEnrollmentSummary;
+  entry: MyEnrollmentSummary;
   studentName: string;
 };
 

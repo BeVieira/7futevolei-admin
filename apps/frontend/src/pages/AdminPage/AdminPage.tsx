@@ -8,7 +8,8 @@ import {
 } from "../../components";
 import {
   aulaService,
-  aulaTypes,
+  ClassLevel,
+  TimeSlotInput,
   useCreateClassesForDay,
   useGetClassesByDate,
 } from "../../domain/aula";
@@ -22,7 +23,7 @@ export function AdminPage() {
   const [date, setDate] = useState(() =>
     toDateInputValue(aulaService.getNextClassDay()),
   );
-  const [blocks, setBlocks] = useState<aulaTypes.TimeSlotInput[]>(() => [
+  const [blocks, setBlocks] = useState<TimeSlotInput[]>(() => [
     aulaService.buildDefaultTimeSlot(),
   ]);
   const [collapsedSlots, setCollapsedSlots] = useState<Set<string>>(
@@ -74,7 +75,7 @@ export function AdminPage() {
   function updateBlockLevel(
     blockIndex: number,
     courtIndex: number,
-    level: aulaTypes.ClassLevel,
+    level: ClassLevel,
   ) {
     setBlocks((prev) =>
       prev.map((block, i) => {

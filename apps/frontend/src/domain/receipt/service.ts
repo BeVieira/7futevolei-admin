@@ -1,24 +1,25 @@
-import * as api from "./api";
-import type { ReceiptStatus } from "./types";
+import { receiptApi } from "./api";
+import { ReceiptStatus } from "./types";
 
-export function submitReceipt(
-  classSessionId: number,
-  enrollmentId: number,
-  file: File,
-) {
-  return api.submitReceipt(classSessionId, enrollmentId, file);
+function submitReceipt(classSessionId: number, enrollmentId: number, file: File) {
+  return receiptApi.submitReceipt(classSessionId, enrollmentId, file);
 }
 
-export function reviewReceipt(
+function reviewReceipt(
   classSessionId: number,
   enrollmentId: number,
   status: "APPROVED" | "REJECTED",
   adminComment?: string,
 ) {
-  return api.reviewReceipt(classSessionId, enrollmentId, status, adminComment);
+  return receiptApi.reviewReceipt(
+    classSessionId,
+    enrollmentId,
+    status,
+    adminComment,
+  );
 }
 
-export function receiptStatusLabel(status: ReceiptStatus): string {
+function receiptStatusLabel(status: ReceiptStatus): string {
   switch (status) {
     case "PENDING":
       return "Aguardando avaliação";
@@ -29,6 +30,13 @@ export function receiptStatusLabel(status: ReceiptStatus): string {
   }
 }
 
-export function getReceiptFileUrl(filePath: string): string {
+function getReceiptFileUrl(filePath: string): string {
   return `/${filePath}`;
 }
+
+export const receiptService = {
+  submitReceipt,
+  reviewReceipt,
+  receiptStatusLabel,
+  getReceiptFileUrl,
+};

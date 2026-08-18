@@ -1,8 +1,11 @@
 import { Button, Modal } from "../../../components";
-import { enrollmentService, enrollmentTypes } from "../../../domain/enrollment";
+import {
+  enrollmentService,
+  EnrollmentSummary,
+} from "../../../domain/enrollment";
 
 type Props = {
-  waitlist: enrollmentTypes.EnrollmentSummary[];
+  waitlist: EnrollmentSummary[];
   loading: boolean;
   onClose: () => void;
   onJoinWaitlist?: () => void;

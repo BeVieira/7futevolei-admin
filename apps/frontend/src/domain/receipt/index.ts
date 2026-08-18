@@ -1,4 +1,4 @@
-export * as receiptTypes from "./types";
-export * as receiptApi from "./api";
-export * as receiptService from "./service";
+export * from "./types";
+export * from "./api";
+export * from "./service";
 export * from "./useCases";

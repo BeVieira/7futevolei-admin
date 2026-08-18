@@ -1,12 +1,12 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import * as aulaService from "../service";
-import type * as aulaTypes from "../types";
+import { aulaService } from "../service";
+import { TimeSlotInput } from "../types";
 import { queryKeys } from "../../queryKeys";
 import { toActionError } from "../../../utils/errors";
 
 async function createClassesForDay(
   date: string,
-  timeSlots: aulaTypes.TimeSlotInput[],
+  timeSlots: TimeSlotInput[],
   lockAt?: string,
 ) {
   try {
@@ -21,7 +21,7 @@ export function useCreateClassesForDay() {
   return useMutation({
     mutationFn: (vars: {
       date: string;
-      timeSlots: aulaTypes.TimeSlotInput[];
+      timeSlots: TimeSlotInput[];
       lockAt?: string;
     }) => createClassesForDay(vars.date, vars.timeSlots, vars.lockAt),
     onSuccess: () => {

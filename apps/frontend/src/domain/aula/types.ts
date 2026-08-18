@@ -1,4 +1,4 @@
-import type { EnrollmentSummary } from "../enrollment/types";
+import { EnrollmentSummary } from "../enrollment/types";
 
 export const CLASS_LEVELS = ["Iniciante", "Intermediário", "Avançado"] as const;
 

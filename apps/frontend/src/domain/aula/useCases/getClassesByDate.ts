@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import * as aulaService from "../service";
+import { aulaService } from "../service";
 import { queryKeys } from "../../queryKeys";
 import { toActionError } from "../../../utils/errors";
 import { LIVE_REFRESH_INTERVAL_MS } from "../../../utils/realtime";

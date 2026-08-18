@@ -1,13 +1,13 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import * as aulaService from "../service";
-import type * as aulaTypes from "../types";
+import { aulaService } from "../service";
+import { ClassLevel } from "../types";
 import { queryKeys } from "../../queryKeys";
 import { toActionError } from "../../../utils/errors";
 
 type ClassChanges = Partial<{
   startTime: string;
   endTime: string;
-  classLevel: aulaTypes.ClassLevel;
+  classLevel: ClassLevel;
   capacity: number;
   lockAt: string | null;
 }>;

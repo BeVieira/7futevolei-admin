@@ -1,5 +1,5 @@
 import { handleResponse } from "../../utils/http";
-import type {
+import {
   ClassLevel,
   ClassSessionDetail,
   ClassSessionSummary,
@@ -8,21 +8,21 @@ import type {
 
 const BASE_URL = "/api/class-sessions";
 
-export function getClassesByDate(date: string): Promise<ClassSessionSummary[]> {
+function getClassesByDate(date: string): Promise<ClassSessionSummary[]> {
   return fetch(`${BASE_URL}?date=${date}`).then((res) => handleResponse(res));
 }
 
-export function getClassById(id: number): Promise<ClassSessionDetail> {
+function getClassById(id: number): Promise<ClassSessionDetail> {
   return fetch(`${BASE_URL}/${id}`).then((res) => handleResponse(res));
 }
 
-export function getClassDatesByMonth(month: string): Promise<string[]> {
+function getClassDatesByMonth(month: string): Promise<string[]> {
   return fetch(`${BASE_URL}/dates?month=${month}`)
     .then((res) => handleResponse<{ dates: string[] }>(res))
     .then((body) => body.dates);
 }
 
-export function createClassesForDay(
+function createClassesForDay(
   date: string,
   timeSlots: TimeSlotInput[],
   lockAt?: string,
@@ -34,7 +34,7 @@ export function createClassesForDay(
   }).then((res) => handleResponse(res));
 }
 
-export function updateClass(
+function updateClass(
   id: number,
   changes: Partial<{
     startTime: string;
@@ -51,8 +51,17 @@ export function updateClass(
   }).then((res) => handleResponse(res));
 }
 
-export function deleteClass(id: number): Promise<void> {
+function deleteClass(id: number): Promise<void> {
   return fetch(`${BASE_URL}/${id}`, { method: "DELETE" }).then((res) =>
     handleResponse(res),
   );
 }
+
+export const aulaApi = {
+  getClassesByDate,
+  getClassById,
+  getClassDatesByMonth,
+  createClassesForDay,
+  updateClass,
+  deleteClass,
+};

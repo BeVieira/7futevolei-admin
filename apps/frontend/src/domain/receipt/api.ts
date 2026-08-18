@@ -1,9 +1,9 @@
 import { handleResponse } from "../../utils/http";
-import type { ReceiptSummary } from "./types";
+import { ReceiptSummary } from "./types";
 
 const BASE_URL = "/api/class-sessions";
 
-export function submitReceipt(
+function submitReceipt(
   classSessionId: number,
   enrollmentId: number,
   file: File,
@@ -17,7 +17,7 @@ export function submitReceipt(
   ).then((res) => handleResponse(res));
 }
 
-export function reviewReceipt(
+function reviewReceipt(
   classSessionId: number,
   enrollmentId: number,
   status: "APPROVED" | "REJECTED",
@@ -32,3 +32,8 @@ export function reviewReceipt(
     },
   ).then((res) => handleResponse(res));
 }
+
+export const receiptApi = {
+  submitReceipt,
+  reviewReceipt,
+};

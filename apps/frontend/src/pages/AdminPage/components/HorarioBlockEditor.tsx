@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
-import { aulaService, aulaTypes } from "../../../domain/aula";
+import { aulaService, CLASS_LEVELS, ClassLevel } from "../../../domain/aula";
 
 type Props = {
   index: number;
   startTime: string;
-  levels: aulaTypes.ClassLevel[];
+  levels: ClassLevel[];
   onStartTimeChange: (value: string) => void;
   onCourtsChange: (count: number) => void;
-  onLevelChange: (courtIndex: number, level: aulaTypes.ClassLevel) => void;
+  onLevelChange: (courtIndex: number, level: ClassLevel) => void;
   onRemove: () => void;
   canRemove: boolean;
 };
@@ -96,7 +96,7 @@ export function HorarioBlockEditor({
               Quadra {courtIndex + 1}
             </p>
             <div className="flex flex-wrap gap-3">
-              {aulaTypes.CLASS_LEVELS.map((option) => (
+              {CLASS_LEVELS.map((option) => (
                 <label
                   key={option}
                   className="flex items-center gap-1.5 text-sm text-slate-700"

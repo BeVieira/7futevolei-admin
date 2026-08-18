@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import * as receiptService from "../service";
+import { receiptService } from "../service";
 import { queryKeys } from "../../queryKeys";
 import { toActionError } from "../../../utils/errors";
 

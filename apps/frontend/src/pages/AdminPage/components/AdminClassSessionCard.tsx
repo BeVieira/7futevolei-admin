@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Button, ClassSessionCard } from "../../../components";
 import { PeopleIcon } from "../../../assets/icons";
 import {
-  aulaTypes,
+  CLASS_LEVELS,
+  ClassLevel,
   useDeleteClass,
   useGetClassById,
   useUpdateClass,
@@ -18,7 +19,7 @@ type Props = {
 
 export function AdminClassSessionCard({ sessionId }: Props) {
   const [editing, setEditing] = useState(false);
-  const [classLevel, setClassLevel] = useState<aulaTypes.ClassLevel>("Iniciante");
+  const [classLevel, setClassLevel] = useState<ClassLevel>("Iniciante");
   const [capacity, setCapacity] = useState(8);
   const [lockAt, setLockAt] = useState("");
 
@@ -71,7 +72,7 @@ export function AdminClassSessionCard({ sessionId }: Props) {
       {editing ? (
         <div className="flex flex-col gap-2">
           <div className="flex flex-wrap gap-3">
-            {aulaTypes.CLASS_LEVELS.map((option) => (
+            {CLASS_LEVELS.map((option) => (
               <label
                 key={option}
                 className="flex items-center gap-1.5 text-sm text-slate-700"

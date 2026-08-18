@@ -1,10 +1,14 @@
 import { FormEvent, useState } from "react";
 import { Button, ClassSessionCard } from "../../../components";
 import { PeopleIcon } from "../../../assets/icons";
-import { aulaService, aulaTypes, useGetClassById } from "../../../domain/aula";
+import {
+  aulaService,
+  ClassSessionSummary,
+  useGetClassById,
+} from "../../../domain/aula";
 import {
   enrollmentService,
-  enrollmentTypes,
+  Side,
   useCancelMyEnrollment,
   useEnrollStudent,
 } from "../../../domain/enrollment";
@@ -12,14 +16,14 @@ import { SideSlots } from "./SideSlots";
 import { WaitlistModal } from "./WaitlistModal";
 
 type Props = {
-  session: aulaTypes.ClassSessionSummary;
+  session: ClassSessionSummary;
 };
 
 export function StudentClassSessionCard({ session }: Props) {
   const [collapsed, setCollapsed] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
-  const [side, setSide] = useState<enrollmentTypes.Side | "">("");
+  const [side, setSide] = useState<Side | "">("");
   const [waitlistOpen, setWaitlistOpen] = useState(false);
   const [acceptsLockCommitment, setAcceptsLockCommitment] = useState(false);
 

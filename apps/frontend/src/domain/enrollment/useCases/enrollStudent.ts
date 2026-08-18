@@ -1,13 +1,13 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import * as enrollmentService from "../service";
-import type * as enrollmentTypes from "../types";
+import { enrollmentService } from "../service";
+import { Side } from "../types";
 import { queryKeys } from "../../queryKeys";
 import { toActionError } from "../../../utils/errors";
 
 async function enrollStudent(
   classId: number,
   studentName: string,
-  side: enrollmentTypes.Side,
+  side: Side,
 ) {
   try {
     await enrollmentService.enrollStudentInClass(classId, studentName, side);
@@ -20,7 +20,7 @@ async function enrollStudent(
 export function useEnrollStudent(classId: number) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (vars: { studentName: string; side: enrollmentTypes.Side }) =>
+    mutationFn: (vars: { studentName: string; side: Side }) =>
       enrollStudent(classId, vars.studentName, vars.side),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.classes.all });

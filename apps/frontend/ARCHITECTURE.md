@@ -77,11 +77,11 @@ imports usam `../../` em vez de `../`:
 
 ```ts
 // dentro de src/pages/AdminPage/AdminPage.tsx
-import { aulaService, aulaTypes, useGetClassesByDate } from "../../domain/aula";
+import { aulaService, TimeSlotInput, useGetClassesByDate } from "../../domain/aula";
 
 // dentro de src/pages/AdminPage/components/AdminClassSessionCard.tsx
 import { Card } from "../../../components";
-import { aulaTypes } from "../../../domain/aula";
+import { ClassLevel } from "../../../domain/aula";
 ```
 
 ## Cores: tokens do Tailwind, nunca hex solto
@@ -159,7 +159,7 @@ src/domain/
       updateClass.ts         # useUpdateClass
       deleteClass.ts         # useDeleteClass
       index.ts               # barrel: reexporta só os hooks
-    index.ts             # barrel do domínio: aulaTypes, aulaApi, aulaService + hooks
+    index.ts             # barrel do domínio: export * de types/api/service/useCases
 
   enrollment/
     types.ts
@@ -170,47 +170,143 @@ src/domain/
       cancelMyEnrollment.ts   # useCancelMyEnrollment
       removeEnrollmentById.ts # useRemoveEnrollmentById
       index.ts
-    index.ts             # enrollmentTypes, enrollmentApi, enrollmentService + hooks
+    index.ts             # barrel do domínio: export * de types/api/service/useCases
 ```
 
-## O `index.ts` do domínio: só sai daqui o que é público
+## Export de `api.ts`/`service.ts`: uma const no final do arquivo, não `export` espalhado
+
+`api.ts` e `service.ts` não marcam cada função como `export` onde ela é
+declarada. Toda função do arquivo é declarada **sem** `export`, e só ao
+final do arquivo entra uma única const, nomeada `<dominio>Api`/
+`<dominio>Service`, agrupando o que é público:
+
+```ts
+// domain/aula/api.ts
+function getClassesByDate(date: string) { ... }
+function getClassById(id: number) { ... }
+// ...
+
+export const aulaApi = {
+  getClassesByDate,
+  getClassById,
+  // ...
+};
+```
+
+```ts
+// domain/aula/service.ts
+import { aulaApi } from "./api";
+
+function getClassesByDate(date: string) {
+  return aulaApi.getClassesByDate(date);
+}
+// ...
+
+export const aulaService = {
+  getClassesByDate,
+  // ...
+};
+```
+
+Motivo: a superfície pública do módulo fica visível num único lugar (a
+const no final), em vez de espalhada como um `export` por função no meio do
+arquivo — para saber o que um arquivo expõe, basta olhar a const, não ler o
+arquivo inteiro caçando `export`. Constantes internas usadas só dentro do
+arquivo (`DEFAULT_LEVELS`, `STORAGE_KEY`, etc.) e helpers privados
+(`readStorage`, `writeStorage`) continuam sem `export` e de fora da const —
+só entra na const o que é de fato parte da API pública do módulo.
+
+Isso vale para **todo arquivo novo de `api.ts`/`service.ts`** na camada de
+domínio, a partir de agora — é o padrão a seguir daqui para frente.
+`types.ts` fica de fora dessa regra (tipos não entram numa const em
+runtime, continuam com `export type`/`export interface` individual). Os
+**hooks de `useCases/` também ficam de fora** — cada arquivo já expõe só
+um hook, então não há "export espalhado" para resolver ali, e eles
+precisam sair soltos por serem chamados por nome direto pela tela (ver
+próxima seção).
+
+## Nunca `import *` — importe exatamente o que você for usar
+
+Nenhum arquivo, dentro ou fora de `domain/`, importa um módulo inteiro como
+namespace. Isso vale tanto para valor (`import * as api from "./api"`)
+quanto para tipo (`import type * as aulaTypes from "./types"`) — os dois
+são proibidos. O import lista, por nome, exatamente os símbolos usados
+naquele arquivo:
+
+```ts
+// ❌ não faça isso
+import * as api from "./api";
+import type * as aulaTypes from "./types";
+api.getClassById(id);
+const level: aulaTypes.ClassLevel = "Iniciante";
+
+// ✅ faça isso
+import { aulaApi } from "./api";
+import { ClassLevel } from "./types";
+aulaApi.getClassById(id);
+const level: ClassLevel = "Iniciante";
+```
+
+Motivo: um import nomeado é rastreável — `grep`/"find usages" no nome
+importado mostra exatamente quem usa o quê. Um `import *` esconde isso
+atrás de um namespace opaco montado só naquele arquivo, e some com a
+distinção entre "isso é tipo" e "isso é valor" (que o `import type *`
+também apagava). Essa regra vale mesmo quando o módulo importado só tem uma
+única coisa pública (como `api.ts`/`service.ts` — ver seção acima): o
+import continua nomeado (`import { aulaApi } from "./api"`), nunca `import
+* as aulaApi from "./api"`.
+
+## `export *`: OK no `index.ts` do domínio, porque cada arquivo já curou o que é público
+
+Ao contrário do import, **`export *` é o padrão** no `index.ts` de cada
+domínio — repassando tudo que cada arquivo interno já decidiu expor:
 
 ```ts
 // domain/aula/index.ts
-export * as aulaTypes from "./types";
-export * as aulaApi from "./api";
-export * as aulaService from "./service";
+export * from "./types";
+export * from "./api";
+export * from "./service";
 export * from "./useCases";
 ```
 
-`types.ts`/`api.ts`/`service.ts` saem **namespaced** (`aulaTypes.ClassLevel`,
-`aulaService.getSideCapacity(...)`) — um import só por domínio, sem uma
-lista crescente de nomes soltos. Os **hooks de `useCases/` saem soltos**
-(`useGetClassesByDate`, não `aulaUseCases.useGetClassesByDate`), porque são
-o que a tela chama por nome o tempo todo.
+Isso é seguro porque a curadoria do que é público já aconteceu **um nível
+abaixo**, em cada arquivo: `types.ts` só tem `export type`/`export
+interface` para os shapes que devem ser públicos; `api.ts`/`service.ts` só
+expõem a const única (`aulaApi`/`aulaService`) e tudo o mais no arquivo é
+função/const sem `export`; `useCases/index.ts` só reexporta os hooks. Um
+`export *` num arquivo assim não vaza nada de interno — ele só pode repassar
+o que já foi deliberadamente marcado `export`. Por isso o `index.ts` do
+domínio não precisa (e não deve) enumerar nomes ou namespacear com `export
+* as X from`.
 
-Fora da pasta do domínio (telas, outro domínio), o import é **sempre** pelo
+De fora do domínio (telas, outro domínio), o import é **sempre** pelo
 `index.ts` raiz — nunca `domain/aula/service`, nunca `domain/aula/types`,
-nunca `domain/aula/useCases` direto:
+nunca `domain/aula/useCases` direto — e, seguindo a regra de import acima,
+sempre nomeando exatamente o que é usado, nunca como namespace:
 
 ```ts
-// dentro de src/pages/PublicPage/components/ClassSessionCard.tsx
-import { aulaService, aulaTypes, useGetClassById } from "../../../domain/aula";
+// dentro de src/pages/PublicPage/components/StudentClassSessionCard.tsx
+import { aulaService, ClassSessionSummary, useGetClassById } from "../../../domain/aula";
 import {
   enrollmentService,
-  enrollmentTypes,
+  Side,
   useCancelMyEnrollment,
   useEnrollStudent,
 } from "../../../domain/enrollment";
 
-type Props = { session: aulaTypes.ClassSessionSummary };
+type Props = { session: ClassSessionSummary };
 // aulaService.isClassFull(session), aulaService.getSideCapacity(session.capacity)
 // enrollmentService.getMyEnrollmentName(session.id)
 ```
 
+`aulaService`/`enrollmentService` são importados por nome como qualquer
+outro símbolo — o fato de serem um objeto agrupando vários métodos (ver
+seção anterior) não muda a regra de import, só significa que "o que se usa
+daquele arquivo" já vem pré-agrupado num nome só.
+
 **Dentro** da própria pasta do domínio (o `service.ts` chamando `api.ts`, um
 `useCase` chamando `service.ts`), o import é **relativo direto**
-(`import * as api from "./api"`, `import * as aulaService from "../service"`),
+(`import { aulaApi } from "./api"`, `import { aulaService } from "../service"`),
 nunca através do `index.ts` do próprio domínio — senão vira import circular
 (o `index.ts` reexporta `useCases/`, que importaria de volta o `index.ts`
 que o contém). É a mesma regra já usada para colaboradores internos de
@@ -325,7 +421,7 @@ tela (.tsx) → hook do useCase (trata erro) → service.ts (espelho do api) →
   **hook do caso de uso correspondente** chama — a tela nunca chama, e nem
   a função async interna do caso de uso é exportada para fora do arquivo.
 - Das funções **puras** de `service.ts` (sem I/O, sem chamada de rede), a
-  tela pode chamar direto (via o namespace `aulaService`/`enrollmentService`
+  tela pode chamar direto (via o objeto `aulaService`/`enrollmentService`
   importado do `index.ts` do domínio) — são leitura/transformação, não
   precisam de caso de uso nem de tratamento de erro.
 - Um caso de uso pode compor lógica de outro domínio quando a ação cruza
@@ -395,5 +491,5 @@ const enrollMutation = useEnrollStudent(session.id);
    `service.ts`, nunca `useQuery`/`useMutation` cru, nunca `try/catch`
    manual, nunca um import de subpasta (`domain/aula/service`,
    `domain/aula/useCases`, etc.). Uma leitura pura (item 3) é chamada via
-   o namespace `aulaService`/`enrollmentService`, também importado do
+   o objeto `aulaService`/`enrollmentService`, também importado do
    `index.ts` raiz do domínio.

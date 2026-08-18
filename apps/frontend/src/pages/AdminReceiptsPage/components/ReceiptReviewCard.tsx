@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Card, ClassSessionCard } from "../../../components";
 import { useGetClassById } from "../../../domain/aula";
-import { enrollmentService, enrollmentTypes } from "../../../domain/enrollment";
+import { enrollmentService, EnrollmentSummary } from "../../../domain/enrollment";
 import { receiptService, useReviewReceipt } from "../../../domain/receipt";
 
 type Props = {
@@ -14,7 +14,7 @@ const STATUS_BADGE_CLASSES: Record<string, string> = {
   PENDING: "bg-amber-100 text-amber-700",
 };
 
-type EntryWithListLabel = enrollmentTypes.EnrollmentSummary & {
+type EntryWithListLabel = EnrollmentSummary & {
   listLabel: string;
 };
 
