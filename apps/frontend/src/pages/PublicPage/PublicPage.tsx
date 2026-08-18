@@ -1,16 +1,15 @@
 import { useMemo, useState } from "react";
 import { StudentClassSessionCard } from "./components/StudentClassSessionCard";
-import { CollapsibleSectionHeader } from "@components";
+import { Button, CalendarModal, CollapsibleSectionHeader } from "@components";
 import { aulaService, useGetClassesByDate } from "@domain";
 import { formatDateLabel, pluralize, toDateInputValue } from "@utils";
 
 export function PublicPage() {
-  const [date, setDate] = useState(() =>
-    toDateInputValue(aulaService.getNextClassDay()),
-  );
+  const [date, setDate] = useState(() => toDateInputValue(new Date()));
   const [collapsedSlots, setCollapsedSlots] = useState<Set<string>>(
     () => new Set(),
   );
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
   const {
     data: sessions = [],
@@ -39,22 +38,29 @@ export function PublicPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <label
-          className="mb-1 block text-sm font-medium text-slate-600"
-          htmlFor="date"
-        >
+        <p className="mb-1 text-sm font-medium text-slate-600">
           Data das aulas
-        </label>
-        <input
-          id="date"
-          type="date"
-          lang="pt-BR"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-base"
-        />
-        <p className="mt-1 text-xs text-slate-400">{formatDateLabel(date)}</p>
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setCalendarOpen(true)}
+          className="text-left"
+        >
+          {formatDateLabel(date)}
+        </Button>
       </div>
+
+      {calendarOpen && (
+        <CalendarModal
+          selectedDate={date}
+          onSelect={(selected) => {
+            setDate(selected);
+            setCalendarOpen(false);
+          }}
+          onClose={() => setCalendarOpen(false)}
+        />
+      )}
 
       {isLoading && <p className="text-slate-500">Carregando...</p>}
       {isError && <p className="text-red-600">{error?.message}</p>}

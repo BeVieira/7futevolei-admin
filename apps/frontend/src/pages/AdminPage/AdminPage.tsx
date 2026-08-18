@@ -20,7 +20,7 @@ import { HorarioBlockEditor } from "./components/HorarioBlockEditor";
 
 export function AdminPage() {
   const [date, setDate] = useState(() =>
-    toDateInputValue(aulaService.getNextClassDay()),
+    toDateInputValue(new Date()),
   );
   const [blocks, setBlocks] = useState<TimeSlotInput[]>(() => [
     aulaService.buildDefaultTimeSlot(),

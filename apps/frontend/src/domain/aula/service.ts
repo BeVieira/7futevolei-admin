@@ -75,24 +75,6 @@ function groupClassesByTimeSlot(
   return Array.from(byTime.entries()).sort(([a], [b]) => a.localeCompare(b));
 }
 
-/**
- * Retorna a próxima sexta ou sábado (o que vier primeiro), contando hoje.
- */
-function getNextClassDay(from: Date = new Date()): Date {
-  const date = new Date(from);
-  date.setHours(0, 0, 0, 0);
-
-  for (let i = 0; i < 7; i++) {
-    const day = date.getDay();
-    if (day === 5 || day === 6) {
-      return date;
-    }
-    date.setDate(date.getDate() + 1);
-  }
-
-  return date;
-}
-
 export const aulaService = {
   getClassesByDate,
   getClassById,
@@ -106,5 +88,4 @@ export const aulaService = {
   getSideCapacity,
   isClassFull,
   groupClassesByTimeSlot,
-  getNextClassDay,
 };
