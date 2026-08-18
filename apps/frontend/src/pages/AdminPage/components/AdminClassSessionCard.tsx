@@ -71,6 +71,7 @@ export function AdminClassSessionCard({ sessionId }: Props) {
   const sideCapacity = aulaService.getSideCapacity(detail.capacity);
   const leftCount = detail.confirmed.filter((e) => e.side === "LEFT").length;
   const rightCount = detail.confirmed.filter((e) => e.side === "RIGHT").length;
+  const totalEnrolled = detail.confirmedCount+detail.waitlistCount;
 
   return (
     <ClassSessionCard
@@ -78,7 +79,7 @@ export function AdminClassSessionCard({ sessionId }: Props) {
       headerRight={
         <span className="flex items-center gap-1.5 text-sm text-slate-600">
           <PeopleIcon className="h-4 w-4" />
-          {detail.confirmedCount}/{detail.capacity}
+          {totalEnrolled}/{detail.capacity}
         </span>
       }
     >
