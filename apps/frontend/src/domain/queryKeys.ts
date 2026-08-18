@@ -2,9 +2,13 @@ export enum DomainQueryKey {
   Classes = "classes",
   ClassDetail = "class",
   MyEnrollments = "myEnrollments",
+  Me = "me",
 }
 
 export const queryKeys = {
+  auth: {
+    me: [DomainQueryKey.Me] as const,
+  },
   classes: {
     all: [DomainQueryKey.Classes] as const,
     byDate: (date: string) => [DomainQueryKey.Classes, date] as const,

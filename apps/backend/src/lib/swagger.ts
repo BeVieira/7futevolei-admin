@@ -10,6 +10,15 @@ const options: swaggerJsdoc.Options = {
     },
     servers: [{ url: "http://localhost:3333", description: "Local" }],
     components: {
+      securitySchemes: {
+        cookieAuth: {
+          type: "apiKey",
+          in: "cookie",
+          name: "admin_token",
+          description:
+            "Cookie httpOnly setado por POST /api/auth/login. Exigido pelas rotas administrativas.",
+        },
+      },
       schemas: {
         ClassSession: {
           type: "object",
@@ -178,6 +187,14 @@ const options: swaggerJsdoc.Options = {
             studentName: { type: "string", example: "Maria Silva" },
           },
           required: ["studentName"],
+        },
+        LoginInput: {
+          type: "object",
+          properties: {
+            username: { type: "string", example: "admin" },
+            password: { type: "string", format: "password" },
+          },
+          required: ["username", "password"],
         },
       },
     },

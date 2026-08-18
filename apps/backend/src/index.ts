@@ -2,8 +2,10 @@ import "dotenv/config";
 import path from "path";
 import express, { NextFunction, Request, Response } from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "./lib/swagger";
+import { authRouter } from "./routes/auth.routes";
 import { classSessionRouter } from "./routes/class-session.routes";
 import { enrollmentRouter } from "./routes/enrollment.routes";
 
@@ -12,6 +14,7 @@ const port = process.env.PORT ?? 3333;
 
 app.use(cors());
 app.use(express.json());
+app.use(cookieParser());
 
 app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
@@ -19,6 +22,7 @@ app.get("/health", (_req, res) => {
 
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
+app.use("/api/auth", authRouter);
 app.use("/api/class-sessions", classSessionRouter);
 app.use("/api/enrollments", enrollmentRouter);
 

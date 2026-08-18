@@ -6,4 +6,5 @@ export { ClassSessionCard } from "./ClassSessionCard";
 export { CollapsibleSectionHeader } from "./CollapsibleSectionHeader";
 export { Layout } from "./Layout";
 export { Modal } from "./Modal";
+export { RequireAdmin } from "./RequireAdmin";
 export { Tabs } from "./Tabs";

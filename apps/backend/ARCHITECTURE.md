@@ -65,6 +65,39 @@ segmento — incluindo o literal `"dates"`. Se a ordem fosse invertida,
 em vez de `listClassDatesByMonth`. Essa regra vale para qualquer rota
 estática nova que comece com o mesmo prefixo de uma rota `:param`.
 
+## Autenticação: `requireAdminAuth` por rota, não por router inteiro
+
+`lib/auth-service.ts` concentra a regra (`verifyAdminCredentials` contra o
+`User` do Postgres via bcrypt; `issueAdminSession`/`verifyAdminToken` via
+JWT, com um `jti` por sessão gravado em `User.currentJti` pra permitir
+revogar antes do JWT expirar) e `lib/requireAdminAuth.ts` é o middleware
+Express que lê o cookie `admin_token`, verifica assinatura e confere
+`isAdminSessionActive` (o `jti` do token ainda é o vigente no banco),
+respondendo `401` se ausente/inválido/revogado, ou seguindo com
+`res.locals.admin` preenchido. Como as rotas administrativas
+(`createClassSessionsBulk`, `updateClassSession`, `deleteClassSession`,
+`deleteEnrollment`, `reviewReceipt`) convivem no **mesmo** `Router` que
+rotas públicas do aluno (`classSessionRouter`), o middleware entra como
+argumento extra **por rota**, não como `router.use(...)` no arquivo
+inteiro — mesmo padrão já usado por `uploadReceiptFile`:
+
+```ts
+classSessionRouter.delete(
+  "/:id",
+  requireAdminAuth,
+  asyncHandler(deleteClassSession),
+);
+```
+
+`requireAdminAuth` é `async` (confere `isAdminSessionActive` no banco),
+mas trata os próprios erros com `try/catch` internamente — por isso não
+precisa de `asyncHandler` como os demais handlers assíncronos, que deixam
+o `catch(next)` do `asyncHandler` reportar o erro. Ao proteger uma rota
+nova: adicione
+`requireAdminAuth` nesse mesmo lugar (antes do `asyncHandler(handler)`) e
+marque `security: [{ cookieAuth: [] }]` + a resposta `401` no bloco
+`@openapi` correspondente.
+
 ## Erros: uma classe por regra, um `instanceof` por controller
 
 Regra de negócio que pode falhar de um jeito específico vira uma classe de

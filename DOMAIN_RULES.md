@@ -17,6 +17,27 @@ onde/como está implementado. Para a organização do código em si, veja
   prova de falhas (nomes duplicados, ou digitados diferente na hora de
   cancelar, não são tratados).
 
+## Autenticação administrativa
+
+O aluno continua sem login (identificação só pelo nome, ver acima) — só o
+admin precisa autenticar. Um `User` (usuário + senha com hash) no Postgres,
+sem tela de cadastro: o usuário inicial é criado via `pnpm prisma:seed`
+(lê `ADMIN_USERNAME`/`ADMIN_PASSWORD` do `.env`), não por um formulário de
+signup. Login (`POST /api/auth/login`) devolve um JWT num cookie
+`httpOnly`; as rotas administrativas (criar/editar/remover turma,
+aprovar/negar comprovante) exigem esse cookie e
+respondem `401` sem ele. `/admin` e `/admin/cobranca` no front redirecionam
+pra `/login` quando a sessão não está autenticada.
+
+O JWT expira em 5 minutos e carrega um `jti` (id de sessão aleatório).
+`User.currentJti` guarda o `jti` da sessão vigente: login gera um novo e
+grava; toda rota administrativa confere que o `jti` do cookie ainda bate
+com o gravado no banco (`isAdminSessionActive`), então um logout (que
+zera `currentJti`) ou um novo login em outro lugar invalida de fato
+qualquer token anterior, mesmo antes de expirar — não é só limpar o
+cookie no navegador. Verificação/aprovação por trás desse login continua
+sendo feita por uma pessoa (não é verificação automática de pagamento).
+
 ## Vagas por lado, não por turma
 
 A capacidade de uma turma é dividida ao meio entre os dois lados da quadra:
@@ -88,7 +109,6 @@ precisa virar configurável.
 
 ## Fora de escopo (por enquanto)
 
-- Autenticação/autorização (`/admin` fica sem proteção).
 - Cobrança/pagamento de fato — o aviso de "mediante pagamento" na trava de
   lista é só um aviso de texto, não existe integração de cobrança.
 - Notificações (WhatsApp/e-mail/push).

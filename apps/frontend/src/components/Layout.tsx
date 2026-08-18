@@ -1,7 +1,17 @@
-import { Link, Outlet, useLocation } from "react-router-dom";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useGetMe, useLogout } from "@domain";
 
 export function Layout() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { isSuccess: isLoggedIn } = useGetMe();
+  const logoutMutation = useLogout();
+
+  function handleLogout() {
+    logoutMutation.mutate(undefined, {
+      onSuccess: () => navigate("/login"),
+    });
+  }
 
   return (
     <div className="min-h-screen bg-background text-slate-900">
@@ -37,6 +47,15 @@ export function Layout() {
             >
               Admin
             </Link>
+            {isLoggedIn && (
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="text-slate-500"
+              >
+                Sair
+              </button>
+            )}
           </nav>
         </div>
       </header>

@@ -32,10 +32,17 @@ Sistema de gestão de aulas extraordinárias de futevôlei: o admin cria o dia d
    docker compose exec backend pnpm prisma:migrate
    ```
 
+4. Crie o usuário admin inicial (lê `ADMIN_USERNAME`/`ADMIN_PASSWORD` de
+   `apps/backend/.env` — ajuste antes de rodar se quiser outra senha):
+
+   ```bash
+   docker compose exec backend pnpm prisma:seed
+   ```
+
 ## URLs
 
 - Página pública (aluno): http://localhost:5173
-- Página admin: http://localhost:5173/admin
+- Página admin: http://localhost:5173/admin (exige login — ver abaixo)
 - Backend: http://localhost:3333
 - Documentação da API (Swagger UI): http://localhost:3333/docs
 - Postgres: localhost:5432
@@ -60,8 +67,12 @@ Sistema de gestão de aulas extraordinárias de futevôlei: o admin cria o dia d
   espera atualizando sozinha em segundo plano (sem precisar recarregar a
   página).
 
-### Admin (`/admin`)
+### Admin (`/admin`, login em `/login`)
 
+- Login com usuário/senha (`User` no Postgres, sem tela de cadastro — o
+  usuário inicial é criado via `pnpm prisma:seed`); sessão guardada num
+  cookie `httpOnly`. `/admin` e `/admin/cobranca` redirecionam pra
+  `/login` sem sessão válida.
 - Escolher a data via um calendário em modal, com um indicador visual nos
   dias que já têm turma cadastrada.
 - Criar o dia de aulas em lote: um ou mais horários, cada um com uma ou
@@ -108,4 +119,4 @@ camadas do domínio, hooks do React Query — está em
 
 ## Fora de escopo (por enquanto)
 
-Ver a lista completa em [`DOMAIN_RULES.md`](./DOMAIN_RULES.md#fora-de-escopo-por-enquanto) — em resumo: autenticação, cobrança de fato, notificações, automação de criação semanal, testes automatizados e deploy de produção.
+Ver a lista completa em [`DOMAIN_RULES.md`](./DOMAIN_RULES.md#fora-de-escopo-por-enquanto) — em resumo: cobrança de fato, notificações, automação de criação semanal, testes automatizados e deploy de produção.

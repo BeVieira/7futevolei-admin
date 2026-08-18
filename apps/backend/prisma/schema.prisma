@@ -51,6 +51,14 @@ model Enrollment {
   @@index([classSessionId, status])
 }
 
+model User {
+  id           Int      @id @default(autoincrement())
+  username     String   @unique
+  passwordHash String
+  currentJti   String?
+  createdAt    DateTime @default(now())
+}
+
 model Receipt {
   id           Int           @id @default(autoincrement())
   enrollment   Enrollment    @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
