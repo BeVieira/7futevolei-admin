@@ -177,11 +177,12 @@ export function AdminClassSessionCard({ sessionId }: Props) {
       {error && <p className="text-xs text-red-600">{error.message}</p>}
 
       <div>
-        <p className="mb-1 text-xs font-semibold uppercase text-slate-400">
-          Confirmados
-        </p>
-        {detail.confirmed.length === 0 && (
+        {detail.confirmed.length === 0 ? (
           <p className="text-xs text-slate-400">Ninguém inscrito ainda.</p>
+        ) : (
+          <p className="mb-1 text-xs font-semibold uppercase text-slate-400">
+            Confirmados
+          </p>
         )}
         <ul className="flex flex-col gap-1">
           {detail.confirmed.map((enrollment) => (
