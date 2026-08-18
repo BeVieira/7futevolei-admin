@@ -55,7 +55,9 @@ export async function verifyAdminCredentials(
   username: string,
   password: string,
 ) {
-  const user = await prisma.user.findUnique({ where: { username } });
+  const user = await prisma.user.findFirst({
+    where: { username: { equals: username.trim(), mode: "insensitive" } },
+  });
 
   if (!user) {
     throw new InvalidCredentialsError();
