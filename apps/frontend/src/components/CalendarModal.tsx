@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
 import { Modal } from "./Modal";
-import { ChevronIcon } from "../assets/icons";
-import { useGetClassDatesByMonth } from "../domain/aula";
-import { toDateInputValue, toMonthInputValue } from "../utils/date";
+import { ChevronIcon } from "@assets";
+import { useGetClassDatesByMonth } from "@domain";
+import { toDateInputValue, toMonthInputValue } from "@utils";
 
 type Props = {
   selectedDate: string;

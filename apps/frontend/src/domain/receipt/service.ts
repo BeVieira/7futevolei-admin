@@ -1,7 +1,11 @@
 import { receiptApi } from "./api";
 import { ReceiptStatus } from "./types";
 
-function submitReceipt(classSessionId: number, enrollmentId: number, file: File) {
+function submitReceipt(
+  classSessionId: number,
+  enrollmentId: number,
+  file: File,
+) {
   return receiptApi.submitReceipt(classSessionId, enrollmentId, file);
 }
 

@@ -1,7 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { receiptService } from "../service";
-import { queryKeys } from "../../queryKeys";
-import { toActionError } from "../../../utils/errors";
+import { receiptService, queryKeys } from "@domain";
+import { toActionError } from "@utils";
 
 async function submitReceipt(
   classSessionId: number,

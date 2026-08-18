@@ -24,22 +24,19 @@ src/
 
   pages/
     AdminPage/
-      AdminPage.tsx       # componente da tela
-      index.ts            # barrel: export { AdminPage } from "./AdminPage"
+      AdminPage.tsx       # componente da tela — sem index.ts (ver "Telas não têm barrel")
       components/         # componentes usados só pela AdminPage
         AdminClassSessionCard.tsx
         HorarioBlockEditor.tsx
-        index.ts          # barrel: reexporta tudo daqui
 
     PublicPage/
       PublicPage.tsx
-      index.ts
       components/
         ClassSessionCard.tsx
         SideSlots.tsx      # colaborador interno do ClassSessionCard
-        index.ts           # reexporta só o que é usado fora da pasta
 
   assets/
+    index.ts               # barrel raiz: export * de ./icons
     icons/                 # ícones SVG, compartilhados por qualquer tela
       index.ts
 ```
@@ -50,14 +47,16 @@ Cada pasta de componentes globais tem um `index.ts` que reexporta os componentes
 
 - Um arquivo fora da pasta de componentes locais sempre importa do barrel:
   ```ts
-  import { Button, Card } from "../../components";
+  import { Button, Card } from "@components";
   ```
 
 ### Componentes Locais (`<Tela>/components/`)
+
 - Um arquivo da pasta de componentes locais sempre importa diretamente, sem a necessidade de um arquivo _index.ts_ na pasta _<Tela>/components_:
+
   ```ts
   import { ClassSessionCard } from "./components/ClassSessionCard";
-  ``` 
+  ```
 
 - Dentro da própria pasta, um componente pode importar um colaborador
   interno direto do arquivo, sem passar pelo barrel — evita import
@@ -67,21 +66,112 @@ Cada pasta de componentes globais tem um `index.ts` que reexporta os componentes
 - Um colaborador interno que não é usado por nada fora da pasta (como
   `SideSlots`) **não precisa** entrar no barrel.
 
+## Telas não têm barrel — são consumidas direto pelo arquivo
 
+`pages/<Tela>/` **não** tem `index.ts`. Um barrel existe pra dar uma
+superfície de import estável quando **várias** partes do app importam
+**pedaços diferentes** de dentro da pasta — é o caso de `components/` (todo
+componente global) e de `domain/` (toda tela reaproveita `service`/hooks de
+mais de um domínio). Uma tela não tem esse problema: o único consumidor de
+`AdminPage.tsx` é a rota que a registra em `src/App.tsx`, um import só, sem
+ninguém mais pedindo pedaços de dentro da pasta — o barrel seria só uma
+indireção sem função. Por isso o import é direto no arquivo:
 
-## Import de módulos que não são componentes
+```ts
+// src/App.tsx
+import { AdminPage } from "./pages/AdminPage/AdminPage";
+```
 
-`utils/`, `domain/` e `assets/icons/` continuam na raiz de `src/`. Uma tela
-dentro de `pages/<Tela>/` está um nível mais profundo que antes, então esses
-imports usam `../../` em vez de `../`:
+Isso é diferente da regra de alias da seção abaixo só porque `src/App.tsx`
+já está na raiz de `src/` — `./pages/AdminPage/AdminPage` é uma descida pra
+subpasta, não uma subida com `../`, então continua `./` pela regra normal.
+
+## Import: `./` pro que está do lado, um alias por pasta pra qualquer outra coisa, nunca `../`
+
+Cada pasta de primeiro nível dentro de `src/` (`components`, `domain`,
+`pages`, `utils`, `assets`) tem seu próprio alias, declarado em dois
+lugares que precisam ficar em sincronia — `tsconfig.json` (`paths`, pro
+TypeScript/editor) e `vite.config.ts` (`resolve.alias`, pro bundler em dev
+e build):
+
+```
+@components → src/components
+@domain     → src/domain
+@pages      → src/pages
+@utils      → src/utils
+@assets     → src/assets
+```
+
+A regra de quando usar o quê é simples e não depende de contar quantos
+níveis de pasta separam os dois arquivos:
+
+- Import de um arquivo **na mesma pasta ou numa subpasta** dela (colaborador
+  interno, `./components/X`): fica relativo, com `./`.
+- **Qualquer outro import** usa o alias da pasta de primeiro nível
+  correspondente — nunca `../`, independente de quantas pastas o arquivo que
+  importa está abaixo de `src/`:
 
 ```ts
 // dentro de src/pages/AdminPage/AdminPage.tsx
-import { aulaService, TimeSlotInput, useGetClassesByDate } from "../../domain/aula";
+import { aulaService, TimeSlotInput, useGetClassesByDate } from "@domain";
 
 // dentro de src/pages/AdminPage/components/AdminClassSessionCard.tsx
-import { Card } from "../../../components";
-import { ClassLevel } from "../../../domain/aula";
+import { Card } from "@components";
+import { ClassLevel } from "@domain";
+```
+
+Motivo: um `../../../` quebra (ou fica errado silenciosamente) toda vez que
+o arquivo muda de pasta — e não dá pra saber só olhando o import "de onde"
+ele está subindo sem contar `../` um por um. `@domain` significa a mesma
+coisa em qualquer arquivo do projeto, então mover um arquivo de pasta nunca
+exige tocar nos imports que apontam pra fora dele. `./` continua válido
+porque um colaborador ao lado (`./Modal`, `./components/X`) não sofre esse
+problema — a relação entre os dois arquivos não muda se a pasta pai for
+movida.
+
+Cada alias também aceita caminho profundo com `/` (`@domain/aula/service`,
+`@utils/dateTime`), usado só **dentro** da própria pasta pra contornar
+barrel e import circular (ver "Nunca `import *`" e "`export *`: OK no
+`index.ts`", abaixo) — de fora da pasta, o import é sempre pelo alias puro
+(`@domain`, `@utils`), nunca pelo caminho profundo. `@pages` só tem a forma
+`@pages/*` — não existe `src/pages/index.ts` (ver "Telas não têm barrel"),
+então o alias sem caminho não resolveria em nada.
+
+## `utils/` e `assets/` também têm barrel, mesmo com pouca coisa dentro
+
+```
+src/utils/
+  index.ts     # barrel: export * de dateTime/errors/format/http/realtime
+  dateTime.ts
+  errors.ts
+  format.ts
+  http.ts
+  realtime.ts
+
+src/assets/
+  index.ts     # barrel: export * de ./icons
+  icons/
+    index.ts   # barrel: PeopleIcon, ChevronIcon, CloseIcon
+```
+
+Mesma lógica do barrel raiz de `domain/`: de fora da pasta, o import é
+sempre pelo `index.ts` (`@utils`, `@assets`), nunca por um arquivo
+individual (`@utils/dateTime`, `@assets/icons`) — mesmo quando só se usa
+uma função de um arquivo só. `assets/` ganha o barrel **mesmo só tendo
+`icons/` dentro** — não é sobre quantos arquivos a pasta tem hoje, é sobre
+toda pasta de primeiro nível em `src/` ter a mesma superfície de import
+(um alias, um `index.ts`), pra quem importa nunca precisar saber se o que
+quer está num arquivo só ou espalhado em vários:
+
+```ts
+// ❌ não faça isso
+import { formatDateLabel } from "@utils/dateTime";
+import { pluralize } from "@utils/format";
+import { PeopleIcon } from "@assets/icons";
+
+// ✅ faça isso — um import por pasta, mesmo vindo de arquivos diferentes
+import { formatDateLabel, pluralize } from "@utils";
+import { PeopleIcon } from "@assets";
 ```
 
 ## Cores: tokens do Tailwind, nunca hex solto
@@ -117,7 +207,7 @@ do resto do arquivo:
 
 ```ts
 // pages/PublicPage/components/WaitlistModal.tsx — só essa tela usa
-import { Modal } from "../../../components";
+import { Modal } from "@components";
 export function WaitlistModal(...) {
   return <Modal title="Lista de espera" onClose={onClose}>...</Modal>;
 }
@@ -132,21 +222,24 @@ export function WaitlistModal(...) {
 2. É usado só por uma tela? → `src/pages/<Tela>/components/` + consumir diretamente na tela via `./components/<Componente>`.
 3. É um colaborador interno de outro componente local, sem uso externo à
    pasta? → mesma pasta `components/` da tela
-4. Ajuste os imports relativos considerando o nível extra de profundidade
-   introduzido pela pasta da tela.
+4. Importe com `@components` (nunca `../../components` ou similar) — ver
+   "Import: `./` pro que está do lado, um alias por pasta pra qualquer
+   outra coisa".
 
 # Camada de domínio (`src/domain/`)
 
 Toda lógica que não é puramente visual — chamadas de rede, regras de
 negócio, orquestração de uma ação do usuário — sai dos arquivos `.tsx` e vai
 para `src/domain/<dominio>/`. Um domínio é um substantivo do negócio:
-`aula`, `enrollment`, `usuario`, etc. Cada domínio tem 4 partes **e um
-`index.ts` que é a única porta de entrada para quem está fora da pasta** —
-mesma regra dos componentes globais ("sempre exportamos via index"):
+`aula`, `enrollment`, `usuario`, etc. Cada domínio tem 4 partes e um
+`index.ts` próprio, e **`src/domain/index.ts` (na raiz de `domain/`)
+agrupa todos os domínios num barrel só** — é essa raiz, não o `index.ts` de
+cada domínio, a porta de entrada pra quem está fora de `domain/`:
 
 ```
 src/domain/
-  queryKeys.ts        # enum + builders de queryKey, compartilhado entre domínios
+  index.ts            # barrel raiz: export * de aula/enrollment/receipt — importe por aqui de fora de domain/
+  queryKeys.ts        # enum + builders de queryKey, compartilhado entre domínios, não entra no barrel raiz
 
   aula/
     types.ts           # shapes que vêm da API (e tipos derivados delas)
@@ -172,6 +265,32 @@ src/domain/
       index.ts
     index.ts             # barrel do domínio: export * de types/api/service/useCases
 ```
+
+Fora de `domain/` (tela, componente global), o import é sempre pelo barrel
+raiz, nunca pelo barrel de um domínio específico — mesmo quando só se usa
+coisa de um domínio só, pra manter um lugar único de import em todo o app:
+
+```ts
+// ❌ não faça isso fora de domain/
+import { aulaService } from "@domain/aula";
+import { enrollmentService } from "@domain/enrollment";
+
+// ✅ faça isso — os dois num import só, mesmo vindo de domínios diferentes
+import { aulaService, enrollmentService } from "@domain";
+```
+
+Um arquivo com colaboradores de mais de um domínio (comum em componente que
+mistura aula + inscrição, tipo `StudentClassSessionCard`) faz **um** import
+só de `@domain`, nunca um por domínio — o barrel raiz existe exatamente
+pra isso. `queryKeys.ts` fica de fora do barrel raiz porque é consumido só
+de dentro de `domain/` (pelos `useCases/`), nunca por uma tela.
+
+Isso não muda a regra de import **dentro** de `domain/`: um `useCase` ou um
+`types.ts` de outro domínio continua importando o arquivo direto
+(`@domain/aula/service`, `@domain/enrollment/types`), nunca pelo barrel
+raiz nem pelo barrel do próprio domínio — importar `@domain` de dentro de
+`domain/aula/useCases/algo.ts` seria circular (o barrel raiz reexporta
+`aula`, que reexporta `useCases/`, que importaria de volta o barrel raiz).
 
 ## Export de `api.ts`/`service.ts`: uma const no final do arquivo, não `export` espalhado
 
@@ -254,7 +373,8 @@ distinção entre "isso é tipo" e "isso é valor" (que o `import type *`
 também apagava). Essa regra vale mesmo quando o módulo importado só tem uma
 única coisa pública (como `api.ts`/`service.ts` — ver seção acima): o
 import continua nomeado (`import { aulaApi } from "./api"`), nunca `import
-* as aulaApi from "./api"`.
+
+- as aulaApi from "./api"`.
 
 ## `export *`: OK no `index.ts` do domínio, porque cada arquivo já curou o que é público
 
@@ -277,22 +397,26 @@ função/const sem `export`; `useCases/index.ts` só reexporta os hooks. Um
 `export *` num arquivo assim não vaza nada de interno — ele só pode repassar
 o que já foi deliberadamente marcado `export`. Por isso o `index.ts` do
 domínio não precisa (e não deve) enumerar nomes ou namespacear com `export
-* as X from`.
 
-De fora do domínio (telas, outro domínio), o import é **sempre** pelo
-`index.ts` raiz — nunca `domain/aula/service`, nunca `domain/aula/types`,
-nunca `domain/aula/useCases` direto — e, seguindo a regra de import acima,
+- as X from`.
+
+De fora de `domain/` (tela, componente global), o import é **sempre** pelo
+barrel raiz `@domain` — nunca `@domain/aula` (barrel de um domínio
+específico), nunca `@domain/aula/service`, nunca `@domain/aula/types`,
+nunca `@domain/aula/useCases` direto — e, seguindo a regra de import acima,
 sempre nomeando exatamente o que é usado, nunca como namespace:
 
 ```ts
 // dentro de src/pages/PublicPage/components/StudentClassSessionCard.tsx
-import { aulaService, ClassSessionSummary, useGetClassById } from "../../../domain/aula";
 import {
+  aulaService,
+  ClassSessionSummary,
+  useGetClassById,
   enrollmentService,
   Side,
   useCancelMyEnrollment,
   useEnrollStudent,
-} from "../../../domain/enrollment";
+} from "@domain";
 
 type Props = { session: ClassSessionSummary };
 // aulaService.isClassFull(session), aulaService.getSideCapacity(session.capacity)
@@ -305,12 +429,13 @@ seção anterior) não muda a regra de import, só significa que "o que se usa
 daquele arquivo" já vem pré-agrupado num nome só.
 
 **Dentro** da própria pasta do domínio (o `service.ts` chamando `api.ts`, um
-`useCase` chamando `service.ts`), o import é **relativo direto**
-(`import { aulaApi } from "./api"`, `import { aulaService } from "../service"`),
-nunca através do `index.ts` do próprio domínio — senão vira import circular
-(o `index.ts` reexporta `useCases/`, que importaria de volta o `index.ts`
-que o contém). É a mesma regra já usada para colaboradores internos de
-componentes locais.
+`useCase` chamando `service.ts`), o import é **direto no arquivo** — `./api`
+quando os dois arquivos estão na mesma pasta (`service.ts` → `api.ts`), `@domain/aula/service`
+quando não estão (`useCases/getClassById.ts` → `service.ts`, um nível
+acima) — nunca através do `index.ts` do próprio domínio, senão vira import
+circular (o `index.ts` reexporta `useCases/`, que importaria de volta o
+`index.ts` que o contém). É a mesma regra já usada para colaboradores
+internos de componentes locais.
 
 ## Nomeação: a função conta o que ela faz
 
@@ -341,11 +466,31 @@ autoexplicativa.
   **mesmo nome** da função correspondente em `api.ts` — isso é esperado, não
   um code smell, porque a cadeia de chamada é estrita (ver seção abaixo):
   - **Espelho do `api.ts`**: uma função por chamada de rede, mesmo nome,
-    corpo de uma linha (`return api.getClassById(id)`). Existe só para
-    fechar a regra "só o `service` chama o `api`".
-  - **Funções puras de negócio**: sem I/O, síncronas — agrupar aulas por
-    horário, calcular capacidade de um lado da quadra, decidir o próximo
-    nível padrão de quadra, etc.
+    corpo de uma linha (`return api.getClassById(id)`). Existe **só** para
+    alimentar o caso de uso correspondente — é a única razão dessa função
+    existir, então a tela nunca a chama (ver "Regra de import entre as
+    camadas", abaixo).
+  - **Funções puras de negócio**: sem I/O, síncronas, mas que só fazem
+    sentido porque conhecem um tipo/regra do domínio — agrupar aulas por
+    horário (`ClassSessionSummary`), calcular capacidade de um lado da
+    quadra, decidir o próximo nível padrão de quadra (`DEFAULT_LEVELS`),
+    traduzir um `Side`/`ReceiptStatus` pra label. Essas a tela **pode**
+    chamar direto pelo objeto exportado (`aulaService.isClassFull(...)`).
+
+  O teste pra saber se uma função pura é "de negócio" (fica em `service.ts`)
+  ou é só um **util genérico**: ela precisa conhecer algum tipo ou regra
+  desse domínio pra existir? `getSideCapacity(capacity)` sim — só faz
+  sentido porque "lado da quadra" é um conceito de `aula`. Já uma função
+  como `addOneHour(startTime: string)` (soma 60 min numa string `"HH:MM"`)
+  não sabe nada sobre aula, turma ou inscrição — é matemática de horário
+  pura, o tipo de coisa que qualquer tela de qualquer domínio poderia
+  precisar. Essa foi promovida de `aula/service.ts` pra `src/utils/date.ts`
+  quando notamos o cheiro: um "serviço" que não referenciava nenhum tipo do
+  domínio era, na prática, um util disfarçado. Ao adicionar uma função pura
+  nova em `service.ts`, faça esse teste antes — se ela não toca em nenhum
+  tipo/constante do próprio domínio, o lugar certo é `src/utils/`, não
+  `domain/<dominio>/service.ts`.
+
 - **`useCases/`** — uma pasta, um arquivo por ação que a tela dispara
   (criar, listar, cancelar, remover...). Cada arquivo tem **duas partes**,
   mas só uma é exportada:
@@ -440,7 +585,12 @@ fica em `src/main.tsx`, mas isso é implementação, não algo que a tela
 precisa saber:
 
 ```ts
-const { data: sessions = [], isLoading, isError, error } = useGetClassesByDate(date);
+const {
+  data: sessions = [],
+  isLoading,
+  isError,
+  error,
+} = useGetClassesByDate(date);
 ```
 
 ```ts

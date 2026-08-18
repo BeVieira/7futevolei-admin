@@ -1,17 +1,15 @@
 import { useState } from "react";
-import { Button, ClassSessionCard } from "../../../components";
-import { PeopleIcon } from "../../../assets/icons";
+import { Button, ClassSessionCard } from "@components";
+import { PeopleIcon } from "@assets";
 import {
   CLASS_LEVELS,
   ClassLevel,
+  enrollmentService,
   useDeleteClass,
   useGetClassById,
-  useUpdateClass,
-} from "../../../domain/aula";
-import {
-  enrollmentService,
   useRemoveEnrollmentById,
-} from "../../../domain/enrollment";
+  useUpdateClass,
+} from "@domain";
 
 type Props = {
   sessionId: number;

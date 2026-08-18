@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { CloseIcon } from "../assets/icons";
+import { CloseIcon } from "@assets";
 
 type Props = {
   title: string;

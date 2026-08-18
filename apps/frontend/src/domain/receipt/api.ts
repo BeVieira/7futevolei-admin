@@ -1,5 +1,5 @@
-import { handleResponse } from "../../utils/http";
 import { ReceiptSummary } from "./types";
+import { handleResponse } from "@utils";
 
 const BASE_URL = "/api/class-sessions";
 

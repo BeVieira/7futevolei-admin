@@ -1,19 +1,17 @@
 import { FormEvent, useState } from "react";
-import { Button, ClassSessionCard } from "../../../components";
-import { PeopleIcon } from "../../../assets/icons";
-import {
-  aulaService,
-  ClassSessionSummary,
-  useGetClassById,
-} from "../../../domain/aula";
-import {
-  enrollmentService,
-  Side,
-  useCancelMyEnrollment,
-  useEnrollStudent,
-} from "../../../domain/enrollment";
 import { SideSlots } from "./SideSlots";
 import { WaitlistModal } from "./WaitlistModal";
+import { Button, ClassSessionCard } from "@components";
+import { PeopleIcon } from "@assets";
+import {
+  ClassSessionSummary,
+  Side,
+  aulaService,
+  enrollmentService,
+  useCancelMyEnrollment,
+  useEnrollStudent,
+  useGetClassById,
+} from "@domain";
 
 type Props = {
   session: ClassSessionSummary;
@@ -193,9 +191,7 @@ export function StudentClassSessionCard({ session }: Props) {
                     type="checkbox"
                     required
                     checked={acceptsLockCommitment}
-                    onChange={(e) =>
-                      setAcceptsLockCommitment(e.target.checked)
-                    }
+                    onChange={(e) => setAcceptsLockCommitment(e.target.checked)}
                   />
                   Estou ciente e concordo
                 </label>

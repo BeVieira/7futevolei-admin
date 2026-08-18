@@ -1,8 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { aulaService } from "../service";
-import { queryKeys } from "../../queryKeys";
-import { toActionError } from "../../../utils/errors";
-import { LIVE_REFRESH_INTERVAL_MS } from "../../../utils/realtime";
+import { aulaService, queryKeys } from "@domain";
+import { LIVE_REFRESH_INTERVAL_MS, toActionError } from "@utils";
 
 async function getClassById(id: number) {
   try {

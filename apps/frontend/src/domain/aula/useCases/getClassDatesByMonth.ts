@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { aulaService } from "../service";
-import { queryKeys } from "../../queryKeys";
-import { toActionError } from "../../../utils/errors";
+import { aulaService, queryKeys } from "@domain";
+import { toActionError } from "@utils";
 
 async function getClassDatesByMonth(month: string) {
   try {

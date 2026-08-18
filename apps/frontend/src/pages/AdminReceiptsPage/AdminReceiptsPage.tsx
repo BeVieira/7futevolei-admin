@@ -4,10 +4,9 @@ import {
   Button,
   CalendarModal,
   CollapsibleSectionHeader,
-} from "../../components";
-import { aulaService, useGetClassesByDate } from "../../domain/aula";
-import { formatDateLabel, toDateInputValue } from "../../utils/date";
-import { pluralize } from "../../utils/format";
+} from "@components";
+import { aulaService, useGetClassesByDate } from "@domain";
+import { formatDateLabel, pluralize, toDateInputValue } from "@utils";
 
 import { ReceiptReviewCard } from "./components/ReceiptReviewCard";
 
@@ -81,7 +80,10 @@ export function AdminReceiptsPage() {
               {!isCollapsed && (
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {slotSessions.map((session) => (
-                    <ReceiptReviewCard key={session.id} sessionId={session.id} />
+                    <ReceiptReviewCard
+                      key={session.id}
+                      sessionId={session.id}
+                    />
                   ))}
                 </div>
               )}

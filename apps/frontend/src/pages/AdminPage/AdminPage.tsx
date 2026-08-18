@@ -5,16 +5,15 @@ import {
   CalendarModal,
   Card,
   CollapsibleSectionHeader,
-} from "../../components";
+} from "@components";
 import {
-  aulaService,
   ClassLevel,
   TimeSlotInput,
+  aulaService,
   useCreateClassesForDay,
   useGetClassesByDate,
-} from "../../domain/aula";
-import { formatDateLabel, toDateInputValue } from "../../utils/date";
-import { pluralize } from "../../utils/format";
+} from "@domain";
+import { formatDateLabel, pluralize, toDateInputValue } from "@utils";
 
 import { AdminClassSessionCard } from "./components/AdminClassSessionCard";
 import { HorarioBlockEditor } from "./components/HorarioBlockEditor";
@@ -142,7 +141,8 @@ export function AdminPage() {
         {!formCollapsed && (
           <form onSubmit={handleCreateDay} className="mt-4 flex flex-col gap-4">
             <p className="text-sm text-slate-600">
-              Criando para <span className="font-medium">{formatDateLabel(date)}</span>
+              Criando para{" "}
+              <span className="font-medium">{formatDateLabel(date)}</span>
             </p>
 
             <div>
@@ -195,7 +195,9 @@ export function AdminPage() {
             )}
 
             <Button type="submit" disabled={createDayMutation.isPending}>
-              {createDayMutation.isPending ? "Criando..." : "Criar dia de aulas"}
+              {createDayMutation.isPending
+                ? "Criando..."
+                : "Criar dia de aulas"}
             </Button>
           </form>
         )}

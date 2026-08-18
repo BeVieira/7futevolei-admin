@@ -1,4 +1,4 @@
-import { ChevronIcon } from "../assets/icons";
+import { ChevronIcon } from "@assets";
 
 type Props = {
   label: string;

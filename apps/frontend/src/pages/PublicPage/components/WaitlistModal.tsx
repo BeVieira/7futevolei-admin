@@ -1,8 +1,5 @@
-import { Button, Modal } from "../../../components";
-import {
-  enrollmentService,
-  EnrollmentSummary,
-} from "../../../domain/enrollment";
+import { Button, Modal } from "@components";
+import { EnrollmentSummary, enrollmentService } from "@domain";
 
 type Props = {
   waitlist: EnrollmentSummary[];

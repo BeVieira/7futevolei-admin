@@ -1,6 +1,6 @@
 import { ReactNode, useState } from "react";
 import { Card } from "./Card";
-import { ChevronIcon } from "../assets/icons";
+import { ChevronIcon } from "@assets";
 
 type Props = {
   title: string;

@@ -1,7 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { receiptService } from "../service";
-import { queryKeys } from "../../queryKeys";
-import { toActionError } from "../../../utils/errors";
+import { receiptService, queryKeys } from "@domain";
+import { toActionError } from "@utils";
 
 async function reviewReceipt(
   classSessionId: number,
@@ -21,10 +20,7 @@ async function reviewReceipt(
   }
 }
 
-export function useReviewReceipt(
-  classSessionId: number,
-  enrollmentId: number,
-) {
+export function useReviewReceipt(classSessionId: number, enrollmentId: number) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({

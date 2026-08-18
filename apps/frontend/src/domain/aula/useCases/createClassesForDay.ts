@@ -1,8 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { aulaService } from "../service";
-import { TimeSlotInput } from "../types";
-import { queryKeys } from "../../queryKeys";
-import { toActionError } from "../../../utils/errors";
+import { aulaService, TimeSlotInput, queryKeys } from "@domain";
+import { toActionError } from "@utils";
 
 async function createClassesForDay(
   date: string,

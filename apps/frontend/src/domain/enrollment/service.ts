@@ -4,7 +4,11 @@ import { Side } from "./types";
 const STORAGE_KEY = "7futevolei:my-enrollments";
 const NAME_STORAGE_KEY = "7futevolei:my-name";
 
-function enrollStudentInClass(classId: number, studentName: string, side: Side) {
+function enrollStudentInClass(
+  classId: number,
+  studentName: string,
+  side: Side,
+) {
   return enrollmentApi.enrollStudentInClass(classId, studentName, side);
 }
 

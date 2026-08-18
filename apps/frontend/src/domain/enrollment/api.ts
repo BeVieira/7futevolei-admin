@@ -1,10 +1,14 @@
-import { handleResponse } from "../../utils/http";
 import { MyEnrollmentSummary, Side } from "./types";
+import { handleResponse } from "@utils";
 
 const BASE_URL = "/api/class-sessions";
 const ENROLLMENTS_URL = "/api/enrollments";
 
-function enrollStudentInClass(classId: number, studentName: string, side: Side) {
+function enrollStudentInClass(
+  classId: number,
+  studentName: string,
+  side: Side,
+) {
   return fetch(`${BASE_URL}/${classId}/enrollments`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

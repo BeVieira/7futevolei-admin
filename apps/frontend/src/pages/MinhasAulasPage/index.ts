@@ -1,1 +1,0 @@
-export { MinhasAulasPage } from "./MinhasAulasPage";

@@ -1,11 +1,11 @@
 import { FormEvent, useState } from "react";
-import { Button, Card, Tabs } from "../../components";
-import {
-  enrollmentService,
-  MyEnrollmentSummary,
-  useGetMyEnrollments,
-} from "../../domain/enrollment";
 import { MyEnrollmentCard } from "./components/MyEnrollmentCard";
+import { Button, Card, Tabs } from "@components";
+import {
+  MyEnrollmentSummary,
+  enrollmentService,
+  useGetMyEnrollments,
+} from "@domain";
 
 type ReceiptFilter = "PENDING" | "APPROVED" | "REJECTED" | "ALL";
 

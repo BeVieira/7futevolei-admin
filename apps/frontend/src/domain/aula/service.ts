@@ -93,14 +93,6 @@ function getNextClassDay(from: Date = new Date()): Date {
   return date;
 }
 
-function addOneHour(startTime: string): string {
-  const [hours, minutes] = startTime.split(":").map(Number);
-  const totalMinutes = (hours * 60 + minutes + 60) % (24 * 60);
-  const endHours = Math.floor(totalMinutes / 60);
-  const endMinutes = totalMinutes % 60;
-  return `${String(endHours).padStart(2, "0")}:${String(endMinutes).padStart(2, "0")}`;
-}
-
 export const aulaService = {
   getClassesByDate,
   getClassById,
@@ -115,5 +107,4 @@ export const aulaService = {
   isClassFull,
   groupClassesByTimeSlot,
   getNextClassDay,
-  addOneHour,
 };

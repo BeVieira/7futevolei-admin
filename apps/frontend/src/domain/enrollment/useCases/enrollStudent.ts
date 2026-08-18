@@ -1,14 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { enrollmentService } from "../service";
-import { Side } from "../types";
-import { queryKeys } from "../../queryKeys";
-import { toActionError } from "../../../utils/errors";
+import { enrollmentService, Side, queryKeys } from "@domain";
+import { toActionError } from "@utils";
 
-async function enrollStudent(
-  classId: number,
-  studentName: string,
-  side: Side,
-) {
+async function enrollStudent(classId: number, studentName: string, side: Side) {
   try {
     await enrollmentService.enrollStudentInClass(classId, studentName, side);
     enrollmentService.rememberMyEnrollment(classId, studentName);

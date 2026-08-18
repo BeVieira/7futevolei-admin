@@ -1,4 +1,4 @@
-import { ReceiptSummary } from "../receipt/types";
+import { ReceiptSummary } from "@domain";
 
 export type Side = "LEFT" | "RIGHT";
 export type EnrollmentStatus = "CONFIRMED" | "WAITLISTED";

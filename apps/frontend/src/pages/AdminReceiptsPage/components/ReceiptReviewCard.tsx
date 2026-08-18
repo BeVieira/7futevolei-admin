@@ -1,8 +1,12 @@
 import { useState } from "react";
-import { Card, ClassSessionCard } from "../../../components";
-import { useGetClassById } from "../../../domain/aula";
-import { enrollmentService, EnrollmentSummary } from "../../../domain/enrollment";
-import { receiptService, useReviewReceipt } from "../../../domain/receipt";
+import { Card, ClassSessionCard } from "@components";
+import {
+  EnrollmentSummary,
+  enrollmentService,
+  receiptService,
+  useGetClassById,
+  useReviewReceipt,
+} from "@domain";
 
 type Props = {
   sessionId: number;

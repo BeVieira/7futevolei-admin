@@ -1,4 +1,4 @@
-import { handleResponse } from "../../utils/http";
+import { handleResponse } from "@utils";
 import {
   ClassLevel,
   ClassSessionDetail,

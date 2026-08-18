@@ -1,7 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { enrollmentService } from "../service";
-import { queryKeys } from "../../queryKeys";
-import { toActionError } from "../../../utils/errors";
+import { enrollmentService, queryKeys } from "@domain";
+import { toActionError } from "@utils";
 
 async function removeEnrollmentById(classId: number, enrollmentId: number) {
   try {

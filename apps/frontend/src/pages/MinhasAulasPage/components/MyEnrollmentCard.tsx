@@ -1,11 +1,12 @@
 import { FormEvent, useState } from "react";
-import { Button, Card } from "../../../components";
+import { Button, Card } from "@components";
 import {
-  enrollmentService,
   MyEnrollmentSummary,
-} from "../../../domain/enrollment";
-import { receiptService, useSubmitReceipt } from "../../../domain/receipt";
-import { formatDateLabel } from "../../../utils/date";
+  enrollmentService,
+  receiptService,
+  useSubmitReceipt,
+} from "@domain";
+import { formatDateLabel } from "@utils";
 
 type Props = {
   entry: MyEnrollmentSummary;
@@ -50,7 +51,7 @@ export function MyEnrollmentCard({ entry, studentName }: Props) {
       </div>
       <p className="text-sm text-slate-600">
         {formatDateLabel(classSession.date.slice(0, 10))} ·{" "}
-        {classSession.startTime}–{classSession.endTime} ·{" "}
+        {classSession.startTime}-{classSession.endTime} ·{" "}
         {enrollmentService.sideLabel(enrollment.side)}
       </p>
 

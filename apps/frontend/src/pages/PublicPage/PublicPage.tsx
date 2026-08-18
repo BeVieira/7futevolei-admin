@@ -1,9 +1,8 @@
 import { useMemo, useState } from "react";
-import { CollapsibleSectionHeader } from "../../components";
-import { aulaService, useGetClassesByDate } from "../../domain/aula";
-import { formatDateLabel, toDateInputValue } from "../../utils/date";
-import { pluralize } from "../../utils/format";
 import { StudentClassSessionCard } from "./components/StudentClassSessionCard";
+import { CollapsibleSectionHeader } from "@components";
+import { aulaService, useGetClassesByDate } from "@domain";
+import { formatDateLabel, pluralize, toDateInputValue } from "@utils";
 
 export function PublicPage() {
   const [date, setDate] = useState(() =>
