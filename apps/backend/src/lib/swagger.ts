@@ -54,6 +54,10 @@ const options: swaggerJsdoc.Options = {
               enum: ["CONFIRMED", "WAITLISTED"],
             },
             createdAt: { type: "string", format: "date-time" },
+            receipt: {
+              nullable: true,
+              allOf: [{ $ref: "#/components/schemas/Receipt" }],
+            },
           },
           required: [
             "id",
@@ -63,6 +67,65 @@ const options: swaggerJsdoc.Options = {
             "status",
             "createdAt",
           ],
+        },
+        Receipt: {
+          type: "object",
+          properties: {
+            id: { type: "integer", example: 1 },
+            enrollmentId: { type: "integer", example: 1 },
+            filePath: {
+              type: "string",
+              example: "uploads/receipts/enrollment-1-1700000000000.jpg",
+            },
+            mimeType: { type: "string", example: "image/jpeg" },
+            status: {
+              type: "string",
+              enum: ["PENDING", "APPROVED", "REJECTED"],
+            },
+            adminComment: { type: "string", nullable: true },
+            createdAt: { type: "string", format: "date-time" },
+            updatedAt: { type: "string", format: "date-time" },
+          },
+          required: ["id", "filePath", "mimeType", "status"],
+        },
+        ReviewReceiptInput: {
+          type: "object",
+          properties: {
+            status: { type: "string", enum: ["APPROVED", "REJECTED"] },
+            adminComment: {
+              type: "string",
+              description: "Obrigatório quando status é REJECTED.",
+            },
+          },
+          required: ["status"],
+        },
+        MyEnrollment: {
+          type: "object",
+          properties: {
+            enrollment: {
+              type: "object",
+              properties: {
+                id: { type: "integer" },
+                side: { type: "string", enum: ["LEFT", "RIGHT"] },
+                status: { type: "string", enum: ["CONFIRMED", "WAITLISTED"] },
+                createdAt: { type: "string", format: "date-time" },
+              },
+            },
+            classSession: {
+              type: "object",
+              properties: {
+                id: { type: "integer" },
+                date: { type: "string", format: "date-time" },
+                startTime: { type: "string", example: "18:00" },
+                endTime: { type: "string", example: "19:00" },
+                classLevel: { type: "string", example: "Iniciante" },
+              },
+            },
+            receipt: {
+              nullable: true,
+              allOf: [{ $ref: "#/components/schemas/Receipt" }],
+            },
+          },
         },
         BulkCreateInput: {
           type: "object",

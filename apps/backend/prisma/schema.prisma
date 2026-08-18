@@ -17,6 +17,12 @@ enum Side {
   RIGHT
 }
 
+enum ReceiptStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model ClassSession {
   id          Int          @id @default(autoincrement())
   date        DateTime
@@ -40,6 +46,19 @@ model Enrollment {
   side           Side
   status         EnrollmentStatus @default(CONFIRMED)
   createdAt      DateTime         @default(now())
+  receipt        Receipt?
 
   @@index([classSessionId, status])
+}
+
+model Receipt {
+  id           Int           @id @default(autoincrement())
+  enrollment   Enrollment    @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  enrollmentId Int           @unique
+  filePath     String
+  mimeType     String
+  status       ReceiptStatus @default(PENDING)
+  adminComment String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 }

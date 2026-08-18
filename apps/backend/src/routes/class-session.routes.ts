@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { asyncHandler } from "../lib/asyncHandler";
+import { uploadReceiptFile } from "../lib/upload";
 import {
   cancelEnrollmentByName,
   createClassSessionsBulk,
@@ -11,6 +12,7 @@ import {
   listClassSessions,
   updateClassSession,
 } from "../controllers/class-session.controller";
+import { submitReceipt } from "../controllers/receipt.controller";
 
 export const classSessionRouter = Router();
 
@@ -341,4 +343,49 @@ classSessionRouter.post(
 classSessionRouter.delete(
   "/:id/enrollments/:enrollmentId",
   asyncHandler(deleteEnrollment),
+);
+
+/**
+ * @openapi
+ * /api/class-sessions/{id}/enrollments/{enrollmentId}/receipt:
+ *   post:
+ *     summary: Envia (ou reenvia) o comprovante de pagamento de uma inscrição
+ *     tags: [ClassSessions]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *       - in: path
+ *         name: enrollmentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       201:
+ *         description: Comprovante salvo (status volta pra PENDING em caso de reenvio)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Receipt"
+ *       400:
+ *         description: Arquivo ausente, tipo inválido ou maior que 5MB
+ *       404:
+ *         description: Inscrição não encontrada
+ */
+classSessionRouter.post(
+  "/:id/enrollments/:enrollmentId/receipt",
+  uploadReceiptFile,
+  asyncHandler(submitReceipt),
 );

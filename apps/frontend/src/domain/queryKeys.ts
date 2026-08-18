@@ -1,6 +1,7 @@
 export enum DomainQueryKey {
   Classes = "classes",
   ClassDetail = "class",
+  MyEnrollments = "myEnrollments",
 }
 
 export const queryKeys = {
@@ -12,5 +13,9 @@ export const queryKeys = {
     // (ex.: após criar um dia de aulas) também invalida os pontinhos do calendário.
     byMonth: (month: string) =>
       [DomainQueryKey.Classes, "month", month] as const,
+  },
+  enrollments: {
+    myEnrollments: (studentName: string) =>
+      [DomainQueryKey.MyEnrollments, studentName] as const,
   },
 };

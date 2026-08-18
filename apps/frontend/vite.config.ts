@@ -11,6 +11,10 @@ export default defineConfig({
         target: "http://backend:3333",
         changeOrigin: true,
       },
+      "/uploads": {
+        target: "http://backend:3333",
+        changeOrigin: true,
+      },
     },
   },
 });

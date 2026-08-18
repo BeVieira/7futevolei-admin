@@ -18,6 +18,16 @@ export function Layout() {
               Aulas
             </Link>
             <Link
+              to="/minhas-aulas"
+              className={
+                location.pathname === "/minhas-aulas"
+                  ? "text-teal-500"
+                  : "text-slate-500"
+              }
+            >
+              Minhas aulas
+            </Link>
+            <Link
               to="/admin"
               className={
                 location.pathname === "/admin"

@@ -1,9 +1,11 @@
 import "dotenv/config";
+import path from "path";
 import express, { NextFunction, Request, Response } from "express";
 import cors from "cors";
 import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "./lib/swagger";
 import { classSessionRouter } from "./routes/class-session.routes";
+import { enrollmentRouter } from "./routes/enrollment.routes";
 
 const app = express();
 const port = process.env.PORT ?? 3333;
@@ -15,7 +17,10 @@ app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
 });
 
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+
 app.use("/api/class-sessions", classSessionRouter);
+app.use("/api/enrollments", enrollmentRouter);
 
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 

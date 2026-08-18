@@ -1,7 +1,8 @@
 import { handleResponse } from "../../utils/http";
-import type { Side } from "./types";
+import type { MyEnrollmentSummary, Side } from "./types";
 
 const BASE_URL = "/api/class-sessions";
+const ENROLLMENTS_URL = "/api/enrollments";
 
 export function enrollStudentInClass(
   classId: number,
@@ -33,4 +34,12 @@ export function removeEnrollmentById(
   return fetch(`${BASE_URL}/${classId}/enrollments/${enrollmentId}`, {
     method: "DELETE",
   }).then((res) => handleResponse(res));
+}
+
+export function getEnrollmentsByStudentName(
+  studentName: string,
+): Promise<MyEnrollmentSummary[]> {
+  return fetch(
+    `${ENROLLMENTS_URL}?studentName=${encodeURIComponent(studentName)}`,
+  ).then((res) => handleResponse(res));
 }
