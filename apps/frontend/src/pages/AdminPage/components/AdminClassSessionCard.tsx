@@ -82,10 +82,6 @@ export function AdminClassSessionCard({ sessionId }: Props) {
         </span>
       }
     >
-      <p className="text-sm text-slate-500">
-        {detail.startTime} - {detail.endTime}
-      </p>
-
       {editing ? (
         <div className="flex flex-col gap-2">
           <div className="flex flex-wrap gap-3">
