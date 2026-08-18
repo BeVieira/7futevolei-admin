@@ -9,6 +9,15 @@ export function submitReceipt(
   return api.submitReceipt(classSessionId, enrollmentId, file);
 }
 
+export function reviewReceipt(
+  classSessionId: number,
+  enrollmentId: number,
+  status: "APPROVED" | "REJECTED",
+  adminComment?: string,
+) {
+  return api.reviewReceipt(classSessionId, enrollmentId, status, adminComment);
+}
+
 export function receiptStatusLabel(status: ReceiptStatus): string {
   switch (status) {
     case "PENDING":

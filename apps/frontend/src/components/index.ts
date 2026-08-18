@@ -1,5 +1,8 @@
+export { AdminTabs } from "./AdminTabs";
 export { Button } from "./Button";
+export { CalendarModal } from "./CalendarModal";
 export { Card } from "./Card";
+export { ClassSessionCard } from "./ClassSessionCard";
 export { CollapsibleSectionHeader } from "./CollapsibleSectionHeader";
 export { Layout } from "./Layout";
 export { Modal } from "./Modal";

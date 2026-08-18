@@ -1,5 +1,11 @@
 import { FormEvent, useState } from "react";
-import { Button, Card, CollapsibleSectionHeader } from "../../components";
+import {
+  AdminTabs,
+  Button,
+  CalendarModal,
+  Card,
+  CollapsibleSectionHeader,
+} from "../../components";
 import {
   aulaService,
   aulaTypes,
@@ -9,7 +15,6 @@ import {
 import { formatDateLabel, toDateInputValue } from "../../utils/date";
 import { pluralize } from "../../utils/format";
 
-import { CalendarModal } from "./components/CalendarModal";
 import { AdminClassSessionCard } from "./components/AdminClassSessionCard";
 import { HorarioBlockEditor } from "./components/HorarioBlockEditor";
 
@@ -102,6 +107,8 @@ export function AdminPage() {
 
   return (
     <div className="flex flex-col gap-8">
+      <AdminTabs />
+
       <div>
         <p className="mb-1 text-sm font-medium text-slate-600">Data</p>
         <Button

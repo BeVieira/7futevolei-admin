@@ -30,7 +30,7 @@ export function Layout() {
             <Link
               to="/admin"
               className={
-                location.pathname === "/admin"
+                location.pathname.startsWith("/admin")
                   ? "text-teal-500"
                   : "text-slate-500"
               }

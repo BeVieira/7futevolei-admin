@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { Prisma, Enrollment } from "@prisma/client";
+import { Prisma, Enrollment, Receipt } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { classLevelRank } from "../lib/class-levels";
 import { isClassSessionLocked } from "../lib/class-session-lock";
@@ -68,9 +68,28 @@ function serializeSummary(
   };
 }
 
+function serializeEnrollmentWithReceipt(
+  e: Enrollment & { receipt: Receipt | null },
+) {
+  return {
+    id: e.id,
+    studentName: e.studentName,
+    side: e.side,
+    createdAt: e.createdAt,
+    receipt: e.receipt
+      ? {
+          id: e.receipt.id,
+          filePath: e.receipt.filePath,
+          status: e.receipt.status,
+          adminComment: e.receipt.adminComment,
+        }
+      : null,
+  };
+}
+
 function serializeDetail(
   classSession: {
-    enrollments: Enrollment[];
+    enrollments: (Enrollment & { receipt: Receipt | null })[];
     date: Date;
     lockAt: string | null;
   } & Record<string, unknown>,
@@ -78,20 +97,10 @@ function serializeDetail(
   const { enrollments, ...rest } = classSession;
   const confirmed = enrollments
     .filter((e) => e.status === "CONFIRMED")
-    .map((e) => ({
-      id: e.id,
-      studentName: e.studentName,
-      side: e.side,
-      createdAt: e.createdAt,
-    }));
+    .map(serializeEnrollmentWithReceipt);
   const waitlist = enrollments
     .filter((e) => e.status === "WAITLISTED")
-    .map((e) => ({
-      id: e.id,
-      studentName: e.studentName,
-      side: e.side,
-      createdAt: e.createdAt,
-    }));
+    .map(serializeEnrollmentWithReceipt);
 
   return {
     ...rest,
@@ -195,7 +204,9 @@ export async function getClassSessionById(req: Request, res: Response) {
 
   const classSession = await prisma.classSession.findUnique({
     where: { id },
-    include: { enrollments: { orderBy: { createdAt: "asc" } } },
+    include: {
+      enrollments: { orderBy: { createdAt: "asc" }, include: { receipt: true } },
+    },
   });
 
   if (!classSession) {

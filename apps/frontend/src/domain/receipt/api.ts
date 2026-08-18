@@ -16,3 +16,19 @@ export function submitReceipt(
     { method: "POST", body: formData },
   ).then((res) => handleResponse(res));
 }
+
+export function reviewReceipt(
+  classSessionId: number,
+  enrollmentId: number,
+  status: "APPROVED" | "REJECTED",
+  adminComment?: string,
+): Promise<ReceiptSummary> {
+  return fetch(
+    `${BASE_URL}/${classSessionId}/enrollments/${enrollmentId}/receipt`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status, adminComment }),
+    },
+  ).then((res) => handleResponse(res));
+}

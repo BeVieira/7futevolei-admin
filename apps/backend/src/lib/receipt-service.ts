@@ -1,6 +1,14 @@
+import { Prisma } from "@prisma/client";
 import fs from "fs/promises";
 import path from "path";
 import { prisma } from "./prisma";
+
+export class ReceiptNotFoundError extends Error {
+  constructor(message = "Receipt not found") {
+    super(message);
+    this.name = "ReceiptNotFoundError";
+  }
+}
 
 const BACKEND_ROOT = path.join(__dirname, "..", "..");
 
@@ -30,4 +38,30 @@ export async function submitReceipt(enrollmentId: number, file: UploadedFile) {
       adminComment: null,
     },
   });
+}
+
+// Sem `withSerializableRetry`/`Serializable` como em enrollment-service.ts:
+// aquele padrão existe para proteger a invariante de capacidade por lado,
+// disputada por dois alunos ao mesmo tempo. Aqui não há invariante
+// compartilhada em jogo — o pior caso de concorrência é o próprio aluno
+// reenviando duas vezes seguidas, o que não corrompe nada.
+export async function reviewReceipt(
+  enrollmentId: number,
+  status: "APPROVED" | "REJECTED",
+  adminComment: string | undefined,
+) {
+  try {
+    return await prisma.receipt.update({
+      where: { enrollmentId },
+      data: { status, adminComment: adminComment ?? null },
+    });
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2025"
+    ) {
+      throw new ReceiptNotFoundError();
+    }
+    throw error;
+  }
 }

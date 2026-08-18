@@ -1,0 +1,1 @@
+export { AdminReceiptsPage } from "./AdminReceiptsPage";

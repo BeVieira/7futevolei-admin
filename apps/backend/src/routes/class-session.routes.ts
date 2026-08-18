@@ -12,7 +12,10 @@ import {
   listClassSessions,
   updateClassSession,
 } from "../controllers/class-session.controller";
-import { submitReceipt } from "../controllers/receipt.controller";
+import {
+  reviewReceipt,
+  submitReceipt,
+} from "../controllers/receipt.controller";
 
 export const classSessionRouter = Router();
 
@@ -388,4 +391,44 @@ classSessionRouter.post(
   "/:id/enrollments/:enrollmentId/receipt",
   uploadReceiptFile,
   asyncHandler(submitReceipt),
+);
+
+/**
+ * @openapi
+ * /api/class-sessions/{id}/enrollments/{enrollmentId}/receipt:
+ *   patch:
+ *     summary: Aprova ou nega o comprovante de pagamento de uma inscrição
+ *     tags: [ClassSessions]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *       - in: path
+ *         name: enrollmentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: "#/components/schemas/ReviewReceiptInput"
+ *     responses:
+ *       200:
+ *         description: Comprovante atualizado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/Receipt"
+ *       400:
+ *         description: Payload inválido (adminComment é obrigatório ao negar)
+ *       404:
+ *         description: Comprovante não encontrado
+ */
+classSessionRouter.patch(
+  "/:id/enrollments/:enrollmentId/receipt",
+  asyncHandler(reviewReceipt),
 );

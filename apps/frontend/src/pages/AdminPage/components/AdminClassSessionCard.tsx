@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Button, Card } from "../../../components";
+import { Button, ClassSessionCard } from "../../../components";
+import { PeopleIcon } from "../../../assets/icons";
 import {
   aulaTypes,
   useDeleteClass,
@@ -47,14 +48,26 @@ export function AdminClassSessionCard({ sessionId }: Props) {
 
   if (isLoading || !detail) {
     return (
-      <Card>
+      <div className="rounded-xl border border-slate-200 bg-card p-4 shadow-sm">
         <p className="text-sm text-slate-400">Carregando...</p>
-      </Card>
+      </div>
     );
   }
 
   return (
-    <Card className="flex flex-col gap-3">
+    <ClassSessionCard
+      title={detail.classLevel}
+      headerRight={
+        <span className="flex items-center gap-1.5 text-sm text-slate-600">
+          <PeopleIcon className="h-4 w-4" />
+          {detail.confirmedCount}/{detail.capacity}
+        </span>
+      }
+    >
+      <p className="text-sm text-slate-500">
+        {detail.startTime} - {detail.endTime}
+      </p>
+
       {editing ? (
         <div className="flex flex-col gap-2">
           <div className="flex flex-wrap gap-3">
@@ -118,36 +131,24 @@ export function AdminClassSessionCard({ sessionId }: Props) {
           </div>
         </div>
       ) : (
-        <div className="flex items-center justify-between">
-          <span className="font-semibold text-slate-800">
-            {detail.classLevel}
-          </span>
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={startEditing}
-              className="text-xs font-medium text-teal-500 underline"
-            >
-              Editar
-            </button>
-            <button
-              type="button"
-              onClick={() => deleteMutation.mutate()}
-              disabled={busy}
-              className="text-xs font-medium text-red-600 underline"
-            >
-              Remover
-            </button>
-          </div>
+        <div className="flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={startEditing}
+            className="text-xs font-medium text-teal-500 underline"
+          >
+            Editar
+          </button>
+          <button
+            type="button"
+            onClick={() => deleteMutation.mutate()}
+            disabled={busy}
+            className="text-xs font-medium text-red-600 underline"
+          >
+            Remover
+          </button>
         </div>
       )}
-
-      <p className="text-sm text-slate-500">
-        {detail.startTime} - {detail.endTime}
-      </p>
-      <p className="text-sm font-medium text-slate-700">
-        {detail.confirmedCount}/{detail.capacity} vagas preenchidas
-      </p>
 
       {detail.lockAt && (
         <p
@@ -223,6 +224,6 @@ export function AdminClassSessionCard({ sessionId }: Props) {
           </ul>
         </div>
       )}
-    </Card>
+    </ClassSessionCard>
   );
 }

@@ -3,7 +3,7 @@ import { CollapsibleSectionHeader } from "../../components";
 import { aulaService, useGetClassesByDate } from "../../domain/aula";
 import { formatDateLabel, toDateInputValue } from "../../utils/date";
 import { pluralize } from "../../utils/format";
-import { ClassSessionCard } from "./components/ClassSessionCard";
+import { StudentClassSessionCard } from "./components/StudentClassSessionCard";
 
 export function PublicPage() {
   const [date, setDate] = useState(() =>
@@ -84,7 +84,7 @@ export function PublicPage() {
             {!isCollapsed && (
               <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-3">
                 {slotSessions.map((session) => (
-                  <ClassSessionCard key={session.id} session={session} />
+                  <StudentClassSessionCard key={session.id} session={session} />
                 ))}
               </div>
             )}
