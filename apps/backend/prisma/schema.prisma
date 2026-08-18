@@ -52,11 +52,12 @@ model Enrollment {
 }
 
 model User {
-  id           Int      @id @default(autoincrement())
-  username     String   @unique
-  passwordHash String
-  currentJti   String?
-  createdAt    DateTime @default(now())
+  id                Int      @id @default(autoincrement())
+  username          String   @unique
+  passwordHash      String
+  currentJti        String?
+  currentRefreshJti String?
+  createdAt         DateTime @default(now())
 }
 
 model Receipt {

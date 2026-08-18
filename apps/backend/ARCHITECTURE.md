@@ -68,13 +68,20 @@ estática nova que comece com o mesmo prefixo de uma rota `:param`.
 ## Autenticação: `requireAdminAuth` por rota, não por router inteiro
 
 `lib/auth-service.ts` concentra a regra (`verifyAdminCredentials` contra o
-`User` do Postgres via bcrypt; `issueAdminSession`/`verifyAdminToken` via
-JWT, com um `jti` por sessão gravado em `User.currentJti` pra permitir
-revogar antes do JWT expirar) e `lib/requireAdminAuth.ts` é o middleware
-Express que lê o cookie `admin_token`, verifica assinatura e confere
+`User` do Postgres via bcrypt; `issueAdminSession` emite o **par**
+access+refresh token via JWT, cada um com seu próprio `jti` gravado em
+`User.currentJti`/`currentRefreshJti` pra permitir revogar antes de
+expirar) e `lib/requireAdminAuth.ts` é o middleware Express que lê o
+cookie `admin_token` (access), verifica assinatura e confere
 `isAdminSessionActive` (o `jti` do token ainda é o vigente no banco),
 respondendo `401` se ausente/inválido/revogado, ou seguindo com
-`res.locals.admin` preenchido. Como as rotas administrativas
+`res.locals.admin` preenchido. `POST /api/auth/refresh` (controller
+`refresh`, sem `requireAdminAuth` — é o próprio refresh token, cookie
+`admin_refresh_token` com path restrito a `/api/auth`, que autentica essa
+rota) usa `refreshAdminSession` pra validar o refresh token e emitir um
+par novo, invalidando o par anterior — é assim que o front renova a sessão
+sem pedir login de novo quando o access token de 5min expira. Como as
+rotas administrativas
 (`createClassSessionsBulk`, `updateClassSession`, `deleteClassSession`,
 `reviewReceipt`) convivem no **mesmo** `Router` que
 rotas públicas do aluno (`classSessionRouter`), o middleware entra como

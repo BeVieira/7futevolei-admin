@@ -10,6 +10,13 @@ export class InvalidCredentialsError extends Error {
   }
 }
 
+export class InvalidSessionError extends Error {
+  constructor(message = "Sessão inválida ou expirada") {
+    super(message);
+    this.name = "InvalidSessionError";
+  }
+}
+
 function readJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
   if (!secret) {
@@ -19,15 +26,29 @@ function readJwtSecret(): string {
 }
 
 const JWT_SECRET: string = readJwtSecret();
-const TOKEN_TTL = "5m";
+const ACCESS_TOKEN_TTL = "5m";
+const REFRESH_TOKEN_TTL = "7d";
 
 export const ADMIN_COOKIE_NAME = "admin_token";
 export const ADMIN_COOKIE_MAX_AGE_MS = 5 * 60 * 1000;
+
+// Path restrito a /api/auth: esse cookie só precisa ir pro backend nas
+// chamadas de /refresh e /logout, nunca nas demais rotas administrativas
+// (que só olham o access token) — reduz a exposição dele a cada requisição.
+export const ADMIN_REFRESH_COOKIE_NAME = "admin_refresh_token";
+export const ADMIN_REFRESH_COOKIE_PATH = "/api/auth";
+export const ADMIN_REFRESH_COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 export type AdminTokenPayload = {
   sub: number;
   username: string;
   jti: string;
+  type: "access" | "refresh";
+};
+
+export type AdminSessionTokens = {
+  accessToken: string;
+  refreshToken: string;
 };
 
 export async function verifyAdminCredentials(
@@ -49,8 +70,11 @@ export async function verifyAdminCredentials(
   return user;
 }
 
-function signAdminToken(payload: AdminTokenPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: TOKEN_TTL });
+function signAdminToken(
+  payload: AdminTokenPayload,
+  ttl: typeof ACCESS_TOKEN_TTL | typeof REFRESH_TOKEN_TTL,
+): string {
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: ttl });
 }
 
 export function verifyAdminToken(token: string): AdminTokenPayload {
@@ -58,9 +82,11 @@ export function verifyAdminToken(token: string): AdminTokenPayload {
 }
 
 // Verifica a assinatura ignorando expiração — usado só no logout, pra
-// conseguir identificar o dono de um token já vencido e limpar a sessão
-// dele mesmo assim.
-function decodeAdminTokenIgnoringExpiry(token: string): AdminTokenPayload | null {
+// conseguir identificar o dono de um token já vencido (access ou refresh)
+// e limpar a sessão dele mesmo assim.
+export function decodeAdminTokenIgnoringExpiry(
+  token: string,
+): AdminTokenPayload | null {
   try {
     return jwt.verify(token, JWT_SECRET, {
       ignoreExpiration: true,
@@ -70,40 +96,78 @@ function decodeAdminTokenIgnoringExpiry(token: string): AdminTokenPayload | null
   }
 }
 
-// `currentJti` no `User` torna o token de fato revogável: em vez de só
-// conferir a assinatura/validade do JWT (que continuaria válido até
-// expirar mesmo após logout), cada requisição autenticada confere se o
-// `jti` do token ainda é o mais recente emitido pra esse usuário. Login
-// gera um `jti` novo (invalidando qualquer sessão anterior); logout limpa
-// esse campo.
+// `currentJti`/`currentRefreshJti` no `User` tornam os tokens de fato
+// revogáveis: em vez de só conferir assinatura/validade do JWT (que
+// continuaria válido até expirar), cada uso confere se o `jti` do token
+// ainda é o mais recente emitido pra esse usuário. Login e refresh geram
+// um par novo (invalidando o par anterior); logout zera os dois campos.
 export async function issueAdminSession(user: {
   id: number;
   username: string;
-}): Promise<string> {
-  const jti = crypto.randomUUID();
+}): Promise<AdminSessionTokens> {
+  const accessJti = crypto.randomUUID();
+  const refreshJti = crypto.randomUUID();
 
   await prisma.user.update({
     where: { id: user.id },
-    data: { currentJti: jti },
+    data: { currentJti: accessJti, currentRefreshJti: refreshJti },
   });
 
-  return signAdminToken({ sub: user.id, username: user.username, jti });
+  return {
+    accessToken: signAdminToken(
+      { sub: user.id, username: user.username, jti: accessJti, type: "access" },
+      ACCESS_TOKEN_TTL,
+    ),
+    refreshToken: signAdminToken(
+      { sub: user.id, username: user.username, jti: refreshJti, type: "refresh" },
+      REFRESH_TOKEN_TTL,
+    ),
+  };
 }
 
-export async function invalidateAdminSessionFromToken(
-  token: string,
-): Promise<void> {
-  const payload = decodeAdminTokenIgnoringExpiry(token);
-  if (!payload) return;
+// Renova a sessão a partir do refresh token: confere assinatura, validade
+// e que o `jti` ainda é o vigente, e então emite um par access+refresh
+// novo — o que já invalida os dois tokens anteriores (o `jti` antigo de
+// cada um deixa de bater com o que fica gravado no usuário).
+export async function refreshAdminSession(
+  refreshToken: string,
+): Promise<AdminSessionTokens & { username: string }> {
+  let payload: AdminTokenPayload;
 
+  try {
+    payload = verifyAdminToken(refreshToken);
+  } catch {
+    throw new InvalidSessionError();
+  }
+
+  if (payload.type !== "refresh") {
+    throw new InvalidSessionError();
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: payload.sub } });
+
+  if (!user || user.currentRefreshJti !== payload.jti) {
+    throw new InvalidSessionError();
+  }
+
+  const tokens = await issueAdminSession(user);
+  return { ...tokens, username: user.username };
+}
+
+export async function invalidateAdminSession(userId: number): Promise<void> {
   await prisma.user
-    .update({ where: { id: payload.sub }, data: { currentJti: null } })
+    .update({
+      where: { id: userId },
+      data: { currentJti: null, currentRefreshJti: null },
+    })
     .catch(() => {});
 }
 
 export async function isAdminSessionActive(
   payload: AdminTokenPayload,
 ): Promise<boolean> {
+  if (payload.type !== "access") return false;
+
   const user = await prisma.user.findUnique({ where: { id: payload.sub } });
   return user?.currentJti === payload.jti;
 }

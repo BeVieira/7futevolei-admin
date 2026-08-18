@@ -1,5 +1,5 @@
 import { MyEnrollmentSummary, Side } from "./types";
-import { handleResponse } from "@utils";
+import { apiFetch, handleResponse } from "@utils";
 
 const BASE_URL = "/api/class-sessions";
 const ENROLLMENTS_URL = "/api/enrollments";
@@ -9,7 +9,7 @@ function enrollStudentInClass(
   studentName: string,
   side: Side,
 ) {
-  return fetch(`${BASE_URL}/${classId}/enrollments`, {
+  return apiFetch(`${BASE_URL}/${classId}/enrollments`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ studentName, side }),
@@ -17,7 +17,7 @@ function enrollStudentInClass(
 }
 
 function cancelEnrollmentByStudentName(classId: number, studentName: string) {
-  return fetch(`${BASE_URL}/${classId}/enrollments/cancel`, {
+  return apiFetch(`${BASE_URL}/${classId}/enrollments/cancel`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ studentName }),
@@ -27,7 +27,7 @@ function cancelEnrollmentByStudentName(classId: number, studentName: string) {
 function getEnrollmentsByStudentName(
   studentName: string,
 ): Promise<MyEnrollmentSummary[]> {
-  return fetch(
+  return apiFetch(
     `${ENROLLMENTS_URL}?studentName=${encodeURIComponent(studentName)}`,
   ).then((res) => handleResponse(res));
 }

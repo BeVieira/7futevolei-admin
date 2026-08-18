@@ -23,20 +23,34 @@ O aluno continua sem login (identificação só pelo nome, ver acima) — só o
 admin precisa autenticar. Um `User` (usuário + senha com hash) no Postgres,
 sem tela de cadastro: o usuário inicial é criado via `pnpm prisma:seed`
 (lê `ADMIN_USERNAME`/`ADMIN_PASSWORD` do `.env`), não por um formulário de
-signup. Login (`POST /api/auth/login`) devolve um JWT num cookie
-`httpOnly`; as rotas administrativas (criar/editar/remover turma,
-aprovar/negar comprovante) exigem esse cookie e
-respondem `401` sem ele. `/admin` e `/admin/cobranca` no front redirecionam
-pra `/login` quando a sessão não está autenticada.
+signup. Login (`POST /api/auth/login`) devolve dois JWTs em cookies
+`httpOnly` — access token e refresh token (ver abaixo); as rotas
+administrativas (criar/editar/remover turma, aprovar/negar comprovante)
+exigem o access token e respondem `401` sem ele. `/admin` e
+`/admin/cobranca` no front redirecionam pra `/login` quando a sessão não
+está autenticada.
 
-O JWT expira em 5 minutos e carrega um `jti` (id de sessão aleatório).
-`User.currentJti` guarda o `jti` da sessão vigente: login gera um novo e
-grava; toda rota administrativa confere que o `jti` do cookie ainda bate
-com o gravado no banco (`isAdminSessionActive`), então um logout (que
-zera `currentJti`) ou um novo login em outro lugar invalida de fato
-qualquer token anterior, mesmo antes de expirar — não é só limpar o
-cookie no navegador. Verificação/aprovação por trás desse login continua
-sendo feita por uma pessoa (não é verificação automática de pagamento).
+O access token expira em 5 minutos e carrega um `jti` (id de sessão
+aleatório); o refresh token expira em 7 dias e carrega o seu próprio
+`jti`. `User.currentJti`/`currentRefreshJti` guardam o `jti` vigente de
+cada um: login gera os dois e grava; toda rota administrativa confere que
+o `jti` do access token ainda bate com o gravado no banco
+(`isAdminSessionActive`). Quando o access token expira, o front chama
+`POST /api/auth/refresh` (cookie do refresh token, path restrito a
+`/api/auth`) pra renovar a sessão sem pedir login de novo — a renovação
+**sempre emite um par novo e invalida o par anterior** (o `jti` antigo de
+cada token deixa de bater com o gravado no banco), então tanto o access
+quanto o refresh token usados nessa renovação não servem mais depois
+dela. Logout zera os dois campos, invalidando o par vigente de fato — não
+é só limpar cookie no navegador. Verificação/aprovação por trás desse
+login continua sendo feita por uma pessoa (não é verificação automática
+de pagamento).
+
+**Limitação aceita:** como o refresh rotaciona (invalida) o par anterior,
+duas abas abrindo o mesmo admin ao mesmo tempo e renovando quase
+simultaneamente podem fazer uma delas perder a sessão (a segunda renovação
+chega com o refresh token que a primeira já invalidou) — nesse caso a aba
+afetada só precisa logar de novo.
 
 ## Vagas por lado, não por turma
 

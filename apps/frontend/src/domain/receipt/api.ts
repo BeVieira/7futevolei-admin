@@ -1,5 +1,5 @@
 import { ReceiptSummary } from "./types";
-import { handleResponse } from "@utils";
+import { apiFetch, handleResponse } from "@utils";
 
 const BASE_URL = "/api/class-sessions";
 
@@ -11,7 +11,7 @@ function submitReceipt(
   const formData = new FormData();
   formData.append("file", file);
 
-  return fetch(
+  return apiFetch(
     `${BASE_URL}/${classSessionId}/enrollments/${enrollmentId}/receipt`,
     { method: "POST", body: formData },
   ).then((res) => handleResponse(res));
@@ -23,7 +23,7 @@ function reviewReceipt(
   status: "APPROVED" | "REJECTED",
   adminComment?: string,
 ): Promise<ReceiptSummary> {
-  return fetch(
+  return apiFetch(
     `${BASE_URL}/${classSessionId}/enrollments/${enrollmentId}/receipt`,
     {
       method: "PATCH",

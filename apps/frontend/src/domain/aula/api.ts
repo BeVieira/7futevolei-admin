@@ -1,4 +1,4 @@
-import { handleResponse } from "@utils";
+import { apiFetch, handleResponse } from "@utils";
 import {
   ClassLevel,
   ClassSessionDetail,
@@ -9,15 +9,15 @@ import {
 const BASE_URL = "/api/class-sessions";
 
 function getClassesByDate(date: string): Promise<ClassSessionSummary[]> {
-  return fetch(`${BASE_URL}?date=${date}`).then((res) => handleResponse(res));
+  return apiFetch(`${BASE_URL}?date=${date}`).then((res) => handleResponse(res));
 }
 
 function getClassById(id: number): Promise<ClassSessionDetail> {
-  return fetch(`${BASE_URL}/${id}`).then((res) => handleResponse(res));
+  return apiFetch(`${BASE_URL}/${id}`).then((res) => handleResponse(res));
 }
 
 function getClassDatesByMonth(month: string): Promise<string[]> {
-  return fetch(`${BASE_URL}/dates?month=${month}`)
+  return apiFetch(`${BASE_URL}/dates?month=${month}`)
     .then((res) => handleResponse<{ dates: string[] }>(res))
     .then((body) => body.dates);
 }
@@ -27,7 +27,7 @@ function createClassesForDay(
   timeSlots: TimeSlotInput[],
   lockAt?: string,
 ): Promise<ClassSessionSummary[]> {
-  return fetch(`${BASE_URL}/bulk`, {
+  return apiFetch(`${BASE_URL}/bulk`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ date, timeSlots, lockAt }),
@@ -44,7 +44,7 @@ function updateClass(
     lockAt: string | null;
   }>,
 ): Promise<ClassSessionSummary> {
-  return fetch(`${BASE_URL}/${id}`, {
+  return apiFetch(`${BASE_URL}/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(changes),
@@ -52,7 +52,7 @@ function updateClass(
 }
 
 function deleteClass(id: number): Promise<void> {
-  return fetch(`${BASE_URL}/${id}`, { method: "DELETE" }).then((res) =>
+  return apiFetch(`${BASE_URL}/${id}`, { method: "DELETE" }).then((res) =>
     handleResponse(res),
   );
 }

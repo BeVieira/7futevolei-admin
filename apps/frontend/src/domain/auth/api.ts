@@ -1,4 +1,4 @@
-import { handleResponse } from "@utils";
+import { apiFetch, handleResponse } from "@utils";
 import { Me } from "./types";
 
 const BASE_URL = "/api/auth";
@@ -18,7 +18,7 @@ function logout(): Promise<void> {
 }
 
 function getMe(): Promise<Me> {
-  return fetch(`${BASE_URL}/me`).then((res) => handleResponse(res));
+  return apiFetch(`${BASE_URL}/me`).then((res) => handleResponse(res));
 }
 
 export const authApi = { login, logout, getMe };
