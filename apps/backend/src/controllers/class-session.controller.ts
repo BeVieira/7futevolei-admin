@@ -8,7 +8,6 @@ import {
   EnrollmentNotFoundError,
   cancelEnrollment,
   enrollStudent,
-  removeEnrollmentById,
   updateClassSessionWithRebalance,
 } from "../lib/enrollment-service";
 import {
@@ -332,34 +331,6 @@ export async function cancelEnrollmentByName(req: Request, res: Response) {
     }
     if (error instanceof ClassSessionLockedError) {
       res.status(409).json({ error: error.message });
-      return;
-    }
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2025"
-    ) {
-      res.status(404).json({ error: "Class session not found" });
-      return;
-    }
-    throw error;
-  }
-}
-
-export async function deleteEnrollment(req: Request, res: Response) {
-  const id = parseId(req.params.id);
-  const enrollmentId = parseId(req.params.enrollmentId);
-
-  if (id === null || enrollmentId === null) {
-    res.status(404).json({ error: "Enrollment not found" });
-    return;
-  }
-
-  try {
-    await removeEnrollmentById(id, enrollmentId);
-    res.status(204).send();
-  } catch (error) {
-    if (error instanceof EnrollmentNotFoundError) {
-      res.status(404).json({ error: error.message });
       return;
     }
     if (

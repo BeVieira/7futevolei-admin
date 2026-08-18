@@ -7,7 +7,6 @@ import {
   createClassSessionsBulk,
   createEnrollment,
   deleteClassSession,
-  deleteEnrollment,
   getClassSessionById,
   listClassDatesByMonth,
   listClassSessions,
@@ -343,39 +342,6 @@ classSessionRouter.post("/:id/enrollments", asyncHandler(createEnrollment));
 classSessionRouter.post(
   "/:id/enrollments/cancel",
   asyncHandler(cancelEnrollmentByName),
-);
-
-/**
- * @openapi
- * /api/class-sessions/{id}/enrollments/{enrollmentId}:
- *   delete:
- *     summary: Remove uma inscrição diretamente pelo id (ação administrativa, sem match de nome)
- *     tags: [ClassSessions]
- *     security:
- *       - cookieAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *       - in: path
- *         name: enrollmentId
- *         required: true
- *         schema:
- *           type: integer
- *     responses:
- *       204:
- *         description: Inscrição removida
- *       401:
- *         description: Não autenticado
- *       404:
- *         description: Turma ou inscrição não encontrada
- */
-classSessionRouter.delete(
-  "/:id/enrollments/:enrollmentId",
-  requireAdminAuth,
-  asyncHandler(deleteEnrollment),
 );
 
 /**

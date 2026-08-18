@@ -81,9 +81,9 @@ Depois desse horário:
 - **O aluno que já está inscrito não consegue mais cancelar a própria
   vaga.** A tentativa de auto-cancelamento é rejeitada (API responde
   `409`); a inscrição continua exatamente como estava.
-- **O admin sempre pode remover uma inscrição manualmente**, trancada ou
-  não — é a válvula de escape para exceções (ex.: aluno avisou que não vem
-  e o admin decide liberar a vaga de qualquer forma).
+- **O admin não remove inscrições manualmente** — não há essa opção na
+  tela administrativa. O admin só pode inscrever um aluno (escolhendo nome
+  e lado), turma trancada ou não.
 - **Novas inscrições continuam funcionando normalmente** mesmo depois de
   trancada, incluindo cair em lista de espera — a trava só afeta
   cancelamento, não inscrição.

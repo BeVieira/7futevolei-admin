@@ -260,8 +260,8 @@ src/domain/
     service.ts
     useCases/
       enrollStudent.ts        # useEnrollStudent
+      adminEnrollStudent.ts   # useAdminEnrollStudent
       cancelMyEnrollment.ts   # useCancelMyEnrollment
-      removeEnrollmentById.ts # useRemoveEnrollmentById
       index.ts
     index.ts             # barrel do domínio: export * de types/api/service/useCases
 ```

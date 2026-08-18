@@ -76,7 +76,7 @@ Express que lê o cookie `admin_token`, verifica assinatura e confere
 respondendo `401` se ausente/inválido/revogado, ou seguindo com
 `res.locals.admin` preenchido. Como as rotas administrativas
 (`createClassSessionsBulk`, `updateClassSession`, `deleteClassSession`,
-`deleteEnrollment`, `reviewReceipt`) convivem no **mesmo** `Router` que
+`reviewReceipt`) convivem no **mesmo** `Router` que
 rotas públicas do aluno (`classSessionRouter`), o middleware entra como
 argumento extra **por rota**, não como `router.use(...)` no arquivo
 inteiro — mesmo padrão já usado por `uploadReceiptFile`:
@@ -164,8 +164,7 @@ async function withSerializableRetry<T>(run: () => Promise<T>): Promise<T> {
 ```
 
 Toda função de `enrollment-service.ts` que muda estado (`enrollStudent`,
-`cancelEnrollment`, `removeEnrollmentById`,
-`updateClassSessionWithRebalance`) segue esse mesmo formato:
+`cancelEnrollment`, `updateClassSessionWithRebalance`) segue esse mesmo formato:
 `withSerializableRetry(() => prisma.$transaction(async (tx) => { ... }, { isolationLevel: Serializable }))`.
 Uma função nova que lê-then-escreve com uma invariante a proteger (capacidade,
 unicidade, etc.) deve seguir o mesmo padrão, não um `prisma.enrollment.create`

@@ -24,15 +24,6 @@ function cancelEnrollmentByStudentName(classId: number, studentName: string) {
   }).then((res) => handleResponse(res));
 }
 
-function removeEnrollmentById(
-  classId: number,
-  enrollmentId: number,
-): Promise<void> {
-  return fetch(`${BASE_URL}/${classId}/enrollments/${enrollmentId}`, {
-    method: "DELETE",
-  }).then((res) => handleResponse(res));
-}
-
 function getEnrollmentsByStudentName(
   studentName: string,
 ): Promise<MyEnrollmentSummary[]> {
@@ -44,6 +35,5 @@ function getEnrollmentsByStudentName(
 export const enrollmentApi = {
   enrollStudentInClass,
   cancelEnrollmentByStudentName,
-  removeEnrollmentById,
   getEnrollmentsByStudentName,
 };

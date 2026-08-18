@@ -1,13 +1,15 @@
-import { useState } from "react";
+import { FormEvent, useState } from "react";
 import { Button, ClassSessionCard } from "@components";
 import { PeopleIcon } from "@assets";
 import {
   CLASS_LEVELS,
   ClassLevel,
+  Side,
+  aulaService,
   enrollmentService,
+  useAdminEnrollStudent,
   useDeleteClass,
   useGetClassById,
-  useRemoveEnrollmentById,
   useUpdateClass,
 } from "@domain";
 
@@ -20,22 +22,20 @@ export function AdminClassSessionCard({ sessionId }: Props) {
   const [classLevel, setClassLevel] = useState<ClassLevel>("Iniciante");
   const [capacity, setCapacity] = useState(8);
   const [lockAt, setLockAt] = useState("");
+  const [addingStudent, setAddingStudent] = useState(false);
+  const [studentName, setStudentName] = useState("");
+  const [side, setSide] = useState<Side | "">("");
 
   const { data: detail, isLoading } = useGetClassById(sessionId);
 
   const updateMutation = useUpdateClass(sessionId);
   const deleteMutation = useDeleteClass(sessionId);
-  const removeEnrollmentMutation = useRemoveEnrollmentById(sessionId);
+  const enrollMutation = useAdminEnrollStudent(sessionId);
 
   const busy =
-    updateMutation.isPending ||
-    deleteMutation.isPending ||
-    removeEnrollmentMutation.isPending;
+    updateMutation.isPending || deleteMutation.isPending || enrollMutation.isPending;
 
-  const error =
-    updateMutation.error ??
-    deleteMutation.error ??
-    removeEnrollmentMutation.error;
+  const error = updateMutation.error ?? deleteMutation.error ?? enrollMutation.error;
 
   function startEditing() {
     if (!detail) return;
@@ -45,6 +45,21 @@ export function AdminClassSessionCard({ sessionId }: Props) {
     setEditing(true);
   }
 
+  function handleAddStudent(e: FormEvent) {
+    e.preventDefault();
+    if (!studentName.trim() || !side) return;
+    enrollMutation.mutate(
+      { studentName: studentName.trim(), side },
+      {
+        onSuccess: () => {
+          setAddingStudent(false);
+          setStudentName("");
+          setSide("");
+        },
+      },
+    );
+  }
+
   if (isLoading || !detail) {
     return (
       <div className="rounded-xl border border-slate-200 bg-card p-4 shadow-sm">
@@ -52,6 +67,10 @@ export function AdminClassSessionCard({ sessionId }: Props) {
       </div>
     );
   }
+
+  const sideCapacity = aulaService.getSideCapacity(detail.capacity);
+  const leftCount = detail.confirmed.filter((e) => e.side === "LEFT").length;
+  const rightCount = detail.confirmed.filter((e) => e.side === "RIGHT").length;
 
   return (
     <ClassSessionCard
@@ -170,24 +189,11 @@ export function AdminClassSessionCard({ sessionId }: Props) {
         )}
         <ul className="flex flex-col gap-1">
           {detail.confirmed.map((enrollment) => (
-            <li
-              key={enrollment.id}
-              className="flex items-center justify-between text-sm text-slate-700"
-            >
-              <span>
-                {enrollment.studentName}{" "}
-                <span className="text-xs text-slate-400">
-                  ({enrollmentService.sideLabel(enrollment.side)})
-                </span>
+            <li key={enrollment.id} className="text-sm text-slate-700">
+              {enrollment.studentName}{" "}
+              <span className="text-xs text-slate-400">
+                ({enrollmentService.sideLabel(enrollment.side)})
               </span>
-              <button
-                type="button"
-                onClick={() => removeEnrollmentMutation.mutate(enrollment.id)}
-                disabled={busy}
-                className="text-xs font-medium text-red-600 underline"
-              >
-                Remover
-              </button>
             </li>
           ))}
         </ul>
@@ -200,28 +206,75 @@ export function AdminClassSessionCard({ sessionId }: Props) {
           </p>
           <ul className="flex flex-col gap-1">
             {detail.waitlist.map((enrollment) => (
-              <li
-                key={enrollment.id}
-                className="flex items-center justify-between text-sm text-slate-700"
-              >
-                <span>
-                  {enrollment.studentName}{" "}
-                  <span className="text-xs text-slate-400">
-                    ({enrollmentService.sideLabel(enrollment.side)})
-                  </span>
+              <li key={enrollment.id} className="text-sm text-slate-700">
+                {enrollment.studentName}{" "}
+                <span className="text-xs text-slate-400">
+                  ({enrollmentService.sideLabel(enrollment.side)})
                 </span>
-                <button
-                  type="button"
-                  onClick={() => removeEnrollmentMutation.mutate(enrollment.id)}
-                  disabled={busy}
-                  className="text-xs font-medium text-red-600 underline"
-                >
-                  Remover
-                </button>
               </li>
             ))}
           </ul>
         </div>
+      )}
+
+      {addingStudent ? (
+        <form onSubmit={handleAddStudent} className="flex flex-col gap-2">
+          <input
+            autoFocus
+            required
+            value={studentName}
+            onChange={(e) => setStudentName(e.target.value)}
+            placeholder="Nome do aluno"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          />
+          <div className="flex flex-wrap gap-4">
+            <label className="flex items-center gap-1.5 text-sm text-slate-700">
+              <input
+                type="radio"
+                name={`add-side-${sessionId}`}
+                value="LEFT"
+                required
+                checked={side === "LEFT"}
+                onChange={() => setSide("LEFT")}
+              />
+              Esquerda ({leftCount}/{sideCapacity}
+              {leftCount >= sideCapacity ? " — lista de espera" : ""})
+            </label>
+            <label className="flex items-center gap-1.5 text-sm text-slate-700">
+              <input
+                type="radio"
+                name={`add-side-${sessionId}`}
+                value="RIGHT"
+                required
+                checked={side === "RIGHT"}
+                onChange={() => setSide("RIGHT")}
+              />
+              Direita ({rightCount}/{sideCapacity}
+              {rightCount >= sideCapacity ? " — lista de espera" : ""})
+            </label>
+          </div>
+          <div className="flex gap-2">
+            <Button type="submit" disabled={busy}>
+              Inscrever
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                setAddingStudent(false);
+                setStudentName("");
+                setSide("");
+              }}
+              disabled={busy}
+            >
+              Cancelar
+            </Button>
+          </div>
+        </form>
+      ) : (
+        <Button variant="secondary" onClick={() => setAddingStudent(true)}>
+          Inscrever aluno
+        </Button>
       )}
     </ClassSessionCard>
   );
