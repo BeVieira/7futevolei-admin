@@ -1,9 +1,20 @@
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
 import { asyncHandler } from "../lib/asyncHandler";
 import { requireAdminAuth } from "../lib/requireAdminAuth";
 import { login, logout, me, refresh } from "../controllers/auth.controller";
 
 export const authRouter = Router();
+
+// Só existe um usuário admin válido por vez (login por usuário/senha, sem
+// captcha) — sem isso, força bruta da senha é trivial.
+const loginRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Muitas tentativas de login. Tente novamente mais tarde." },
+});
 
 /**
  * @openapi
@@ -32,7 +43,7 @@ export const authRouter = Router();
  *       401:
  *         description: Usuário ou senha incorretos
  */
-authRouter.post("/login", asyncHandler(login));
+authRouter.post("/login", loginRateLimit, asyncHandler(login));
 
 /**
  * @openapi

@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import fs from "fs";
 import { NextFunction, Request, Response } from "express";
 import multer from "multer";
@@ -9,9 +10,13 @@ fs.mkdirSync(RECEIPTS_DIR, { recursive: true });
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, RECEIPTS_DIR),
-  filename: (req, file, cb) => {
+  // Nome aleatório em vez de `enrollment-{id}-{timestamp}`: o link do
+  // comprovante é servido sem autenticação (o aluno vê o próprio sem
+  // login), então o nome do arquivo é o único segredo que impede alguém
+  // de enumerar/adivinhar o comprovante de outro aluno pelo id sequencial.
+  filename: (_req, file, cb) => {
     const ext = path.extname(file.originalname);
-    cb(null, `enrollment-${req.params.enrollmentId}-${Date.now()}${ext}`);
+    cb(null, `${crypto.randomUUID()}${ext}`);
   },
 });
 

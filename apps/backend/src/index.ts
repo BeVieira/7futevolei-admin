@@ -2,6 +2,7 @@ import "dotenv/config";
 import path from "path";
 import express, { NextFunction, Request, Response } from "express";
 import cors from "cors";
+import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "./lib/swagger";
@@ -12,7 +13,24 @@ import { enrollmentRouter } from "./routes/enrollment.routes";
 const app = express();
 const port = process.env.PORT ?? 3333;
 
-app.use(cors());
+// Em dev o front acessa a API via proxy do Vite (mesma origem), então
+// CORS_ORIGIN fica vazio e nada externo é liberado. Em produção, setar
+// pra origem pública do front (ou lista separada por vírgula).
+const corsOrigins = (process.env.CORS_ORIGIN ?? "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+app.use(
+  cors({
+    origin: corsOrigins.length > 0 ? corsOrigins : false,
+    credentials: true,
+  }),
+);
+// CSP desligada: o Swagger UI em /docs depende de script/style inline, que a
+// CSP padrão do helmet bloqueia. Os demais headers (HSTS, X-Frame-Options,
+// nosniff etc.) continuam ativos.
+app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json());
 app.use(cookieParser());
 
