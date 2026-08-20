@@ -6,9 +6,11 @@ Sistema de gestão de aulas extraordinárias de futevôlei: o admin cria o dia d
 
 ## Pré-requisitos
 
-- WSL2 com Docker Desktop integrado (ou Docker Engine instalado direto no WSL).
+- WSL2 (ou Linux/macOS nativo) com Docker instalado — usado só para subir o Postgres.
+- Node.js 20+ e pnpm instalados localmente. Os `Dockerfile` em `apps/backend`
+  e `apps/frontend` são de produção (build/deploy); em dev, backend e
+  frontend rodam direto na máquina via `pnpm dev`, fora de container.
 - Projeto clonado dentro do filesystem nativo do WSL (ex: `/home/<usuario>/projects/...`), **não** em `/mnt/c/...` — isso deixa o hot-reload lento/instável.
-- Não é necessário Node/pnpm instalados localmente: tudo roda em container.
 - Todos os comandos abaixo devem ser executados de dentro de um terminal WSL (bash), nunca PowerShell/CMD.
 
 ## Como rodar
@@ -20,24 +22,57 @@ Sistema de gestão de aulas extraordinárias de futevôlei: o admin cria o dia d
    cp apps/frontend/.env.example apps/frontend/.env
    ```
 
-2. Suba os serviços:
+   O `DATABASE_URL` do `.env.example` já aponta pra `localhost:5432` e o
+   proxy do Vite (`apps/frontend/vite.config.ts`) já aponta pra
+   `localhost:3333` — valores certos pra rodar backend/frontend fora de
+   container. Ajuste `JWT_SECRET`/`ADMIN_PASSWORD` se quiser.
+
+2. Suba só o Postgres:
 
    ```bash
-   docker compose up --build
+   docker compose up -d db
    ```
 
-3. Rode as migrations do Prisma dentro do container do backend:
+3. Instale as dependências e rode as migrations (o `postinstall` do backend
+   já roda `prisma generate`):
 
    ```bash
-   docker compose exec backend pnpm prisma:migrate
+   cd apps/backend && pnpm install && pnpm prisma:migrate
+   cd ../frontend && pnpm install
    ```
 
 4. Crie o usuário admin inicial (lê `ADMIN_USERNAME`/`ADMIN_PASSWORD` de
    `apps/backend/.env` — ajuste antes de rodar se quiser outra senha):
 
    ```bash
-   docker compose exec backend pnpm prisma:seed
+   cd apps/backend && pnpm prisma:seed
    ```
+
+5. Suba backend e frontend em dev, cada um num terminal:
+
+   ```bash
+   cd apps/backend && pnpm dev    # http://localhost:3333
+   cd apps/frontend && pnpm dev   # http://localhost:5173
+   ```
+
+## Como acessar pelo celular (mesma rede Wi-Fi)
+
+O Vite já sobe com `host: true` (escuta em `0.0.0.0`), então o servidor de
+dev aceita conexões de outros dispositivos na mesma rede — falta só apontar
+o celular pro IP certo.
+
+1. Descubra o IP da máquina na rede local:
+   - **WSL2**: o celular precisa do IP do **Windows** (o adaptador de rede
+     do WSL é virtual e não é alcançável direto de fora). No PowerShell do Windows:
+     `ipconfig` e pegue o "Endereço IPv4" do adaptador Wi-Fi/Ethernet
+     (algo como `192.168.x.x`).
+   - **Linux/macOS nativo**: `hostname -I` (Linux) ou `ipconfig getifaddr en0`
+     (macOS).
+
+2. No celular, na mesma rede Wi-Fi, acesse `http://<IP-do-Windows>:5173`.
+   O frontend já fala com o backend via proxy do Vite (`/api`, `/uploads`),
+   então não precisa mexer em `CORS_ORIGIN` nem `VITE_API_URL` pra isso
+   funcionar.
 
 ## URLs
 
