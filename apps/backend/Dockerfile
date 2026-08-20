@@ -5,12 +5,12 @@ WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@10 --activate
 
 COPY package.json ./
+COPY prisma ./prisma
 
 RUN pnpm install
 
 COPY . .
 
-RUN pnpm prisma:generate
 RUN pnpm build
 
 FROM node:20-alpine
@@ -29,7 +29,9 @@ USER node
 
 EXPOSE 3333
 
-# Usa o binário do Prisma direto do node_modules em vez de `pnpm exec`: em
-# produção não precisamos do corepack/pnpm dentro do container, só do CLI
-# já instalado como devDependency na etapa de build.
-CMD ["sh", "-c", "node_modules/.bin/prisma migrate deploy && node dist/index.js"]
+# Usa os binários do Prisma/tsx direto do node_modules em vez de `pnpm exec`:
+# em produção não precisamos do corepack/pnpm dentro do container, só dos
+# CLIs já instalados como devDependency na etapa de build. O seed roda a
+# cada start (é upsert, idempotente) pra não depender de um passo manual
+# pós-deploy na plataforma gerenciada.
+CMD ["sh", "-c", "node_modules/.bin/prisma migrate deploy && node_modules/.bin/tsx prisma/seed.ts && node dist/index.js"]

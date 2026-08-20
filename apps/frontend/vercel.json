@@ -1,0 +1,7 @@
+{
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "https://api.7futevolei.com.br/api/:path*" },
+    { "source": "/uploads/:path*", "destination": "https://api.7futevolei.com.br/uploads/:path*" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
