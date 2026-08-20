@@ -8,6 +8,7 @@ import {
   createEnrollment,
   deleteClassSession,
   getClassSessionById,
+  getNextAvailableDate,
   listClassDatesByMonth,
   listClassSessions,
   updateClassSession,
@@ -141,6 +142,31 @@ classSessionRouter.get("/", asyncHandler(listClassSessions));
  *         description: Parâmetro 'month' ausente ou inválido
  */
 classSessionRouter.get("/dates", asyncHandler(listClassDatesByMonth));
+
+/**
+ * @openapi
+ * /api/class-sessions/next-available-date:
+ *   get:
+ *     summary: Próxima data (hoje ou futura) com ao menos uma turma cadastrada
+ *     description: >
+ *       Ignora turmas de datas passadas. Se não houver nenhuma turma futura
+ *       cadastrada, retorna a data de hoje.
+ *     tags: [ClassSessions]
+ *     responses:
+ *       200:
+ *         description: Data (YYYY-MM-DD) sugerida como padrão pro calendário
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 date:
+ *                   type: string
+ */
+classSessionRouter.get(
+  "/next-available-date",
+  asyncHandler(getNextAvailableDate),
+);
 
 /**
  * @openapi

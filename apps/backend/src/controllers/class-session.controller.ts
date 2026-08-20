@@ -2,7 +2,10 @@ import { Request, Response } from "express";
 import { Prisma, Enrollment, Receipt } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { classLevelRank } from "../lib/class-levels";
-import { isClassSessionLocked } from "../lib/class-session-lock";
+import {
+  BRAZIL_UTC_OFFSET_HOURS,
+  isClassSessionLocked,
+} from "../lib/class-session-lock";
 import {
   ClassSessionLockedError,
   EnrollmentNotFoundError,
@@ -40,6 +43,22 @@ function byStartTimeThenLevel(
 function parseId(value: string): number | null {
   if (!/^\d+$/.test(value)) return null;
   return Number(value);
+}
+
+// `date` é salvo como meia-noite UTC representando o dia no Brasil (ver
+// class-session-lock.ts), então "hoje" precisa ser calculado no fuso do
+// Brasil, não em UTC puro — perto da meia-noite UTC os dois divergem.
+function getTodayInBrazil(): Date {
+  const nowInBrazil = new Date(
+    Date.now() - BRAZIL_UTC_OFFSET_HOURS * 60 * 60 * 1000,
+  );
+  return new Date(
+    Date.UTC(
+      nowInBrazil.getUTCFullYear(),
+      nowInBrazil.getUTCMonth(),
+      nowInBrazil.getUTCDate(),
+    ),
+  );
 }
 
 function serializeSummary(
@@ -168,6 +187,20 @@ export async function listClassDatesByMonth(req: Request, res: Response) {
   res.json({
     dates: classSessions.map((c) => c.date.toISOString().slice(0, 10)),
   });
+}
+
+export async function getNextAvailableDate(_req: Request, res: Response) {
+  const today = getTodayInBrazil();
+
+  const nextSession = await prisma.classSession.findFirst({
+    where: { date: { gte: today } },
+    orderBy: { date: "asc" },
+    select: { date: true },
+  });
+
+  const date = (nextSession?.date ?? today).toISOString().slice(0, 10);
+
+  res.json({ date });
 }
 
 export async function listClassSessions(req: Request, res: Response) {
