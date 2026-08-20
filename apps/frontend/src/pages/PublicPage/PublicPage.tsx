@@ -1,22 +1,34 @@
 import { useMemo, useState } from "react";
 import { StudentClassSessionCard } from "./components/StudentClassSessionCard";
 import { Button, CalendarModal, CollapsibleSectionHeader } from "@components";
-import { aulaService, useGetClassesByDate } from "@domain";
-import { formatDateLabel, pluralize, toDateInputValue } from "@utils";
+import {
+  aulaService,
+  useGetClassesByDate,
+  useGetNextAvailableDate,
+} from "@domain";
+import { formatDateLabel, pluralize } from "@utils";
 
 export function PublicPage() {
-  const [date, setDate] = useState(() => toDateInputValue(new Date()));
+  const { data: nextAvailableDate } = useGetNextAvailableDate();
+  const [manualDate, setManualDate] = useState<string | null>(null);
   const [collapsedSlots, setCollapsedSlots] = useState<Set<string>>(
     () => new Set(),
   );
   const [calendarOpen, setCalendarOpen] = useState(false);
 
+  // Enquanto a próxima data com aulas ainda não chegou, não escolhemos "hoje"
+  // como padrão — senão o usuário vê a tela vazia de "hoje" piscar antes de
+  // corrigir pra data certa.
+  const date = manualDate ?? nextAvailableDate ?? "";
+
   const {
     data: sessions = [],
-    isLoading,
+    isLoading: isLoadingSessions,
     isError,
     error,
-  } = useGetClassesByDate(date);
+  } = useGetClassesByDate(date, { enabled: Boolean(date) });
+
+  const isLoading = isLoadingSessions || !date;
 
   const groups = useMemo(
     () => aulaService.groupClassesByTimeSlot(sessions),
@@ -45,17 +57,18 @@ export function PublicPage() {
           type="button"
           variant="outline"
           onClick={() => setCalendarOpen(true)}
+          disabled={!date}
           className="text-left"
         >
-          {formatDateLabel(date)}
+          {date ? formatDateLabel(date) : "Carregando..."}
         </Button>
       </div>
 
-      {calendarOpen && (
+      {calendarOpen && date && (
         <CalendarModal
           selectedDate={date}
           onSelect={(selected) => {
-            setDate(selected);
+            setManualDate(selected);
             setCalendarOpen(false);
           }}
           onClose={() => setCalendarOpen(false)}
@@ -66,7 +79,7 @@ export function PublicPage() {
       {isError && <p className="text-red-600">{error?.message}</p>}
       {!isLoading && !isError && sessions.length === 0 && (
         <p className="text-slate-500">
-          Nenhuma turma cadastrada para esta data.
+          Ainda não há turmas cadastradas para esta data.
         </p>
       )}
 

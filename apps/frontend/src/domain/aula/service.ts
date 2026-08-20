@@ -18,6 +18,10 @@ function getClassDatesByMonth(month: string) {
   return aulaApi.getClassDatesByMonth(month);
 }
 
+function getNextAvailableDate() {
+  return aulaApi.getNextAvailableDate();
+}
+
 function createClassesForDay(
   date: string,
   timeSlots: TimeSlotInput[],
@@ -79,6 +83,7 @@ export const aulaService = {
   getClassesByDate,
   getClassById,
   getClassDatesByMonth,
+  getNextAvailableDate,
   createClassesForDay,
   updateClass,
   deleteClass,

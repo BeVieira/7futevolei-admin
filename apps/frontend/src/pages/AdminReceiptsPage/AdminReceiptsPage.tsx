@@ -5,19 +5,28 @@ import {
   CalendarModal,
   CollapsibleSectionHeader,
 } from "@components";
-import { aulaService, useGetClassesByDate } from "@domain";
-import { formatDateLabel, pluralize, toDateInputValue } from "@utils";
+import {
+  aulaService,
+  useGetClassesByDate,
+  useGetNextAvailableDate,
+} from "@domain";
+import { formatDateLabel, pluralize } from "@utils";
 
 import { ReceiptReviewCard } from "./components/ReceiptReviewCard";
 
 export function AdminReceiptsPage() {
-  const [date, setDate] = useState(() => toDateInputValue(new Date()));
+  const { data: nextAvailableDate } = useGetNextAvailableDate();
+  const [manualDate, setManualDate] = useState<string | null>(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [collapsedSlots, setCollapsedSlots] = useState<Set<string>>(
     () => new Set(),
   );
 
-  const { data: sessions = [], isLoading } = useGetClassesByDate(date);
+  const date = manualDate ?? nextAvailableDate ?? "";
+
+  const { data: sessions = [], isLoading: isLoadingSessions } =
+    useGetClassesByDate(date, { enabled: Boolean(date) });
+  const isLoading = isLoadingSessions || !date;
   const groups = aulaService.groupClassesByTimeSlot(sessions);
 
   function toggleSlot(slotKey: string) {
@@ -42,17 +51,18 @@ export function AdminReceiptsPage() {
           type="button"
           variant="outline"
           onClick={() => setCalendarOpen(true)}
+          disabled={!date}
           className="text-left"
         >
-          {formatDateLabel(date)}
+          {date ? formatDateLabel(date) : "Carregando..."}
         </Button>
       </div>
 
-      {calendarOpen && (
+      {calendarOpen && date && (
         <CalendarModal
           selectedDate={date}
           onSelect={(selected) => {
-            setDate(selected);
+            setManualDate(selected);
             setCalendarOpen(false);
           }}
           onClose={() => setCalendarOpen(false)}
@@ -63,7 +73,7 @@ export function AdminReceiptsPage() {
         {isLoading && <p className="text-slate-500">Carregando...</p>}
         {!isLoading && sessions.length === 0 && (
           <p className="text-slate-500">
-            Nenhuma turma cadastrada para esta data.
+            Ainda não há turmas cadastradas para esta data.
           </p>
         )}
         {groups.map(([slotKey, slotSessions]) => {

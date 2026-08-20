@@ -12,6 +12,7 @@ import {
   useGetClassById,
   useUpdateClass,
 } from "@domain";
+import { buildLockTimeOptions, formatPreviousDayLabel } from "@utils";
 
 type Props = {
   sessionId: number;
@@ -116,13 +117,26 @@ export function AdminClassSessionCard({ sessionId }: Props) {
             >
               Trancar lista às (opcional)
             </label>
-            <input
+            <select
               id={`lockAt-${sessionId}`}
-              type="time"
               value={lockAt}
               onChange={(e) => setLockAt(e.target.value)}
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-            />
+            >
+              <option value="">Não trancar</option>
+              {lockAt && !buildLockTimeOptions().includes(lockAt) && (
+                <option value={lockAt}>{lockAt}</option>
+              )}
+              {buildLockTimeOptions().map((time) => (
+                <option key={time} value={time}>
+                  {time}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-slate-400">
+              Tranca no dia anterior (
+              {formatPreviousDayLabel(detail.date.slice(0, 10))}).
+            </p>
           </div>
           <div className="flex gap-2">
             <Button
@@ -170,8 +184,8 @@ export function AdminClassSessionCard({ sessionId }: Props) {
           className={`text-xs font-medium ${detail.isLocked ? "text-red-600" : "text-slate-500"}`}
         >
           {detail.isLocked
-            ? `Lista trancada desde as ${detail.lockAt}`
-            : `Lista tranca às ${detail.lockAt}`}
+            ? `Lista trancada desde as ${detail.lockAt} de ${formatPreviousDayLabel(detail.date.slice(0, 10))}`
+            : `Lista tranca às ${detail.lockAt} de ${formatPreviousDayLabel(detail.date.slice(0, 10))}`}
         </p>
       )}
 

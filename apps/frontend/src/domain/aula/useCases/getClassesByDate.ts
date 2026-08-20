@@ -10,10 +10,11 @@ async function getClassesByDate(date: string) {
   }
 }
 
-export function useGetClassesByDate(date: string) {
+export function useGetClassesByDate(date: string, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: queryKeys.classes.byDate(date),
     queryFn: () => getClassesByDate(date),
     refetchInterval: LIVE_REFRESH_INTERVAL_MS,
+    enabled: options?.enabled ?? true,
   });
 }

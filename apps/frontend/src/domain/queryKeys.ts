@@ -17,6 +17,7 @@ export const queryKeys = {
     // (ex.: após criar um dia de aulas) também invalida os pontinhos do calendário.
     byMonth: (month: string) =>
       [DomainQueryKey.Classes, "month", month] as const,
+    nextAvailableDate: [DomainQueryKey.Classes, "nextAvailableDate"] as const,
   },
   enrollments: {
     myEnrollments: (studentName: string) =>

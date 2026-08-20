@@ -21,6 +21,22 @@ export function formatDateLabel(dateStr: string): string {
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
+export function formatPreviousDayLabel(dateStr: string): string {
+  const date = new Date(`${dateStr}T00:00:00`);
+  date.setDate(date.getDate() - 1);
+  return formatDateLabel(toDateInputValue(date));
+}
+
+export function buildLockTimeOptions(): string[] {
+  const options: string[] = [];
+  for (let minutes = 0; minutes < 24 * 60; minutes += 30) {
+    const hours = String(Math.floor(minutes / 60)).padStart(2, "0");
+    const mins = String(minutes % 60).padStart(2, "0");
+    options.push(`${hours}:${mins}`);
+  }
+  return options;
+}
+
 export function addOneHour(startTime: string): string {
   const [hours, minutes] = startTime.split(":").map(Number);
   const totalMinutes = (hours * 60 + minutes + 60) % (24 * 60);

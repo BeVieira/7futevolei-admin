@@ -12,16 +12,21 @@ import {
   aulaService,
   useCreateClassesForDay,
   useGetClassesByDate,
+  useGetNextAvailableDate,
 } from "@domain";
-import { formatDateLabel, pluralize, toDateInputValue } from "@utils";
+import {
+  buildLockTimeOptions,
+  formatDateLabel,
+  formatPreviousDayLabel,
+  pluralize,
+} from "@utils";
 
 import { AdminClassSessionCard } from "./components/AdminClassSessionCard";
 import { HorarioBlockEditor } from "./components/HorarioBlockEditor";
 
 export function AdminPage() {
-  const [date, setDate] = useState(() =>
-    toDateInputValue(new Date()),
-  );
+  const { data: nextAvailableDate } = useGetNextAvailableDate();
+  const [manualDate, setManualDate] = useState<string | null>(null);
   const [blocks, setBlocks] = useState<TimeSlotInput[]>(() => [
     aulaService.buildDefaultTimeSlot(),
   ]);
@@ -32,7 +37,11 @@ export function AdminPage() {
   const [lockAt, setLockAt] = useState("20:00");
   const [calendarOpen, setCalendarOpen] = useState(false);
 
-  const { data: sessions = [], isLoading } = useGetClassesByDate(date);
+  const date = manualDate ?? nextAvailableDate ?? "";
+
+  const { data: sessions = [], isLoading: isLoadingSessions } =
+    useGetClassesByDate(date, { enabled: Boolean(date) });
+  const isLoading = isLoadingSessions || !date;
 
   const createDayMutation = useCreateClassesForDay();
 
@@ -115,17 +124,18 @@ export function AdminPage() {
           type="button"
           variant="outline"
           onClick={() => setCalendarOpen(true)}
+          disabled={!date}
           className="text-left"
         >
-          {formatDateLabel(date)}
+          {date ? formatDateLabel(date) : "Carregando..."}
         </Button>
       </div>
 
-      {calendarOpen && (
+      {calendarOpen && date && (
         <CalendarModal
           selectedDate={date}
           onSelect={(selected) => {
-            setDate(selected);
+            setManualDate(selected);
             setCalendarOpen(false);
           }}
           onClose={() => setCalendarOpen(false)}
@@ -152,16 +162,24 @@ export function AdminPage() {
               >
                 Trancar lista às (opcional)
               </label>
-              <input
+              <select
                 id="admin-lock-at"
-                type="time"
                 value={lockAt}
                 onChange={(e) => setLockAt(e.target.value)}
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-base"
-              />
+              >
+                <option value="">Não trancar</option>
+                {buildLockTimeOptions().map((time) => (
+                  <option key={time} value={time}>
+                    {time}
+                  </option>
+                ))}
+              </select>
               <p className="mt-1 text-xs text-slate-400">
-                Após esse horário, quem já estiver inscrito não poderá mais
-                cancelar. Vale para todas as turmas criadas neste lote.
+                A lista tranca no dia anterior ({formatPreviousDayLabel(date)}
+                ), no horário escolhido. Após isso, quem já estiver inscrito
+                não poderá mais cancelar. Vale para todas as turmas criadas
+                neste lote.
               </p>
             </div>
 
@@ -208,7 +226,7 @@ export function AdminPage() {
         {isLoading && <p className="text-slate-500">Carregando...</p>}
         {!isLoading && sessions.length === 0 && (
           <p className="text-slate-500">
-            Nenhuma turma cadastrada para esta data.
+            Ainda não há turmas cadastradas para esta data.
           </p>
         )}
         {groups.map(([slotKey, slotSessions]) => {

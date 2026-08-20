@@ -22,6 +22,12 @@ function getClassDatesByMonth(month: string): Promise<string[]> {
     .then((body) => body.dates);
 }
 
+function getNextAvailableDate(): Promise<string> {
+  return apiFetch(`${BASE_URL}/next-available-date`)
+    .then((res) => handleResponse<{ date: string }>(res))
+    .then((body) => body.date);
+}
+
 function createClassesForDay(
   date: string,
   timeSlots: TimeSlotInput[],
@@ -61,6 +67,7 @@ export const aulaApi = {
   getClassesByDate,
   getClassById,
   getClassDatesByMonth,
+  getNextAvailableDate,
   createClassesForDay,
   updateClass,
   deleteClass,
