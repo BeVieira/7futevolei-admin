@@ -1,4 +1,4 @@
-FROM node:20-alpine AS build
+FROM node:20-alpine AS base
 
 WORKDIR /app
 
@@ -9,11 +9,28 @@ COPY prisma ./prisma
 
 RUN pnpm install
 
+# Estágio de dev: usado pelo docker-compose (target: dev), com o código
+# montado por volume por cima do que foi copiado aqui e hot-reload via
+# `tsx watch`. Mantém pnpm/corepack ativos, diferente do estágio de prod.
+FROM base AS dev
+
+COPY . .
+
+EXPOSE 3333
+
+# Aplica migrations já existentes (não cria novas — isso é `prisma migrate
+# dev`, rodado manualmente via `docker compose exec backend pnpm
+# prisma:migrate` quando o schema mudar) e roda o seed (upsert, idempotente)
+# a cada start, pra já subir pronto pra usar num `docker compose up`.
+CMD ["sh", "-c", "pnpm prisma:migrate:deploy && pnpm prisma:seed && pnpm dev"]
+
+FROM base AS build
+
 COPY . .
 
 RUN pnpm build
 
-FROM node:20-alpine
+FROM node:20-alpine AS prod
 
 WORKDIR /app
 

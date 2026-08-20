@@ -1,4 +1,4 @@
-FROM node:20-alpine AS build
+FROM node:20-alpine AS base
 
 WORKDIR /app
 
@@ -8,11 +8,23 @@ COPY package.json ./
 
 RUN pnpm install
 
+# Estágio de dev: usado pelo docker-compose (target: dev), com o código
+# montado por volume por cima do que foi copiado aqui e hot-reload via Vite.
+FROM base AS dev
+
+COPY . .
+
+EXPOSE 5173
+
+CMD ["pnpm", "dev", "--", "--host"]
+
+FROM base AS build
+
 COPY . .
 
 RUN pnpm build
 
-FROM nginx:1.27-alpine
+FROM nginx:1.27-alpine AS prod
 
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf.template /etc/nginx/nginx.conf.template

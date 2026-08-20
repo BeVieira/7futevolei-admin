@@ -6,11 +6,9 @@ Sistema de gestão de aulas extraordinárias de futevôlei: o admin cria o dia d
 
 ## Pré-requisitos
 
-- WSL2 (ou Linux/macOS nativo) com Docker instalado — usado só para subir o Postgres.
-- Node.js 20+ e pnpm instalados localmente. Os `Dockerfile` em `apps/backend`
-  e `apps/frontend` são de produção (build/deploy); em dev, backend e
-  frontend rodam direto na máquina via `pnpm dev`, fora de container.
+- WSL2 com Docker Desktop integrado (ou Docker Engine instalado direto no WSL).
 - Projeto clonado dentro do filesystem nativo do WSL (ex: `/home/<usuario>/projects/...`), **não** em `/mnt/c/...` — isso deixa o hot-reload lento/instável.
+- Não é necessário Node/pnpm instalados localmente: tudo roda em container.
 - Todos os comandos abaixo devem ser executados de dentro de um terminal WSL (bash), nunca PowerShell/CMD.
 
 ## Como rodar
@@ -22,42 +20,28 @@ Sistema de gestão de aulas extraordinárias de futevôlei: o admin cria o dia d
    cp apps/frontend/.env.example apps/frontend/.env
    ```
 
-   O `DATABASE_URL` do `.env.example` já aponta pra `localhost:5432` e o
-   proxy do Vite (`apps/frontend/vite.config.ts`) já aponta pra
-   `localhost:3333` — valores certos pra rodar backend/frontend fora de
-   container. Ajuste `JWT_SECRET`/`ADMIN_PASSWORD` se quiser.
-
-2. Suba só o Postgres:
+2. Suba os serviços (Postgres, backend e frontend, todos com hot-reload):
 
    ```bash
-   docker compose up -d db
+   docker compose up --build
    ```
 
-3. Instale as dependências e rode as migrations (o `postinstall` do backend
-   já roda `prisma generate`):
+   O container do backend já aplica as migrations existentes e roda o seed
+   do admin sozinho a cada start (lendo `ADMIN_USERNAME`/`ADMIN_PASSWORD` de
+   `apps/backend/.env` — ajuste antes de subir se quiser outra senha), então
+   não precisa de nenhum passo manual pra ficar pronto pra usar.
+
+3. Só quando você **mudar o schema do Prisma** (`apps/backend/prisma/schema.prisma`)
+   é que precisa criar uma migration nova manualmente:
 
    ```bash
-   cd apps/backend && pnpm install && pnpm prisma:migrate
-   cd ../frontend && pnpm install
-   ```
-
-4. Crie o usuário admin inicial (lê `ADMIN_USERNAME`/`ADMIN_PASSWORD` de
-   `apps/backend/.env` — ajuste antes de rodar se quiser outra senha):
-
-   ```bash
-   cd apps/backend && pnpm prisma:seed
-   ```
-
-5. Suba backend e frontend em dev, cada um num terminal:
-
-   ```bash
-   cd apps/backend && pnpm dev    # http://localhost:3333
-   cd apps/frontend && pnpm dev   # http://localhost:5173
+   docker compose exec backend pnpm prisma:migrate
    ```
 
 ## Como acessar pelo celular (mesma rede Wi-Fi)
 
-O Vite já sobe com `host: true` (escuta em `0.0.0.0`), então o servidor de
+O Vite já sobe com `host: true` (escuta em `0.0.0.0`) dentro do container, e
+o `docker-compose.yml` publica a porta 5173 no host — então o servidor de
 dev aceita conexões de outros dispositivos na mesma rede — falta só apontar
 o celular pro IP certo.
 
