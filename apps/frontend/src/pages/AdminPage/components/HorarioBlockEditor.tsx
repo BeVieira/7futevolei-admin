@@ -82,7 +82,7 @@ export function HorarioBlockEditor({
           id={`courts-${index}`}
           type="number"
           min={1}
-          max={3}
+          max={4}
           value={courtsText}
           onChange={(e) => handleCourtsChange(e.target.value)}
           onBlur={handleCourtsBlur}
