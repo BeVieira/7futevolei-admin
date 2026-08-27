@@ -237,7 +237,7 @@ export function AdminPage() {
           const isCollapsed = !collapsedSlots.has(slotKey);
 
           return (
-            <section key={slotKey} className="flex flex-col gap-3">
+            <section key={slotKey} className="flex flex-col gap-4">
               <CollapsibleSectionHeader
                 label={`${slotSessions[0].startTime} - ${slotSessions[0].endTime}`}
                 meta={`${pluralize(slotSessions.length, "turma", "turmas")} · ${pluralize(totalInscritos, "inscrito", "inscritos")}`}
@@ -245,7 +245,7 @@ export function AdminPage() {
                 onToggle={() => toggleSlot(slotKey)}
               />
               {!isCollapsed && (
-                <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-3">
+                <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-4">
                   {slotSessions.map((session) => (
                     <AdminClassSessionCard
                       key={session.id}

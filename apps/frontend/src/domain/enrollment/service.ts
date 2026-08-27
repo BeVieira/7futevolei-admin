@@ -16,6 +16,10 @@ function cancelEnrollmentByStudentName(classId: number, studentName: string) {
   return enrollmentApi.cancelEnrollmentByStudentName(classId, studentName);
 }
 
+function removeEnrollment(classId: number, enrollmentId: number) {
+  return enrollmentApi.removeEnrollment(classId, enrollmentId);
+}
+
 function sideLabel(side: Side): string {
   return side === "LEFT" ? "Esquerda" : "Direita";
 }
@@ -74,6 +78,7 @@ function forgetMyName() {
 export const enrollmentService = {
   enrollStudentInClass,
   cancelEnrollmentByStudentName,
+  removeEnrollment,
   sideLabel,
   getMyEnrollmentName,
   rememberMyEnrollment,

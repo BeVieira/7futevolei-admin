@@ -218,6 +218,32 @@ export async function cancelEnrollment(
   );
 }
 
+export async function removeEnrollmentById(
+  classSessionId: number,
+  enrollmentId: number,
+) {
+  return withSerializableRetry(() =>
+    prisma.$transaction(
+      async (tx) => {
+        const classSession = await tx.classSession.findUniqueOrThrow({
+          where: { id: classSessionId },
+        });
+
+        const enrollment = await tx.enrollment.findFirst({
+          where: { id: enrollmentId, classSessionId },
+        });
+
+        if (!enrollment) {
+          throw new EnrollmentNotFoundError();
+        }
+
+        return deleteAndPromoteNext(tx, classSession, enrollment);
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    ),
+  );
+}
+
 export async function updateClassSessionWithRebalance(
   classSessionId: number,
   data: Prisma.ClassSessionUpdateInput,

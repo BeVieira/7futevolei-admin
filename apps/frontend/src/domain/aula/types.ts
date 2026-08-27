@@ -17,6 +17,7 @@ export type ClassSessionSummary = {
   waitlistCount: number;
   confirmedLeft: string[];
   confirmedRight: string[];
+  waitlist: string[];
 };
 
 export type ClassSessionDetail = {

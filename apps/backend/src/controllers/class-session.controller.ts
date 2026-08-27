@@ -11,6 +11,7 @@ import {
   EnrollmentNotFoundError,
   cancelEnrollment,
   enrollStudent,
+  removeEnrollmentById,
   updateClassSessionWithRebalance,
 } from "../lib/enrollment-service";
 import {
@@ -83,6 +84,7 @@ function serializeSummary(
     confirmedRight: confirmed
       .filter((e) => e.side === "RIGHT")
       .map((e) => e.studentName),
+    waitlist: waitlisted.map((e) => e.studentName),
   };
 }
 
@@ -328,6 +330,34 @@ export async function createEnrollment(req: Request, res: Response) {
     );
     res.status(201).json(outcome);
   } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2025"
+    ) {
+      res.status(404).json({ error: "Class session not found" });
+      return;
+    }
+    throw error;
+  }
+}
+
+export async function removeEnrollment(req: Request, res: Response) {
+  const id = parseId(req.params.id);
+  const enrollmentId = parseId(req.params.enrollmentId);
+
+  if (id === null || enrollmentId === null) {
+    res.status(404).json({ error: "Class session not found" });
+    return;
+  }
+
+  try {
+    const counters = await removeEnrollmentById(id, enrollmentId);
+    res.json(counters);
+  } catch (error) {
+    if (error instanceof EnrollmentNotFoundError) {
+      res.status(404).json({ error: error.message });
+      return;
+    }
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === "P2025"

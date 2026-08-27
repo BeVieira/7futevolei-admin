@@ -10,6 +10,7 @@ import {
   useAdminEnrollStudent,
   useDeleteClass,
   useGetClassById,
+  useRemoveEnrollment,
   useUpdateClass,
 } from "@domain";
 import { buildLockTimeOptions, formatPreviousDayLabel } from "@utils";
@@ -32,11 +33,23 @@ export function AdminClassSessionCard({ sessionId }: Props) {
   const updateMutation = useUpdateClass(sessionId);
   const deleteMutation = useDeleteClass(sessionId);
   const enrollMutation = useAdminEnrollStudent(sessionId);
+  const removeEnrollmentMutation = useRemoveEnrollment(sessionId);
 
   const busy =
-    updateMutation.isPending || deleteMutation.isPending || enrollMutation.isPending;
+    updateMutation.isPending ||
+    deleteMutation.isPending ||
+    enrollMutation.isPending ||
+    removeEnrollmentMutation.isPending;
 
-  const error = updateMutation.error ?? deleteMutation.error ?? enrollMutation.error;
+  const error =
+    updateMutation.error ??
+    deleteMutation.error ??
+    enrollMutation.error ??
+    removeEnrollmentMutation.error;
+
+  function handleRemoveEnrollment(enrollmentId: number) {
+    removeEnrollmentMutation.mutate(enrollmentId);
+  }
 
   function startEditing() {
     if (!detail) return;
@@ -201,11 +214,24 @@ export function AdminClassSessionCard({ sessionId }: Props) {
         )}
         <ul className="flex flex-col gap-1">
           {detail.confirmed.map((enrollment) => (
-            <li key={enrollment.id} className="text-sm text-slate-700">
-              {enrollment.studentName}{" "}
-              <span className="text-xs text-slate-400">
-                ({enrollmentService.sideLabel(enrollment.side)})
+            <li
+              key={enrollment.id}
+              className="flex items-center justify-between text-sm text-slate-700"
+            >
+              <span>
+                {enrollment.studentName}{" "}
+                <span className="text-xs text-slate-400">
+                  ({enrollmentService.sideLabel(enrollment.side)})
+                </span>
               </span>
+              <button
+                type="button"
+                onClick={() => handleRemoveEnrollment(enrollment.id)}
+                disabled={busy}
+                className="text-xs font-medium text-red-600 underline"
+              >
+                Remover
+              </button>
             </li>
           ))}
         </ul>
@@ -218,11 +244,24 @@ export function AdminClassSessionCard({ sessionId }: Props) {
           </p>
           <ul className="flex flex-col gap-1">
             {detail.waitlist.map((enrollment) => (
-              <li key={enrollment.id} className="text-sm text-slate-700">
-                {enrollment.studentName}{" "}
-                <span className="text-xs text-slate-400">
-                  ({enrollmentService.sideLabel(enrollment.side)})
+              <li
+                key={enrollment.id}
+                className="flex items-center justify-between text-sm text-slate-700"
+              >
+                <span>
+                  {enrollment.studentName}{" "}
+                  <span className="text-xs text-slate-400">
+                    ({enrollmentService.sideLabel(enrollment.side)})
+                  </span>
                 </span>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveEnrollment(enrollment.id)}
+                  disabled={busy}
+                  className="text-xs font-medium text-red-600 underline"
+                >
+                  Remover
+                </button>
               </li>
             ))}
           </ul>

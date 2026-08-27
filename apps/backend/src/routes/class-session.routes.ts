@@ -11,6 +11,7 @@ import {
   getNextAvailableDate,
   listClassDatesByMonth,
   listClassSessions,
+  removeEnrollment,
   updateClassSession,
 } from "../controllers/class-session.controller";
 import {
@@ -55,6 +56,10 @@ export const classSessionRouter = Router();
  *                         items:
  *                           type: string
  *                       confirmedRight:
+ *                         type: array
+ *                         items:
+ *                           type: string
+ *                       waitlist:
  *                         type: array
  *                         items:
  *                           type: string
@@ -104,6 +109,10 @@ classSessionRouter.post(
  *                         items:
  *                           type: string
  *                       confirmedRight:
+ *                         type: array
+ *                         items:
+ *                           type: string
+ *                       waitlist:
  *                         type: array
  *                         items:
  *                           type: string
@@ -368,6 +377,50 @@ classSessionRouter.post("/:id/enrollments", asyncHandler(createEnrollment));
 classSessionRouter.post(
   "/:id/enrollments/cancel",
   asyncHandler(cancelEnrollmentByName),
+);
+
+/**
+ * @openapi
+ * /api/class-sessions/{id}/enrollments/{enrollmentId}:
+ *   delete:
+ *     summary: Remove um aluno da turma (admin, promove o próximo da fila se aplicável)
+ *     tags: [ClassSessions]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *       - in: path
+ *         name: enrollmentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Contadores atualizados após a remoção
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 confirmedCount:
+ *                   type: integer
+ *                 waitlistCount:
+ *                   type: integer
+ *                 capacity:
+ *                   type: integer
+ *       401:
+ *         description: Não autenticado
+ *       404:
+ *         description: Turma ou inscrição não encontrada
+ */
+classSessionRouter.delete(
+  "/:id/enrollments/:enrollmentId",
+  requireAdminAuth,
+  asyncHandler(removeEnrollment),
 );
 
 /**

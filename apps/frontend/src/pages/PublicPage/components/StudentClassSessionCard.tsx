@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { SideSlots } from "./SideSlots";
 import { WaitlistModal } from "./WaitlistModal";
 import { Button, ClassSessionCard } from "@components";
@@ -17,6 +17,14 @@ type Props = {
   session: ClassSessionSummary;
 };
 
+function isStillListed(session: ClassSessionSummary, name: string): boolean {
+  return (
+    session.confirmedLeft.includes(name) ||
+    session.confirmedRight.includes(name) ||
+    session.waitlist.includes(name)
+  );
+}
+
 export function StudentClassSessionCard({ session }: Props) {
   const [collapsed, setCollapsed] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -25,7 +33,34 @@ export function StudentClassSessionCard({ session }: Props) {
   const [waitlistOpen, setWaitlistOpen] = useState(false);
   const [acceptsLockCommitment, setAcceptsLockCommitment] = useState(false);
 
-  const myEnrollment = enrollmentService.getMyEnrollmentName(session.id);
+  const [myEnrollment, setMyEnrollment] = useState(() =>
+    enrollmentService.getMyEnrollmentName(session.id),
+  );
+
+  // Fonte da verdade pro que aparece na tela é esse estado local, atualizado
+  // na hora pelas próprias ações do aluno (ver handleEnroll/handleCancel) —
+  // nunca derivado direto do `session` recebido por prop, que pode estar
+  // desatualizado logo após uma mutação e causaria um "pisca" de volta pra
+  // "quero participar", permitindo inscrição duplicada.
+  //
+  // Esse efeito só reconcilia com o servidor quando `session` muda de fato
+  // (nova busca concluída), pra pegar o caso do admin remover o aluno pela
+  // outra aba: o localStorage deste navegador fica com uma inscrição
+  // fantasma até a lista trazer dado fresco confirmando que ela sumiu.
+  useEffect(() => {
+    const stored = enrollmentService.getMyEnrollmentName(session.id);
+    if (!stored) {
+      setMyEnrollment(null);
+      return;
+    }
+    if (isStillListed(session, stored)) {
+      setMyEnrollment(stored);
+    } else {
+      enrollmentService.forgetMyEnrollment(session.id);
+      setMyEnrollment(null);
+    }
+  }, [session]);
+
   const isFull = aulaService.isClassFull(session);
   const sideCapacity = aulaService.getSideCapacity(session.capacity);
   const leftCount = session.confirmedLeft.length;
@@ -51,10 +86,12 @@ export function StudentClassSessionCard({ session }: Props) {
     e.preventDefault();
     if (!name.trim() || !side) return;
     if (session.isLocked && !acceptsLockCommitment) return;
+    const trimmedName = name.trim();
     enrollMutation.mutate(
-      { studentName: name.trim(), side },
+      { studentName: trimmedName, side },
       {
         onSuccess: () => {
+          setMyEnrollment(trimmedName);
           setShowForm(false);
           setName("");
           setSide("");
@@ -66,7 +103,9 @@ export function StudentClassSessionCard({ session }: Props) {
 
   function handleCancel() {
     if (!myEnrollment) return;
-    cancelMutation.mutate(myEnrollment);
+    cancelMutation.mutate(myEnrollment, {
+      onSuccess: () => setMyEnrollment(null),
+    });
   }
 
   function handleJoinWaitlist() {
