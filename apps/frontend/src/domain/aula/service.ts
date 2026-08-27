@@ -4,7 +4,7 @@ import { ClassLevel, ClassSessionSummary, TimeSlotInput } from "./types";
 const DEFAULT_LEVELS: ClassLevel[] = ["Iniciante", "Intermediário", "Avançado"];
 
 const MIN_COURTS = 1;
-const MAX_COURTS = 3;
+const MAX_COURTS = 4;
 
 function getClassesByDate(date: string) {
   return aulaApi.getClassesByDate(date);
