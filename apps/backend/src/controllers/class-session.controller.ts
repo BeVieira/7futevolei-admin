@@ -62,6 +62,15 @@ function getTodayInBrazil(): Date {
   );
 }
 
+function getCurrentTimeInBrazil(): string {
+  const nowInBrazil = new Date(
+    Date.now() - BRAZIL_UTC_OFFSET_HOURS * 60 * 60 * 1000,
+  );
+  const hours = String(nowInBrazil.getUTCHours()).padStart(2, "0");
+  const minutes = String(nowInBrazil.getUTCMinutes()).padStart(2, "0");
+  return `${hours}:${minutes}`;
+}
+
 function serializeSummary(
   classSession: {
     enrollments: Enrollment[];
@@ -193,9 +202,20 @@ export async function listClassDatesByMonth(req: Request, res: Response) {
 
 export async function getNextAvailableDate(_req: Request, res: Response) {
   const today = getTodayInBrazil();
+  const currentTime = getCurrentTimeInBrazil();
+
+  const ongoingToday = await prisma.classSession.findFirst({
+    where: { date: today, endTime: { gt: currentTime } },
+    select: { date: true },
+  });
+
+  if (ongoingToday) {
+    res.json({ date: today.toISOString().slice(0, 10) });
+    return;
+  }
 
   const nextSession = await prisma.classSession.findFirst({
-    where: { date: { gte: today } },
+    where: { date: { gt: today } },
     orderBy: { date: "asc" },
     select: { date: true },
   });
