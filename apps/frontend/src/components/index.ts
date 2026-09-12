@@ -1,4 +1,5 @@
 export { AdminTabs } from "./AdminTabs";
+export { BottomNav } from "./BottomNav";
 export { Button } from "./Button";
 export { CalendarModal } from "./CalendarModal";
 export { Card } from "./Card";
