@@ -28,10 +28,3 @@ Thumbs.db
 # Misc
 *.local
 coverage
-
-# Comprovantes enviados pelos alunos (armazenados no disco do backend, não
-# versionados — só o .gitkeep entra, pra manter a pasta no repo)
-apps/backend/uploads/*
-!apps/backend/uploads/receipts
-apps/backend/uploads/receipts/*
-!apps/backend/uploads/receipts/.gitkeep

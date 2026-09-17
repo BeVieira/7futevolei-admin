@@ -34,13 +34,8 @@ function receiptStatusLabel(status: ReceiptStatus): string {
   }
 }
 
-function getReceiptFileUrl(filePath: string): string {
-  return `/${filePath}`;
-}
-
 export const receiptService = {
   submitReceipt,
   reviewReceipt,
   receiptStatusLabel,
-  getReceiptFileUrl,
 };

@@ -1,7 +1,7 @@
 import { ReceiptSummary } from "./types";
-import { apiFetch, handleResponse } from "@utils";
+import { API_BASE_URL, apiFetch, handleResponse } from "@utils";
 
-const BASE_URL = "/api/class-sessions";
+const BASE_URL = `${API_BASE_URL}/class-sessions`;
 
 function submitReceipt(
   classSessionId: number,

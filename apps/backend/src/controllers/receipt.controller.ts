@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { Prisma } from "@prisma/client";
-import path from "path";
 import * as receiptService from "../lib/receipt-service";
+import { uploadReceiptObject } from "../lib/storage";
 import { reviewReceiptSchema } from "../schemas/receipt.schema";
 
 function parseId(value: string): number | null {
@@ -22,11 +22,15 @@ export async function submitReceipt(req: Request, res: Response) {
     return;
   }
 
-  const filePath = path.join("uploads", "receipts", req.file.filename);
+  const fileUrl = await uploadReceiptObject(
+    req.file.buffer,
+    req.file.mimetype,
+    req.file.originalname,
+  );
 
   try {
     const receipt = await receiptService.submitReceipt(enrollmentId, {
-      filePath,
+      filePath: fileUrl,
       mimeType: req.file.mimetype,
     });
     res.status(201).json(receipt);

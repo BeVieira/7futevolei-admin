@@ -1,8 +1,15 @@
+// Em dev, "/api" (proxy do Vite, mesma origem). Em prod, aponta pro backend
+// no Render (origem diferente da Vercel) — precisa ser absoluta.
+export const API_BASE_URL = import.meta.env.VITE_API_URL;
+
 let refreshPromise: Promise<boolean> | null = null;
 
 function refreshSession(): Promise<boolean> {
   if (!refreshPromise) {
-    refreshPromise = fetch("/api/auth/refresh", { method: "POST" })
+    refreshPromise = fetch(`${API_BASE_URL}/auth/refresh`, {
+      method: "POST",
+      credentials: "include",
+    })
       .then((res) => res.ok)
       .catch(() => false)
       .finally(() => {
@@ -18,18 +25,25 @@ function refreshSession(): Promise<boolean> {
 // meio de uma ação. Chamadas concorrentes compartilham a mesma renovação —
 // nunca duas em paralelo, já que renovar troca (invalida) o par anterior de
 // tokens, e uma segunda renovação com o refresh token já trocado falharia.
+//
+// `credentials: "include"` é obrigatório aqui: front (Vercel) e back
+// (Render) são origens diferentes, então o navegador só manda os cookies
+// de sessão (httpOnly) numa requisição cross-site se isso for pedido
+// explicitamente — por padrão ele omite.
 export async function apiFetch(
   url: string,
   init?: RequestInit,
 ): Promise<Response> {
-  const response = await fetch(url, init);
+  const response = await fetch(url, { ...init, credentials: "include" });
 
   if (response.status !== 401) {
     return response;
   }
 
   const refreshed = await refreshSession();
-  return refreshed ? fetch(url, init) : response;
+  return refreshed
+    ? fetch(url, { ...init, credentials: "include" })
+    : response;
 }
 
 export async function handleResponse<T>(res: Response): Promise<T> {

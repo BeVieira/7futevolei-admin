@@ -64,7 +64,7 @@ export function MyEnrollmentCard({ entry, studentName }: Props) {
           </span>
           {receipt.status === "PENDING" && (
             <a
-              href={receiptService.getReceiptFileUrl(receipt.filePath)}
+              href={receipt.filePath}
               target="_blank"
               rel="noreferrer"
               className="text-xs text-teal-600 underline"

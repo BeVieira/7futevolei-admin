@@ -132,7 +132,7 @@ function ReceiptReviewRow({ sessionId, enrollment }: RowProps) {
       {receipt && (
         <div className="flex flex-col gap-1">
           <a
-            href={receiptService.getReceiptFileUrl(receipt.filePath)}
+            href={receipt.filePath}
             target="_blank"
             rel="noreferrer"
             className="w-fit text-xs text-teal-600 underline"

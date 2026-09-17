@@ -1,5 +1,4 @@
 import "dotenv/config";
-import path from "path";
 import express, { NextFunction, Request, Response } from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -37,8 +36,6 @@ app.use(cookieParser());
 app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
 });
-
-app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 app.use("/api/auth", authRouter);
 app.use("/api/class-sessions", classSessionRouter);

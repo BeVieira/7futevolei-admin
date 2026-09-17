@@ -1,27 +1,10 @@
-import crypto from "node:crypto";
-import fs from "fs";
 import { NextFunction, Request, Response } from "express";
 import multer from "multer";
-import path from "path";
-
-const RECEIPTS_DIR = path.join(__dirname, "../../uploads/receipts");
-
-fs.mkdirSync(RECEIPTS_DIR, { recursive: true });
-
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, RECEIPTS_DIR),
-  // Nome aleatório em vez de `enrollment-{id}-{timestamp}`: o link do
-  // comprovante é servido sem autenticação (o aluno vê o próprio sem
-  // login), então o nome do arquivo é o único segredo que impede alguém
-  // de enumerar/adivinhar o comprovante de outro aluno pelo id sequencial.
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `${crypto.randomUUID()}${ext}`);
-  },
-});
 
 const receiptUpload = multer({
-  storage,
+  // Em memória em vez de disco: o arquivo é enviado pro Supabase Storage
+  // logo em seguida (ver src/lib/storage.ts), não fica persistido localmente.
+  storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     const isAllowed =

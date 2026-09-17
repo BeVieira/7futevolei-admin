@@ -41,7 +41,7 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/prisma ./prisma
 
-RUN mkdir -p uploads/receipts && chown -R node:node /app
+RUN chown -R node:node /app
 USER node
 
 EXPOSE 3333

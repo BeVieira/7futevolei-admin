@@ -84,7 +84,7 @@ const options: swaggerJsdoc.Options = {
             enrollmentId: { type: "integer", example: 1 },
             filePath: {
               type: "string",
-              example: "uploads/receipts/enrollment-1-1700000000000.jpg",
+              example: "https://xxxx.supabase.co/storage/v1/object/public/receipts/uuid.jpg",
             },
             mimeType: { type: "string", example: "image/jpeg" },
             status: {

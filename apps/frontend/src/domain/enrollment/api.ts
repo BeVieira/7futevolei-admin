@@ -1,8 +1,8 @@
 import { MyEnrollmentSummary, Side } from "./types";
-import { apiFetch, handleResponse } from "@utils";
+import { API_BASE_URL, apiFetch, handleResponse } from "@utils";
 
-const BASE_URL = "/api/class-sessions";
-const ENROLLMENTS_URL = "/api/enrollments";
+const BASE_URL = `${API_BASE_URL}/class-sessions`;
+const ENROLLMENTS_URL = `${API_BASE_URL}/enrollments`;
 
 function enrollStudentInClass(
   classId: number,

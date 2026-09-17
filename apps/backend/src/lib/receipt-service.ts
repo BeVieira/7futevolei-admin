@@ -1,7 +1,6 @@
 import { Prisma } from "@prisma/client";
-import fs from "fs/promises";
-import path from "path";
 import { prisma } from "./prisma";
+import { deleteReceiptObject } from "./storage";
 
 export class ReceiptNotFoundError extends Error {
   constructor(message = "Receipt not found") {
@@ -10,22 +9,20 @@ export class ReceiptNotFoundError extends Error {
   }
 }
 
-const BACKEND_ROOT = path.join(__dirname, "..", "..");
-
 type UploadedFile = {
   filePath: string;
   mimeType: string;
 };
 
 // Um Receipt por Enrollment (relação 1–1): reenviar sobrescreve o arquivo
-// anterior no disco e reseta o status para PENDING, em vez de acumular um
-// histórico de N arquivos por inscrição.
+// anterior no Supabase Storage e reseta o status para PENDING, em vez de
+// acumular um histórico de N arquivos por inscrição.
 export async function submitReceipt(enrollmentId: number, file: UploadedFile) {
   await prisma.enrollment.findUniqueOrThrow({ where: { id: enrollmentId } });
 
   const existing = await prisma.receipt.findUnique({ where: { enrollmentId } });
   if (existing) {
-    await fs.unlink(path.join(BACKEND_ROOT, existing.filePath)).catch(() => {});
+    await deleteReceiptObject(existing.filePath);
   }
 
   return prisma.receipt.upsert({
