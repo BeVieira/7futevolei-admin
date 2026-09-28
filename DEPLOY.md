@@ -9,7 +9,10 @@ comprovantes no Supabase. Dentro do free tier dos três, sem cartão cobrado.
 ```
 Navegador → https://<app>.vercel.app          (front estático, Vercel)
                     │
-                    │ fetch cross-origin, com cookies (credentials: include)
+                    │ fetch /api/* (mesma origem, com cookies)
+                    ▼
+            rewrite do vercel.json (proxy no edge da Vercel)
+                    │
                     ▼
             https://<backend>.onrender.com    (Express, Render)
                     │
@@ -17,11 +20,16 @@ Navegador → https://<app>.vercel.app          (front estático, Vercel)
                     └─ Comprovantes → Supabase Storage (bucket público)
 ```
 
-Diferente do Railway (onde front e back ficavam atrás do mesmo domínio, via
-proxy interno) e diferente do que eu tinha desenhado antes pra Render+Render
-(mesma ideia de proxy interno): aqui **front e back são origens diferentes
-de verdade**. Isso mudou código, não só configuração — ver a seção
-"O que mudou no código" mais abaixo.
+Igual ao Railway (onde front e back ficavam atrás do mesmo domínio via proxy
+interno): o `vercel.json` tem um rewrite de `/api/*` pro backend no Render,
+então do ponto de vista do navegador a API é **mesma origem** — só o proxy
+da Vercel fala com o Render por fora. Chegamos a tirar esse rewrite achando
+que domínios diferentes (Vercel/Render) obrigavam cross-origin de verdade,
+mas não é o caso: qualquer destino externo funciona num rewrite, igual
+funcionava com o Railway. Sem o proxy, o cookie de sessão precisa de
+`SameSite=None`, que o Safari/iOS trata como rastreamento entre sites e
+descarta — login parecia funcionar e a sessão caía na hora seguinte,
+especificamente no Safari mobile. Ver "O que mudou no código" mais abaixo.
 
 ---
 
@@ -87,41 +95,39 @@ de verdade**. Isso mudou código, não só configuração — ver a seção
    padrão).
 3. **Environment Variables**:
    ```
-   VITE_API_URL=https://7futevolei-backend.onrender.com/api
+   VITE_API_URL=/api
    ```
-   Troque pela URL real do Passo 2.6. **Importante**: variáveis `VITE_*`
-   são embutidas no build (não lidas em runtime) — se trocar depois, precisa
-   fazer um novo deploy pra valer.
+   Igual ao dev: o front chama `/api` relativo, e o rewrite do
+   `apps/frontend/vercel.json` (`/api/:path*` → URL do Render) é quem manda
+   pro backend de verdade — mesma origem do ponto de vista do navegador.
+   Se o rewrite ainda aponta pra outra URL do Render, atualize
+   `apps/frontend/vercel.json` com a URL real do Passo 2.6 antes do deploy.
 4. **Deploy**. Anote a URL final (`https://<algo>.vercel.app`, ou o domínio
    customizado se você já configurar um).
-5. Volte no serviço do backend no Render → Environment → atualize
-   `CORS_ORIGIN` com essa URL exata (com `https://`, sem barra no final) →
-   salvar (redeploya sozinho).
+5. (Opcional) Volte no serviço do backend no Render → Environment → setar
+   `CORS_ORIGIN` com essa URL. Como o navegador só fala com a Vercel (o
+   proxy do rewrite é quem chama o Render, servidor pra servidor), CORS não
+   entra mais em jogo pro app em si — só vale a pena setar se for chamar o
+   Render diretamente por fora do front (ex: Swagger UI em `/docs`).
 
 ---
 
 ## O que mudou no código pra isso funcionar
 
-Front e back em domínios diferentes é "cross-origin" de verdade — sem essas
-mudanças, login e as chamadas autenticadas simplesmente não funcionariam
-(cookie de sessão não seria nem enviado nem aceito):
-
-- **`apps/frontend/src/utils/http.ts`**: todas as chamadas passaram a
-  mandar `credentials: "include"` — sem isso o navegador nem envia os
-  cookies httpOnly de sessão numa requisição cross-site.
-- **Todo `src/domain/*/api.ts`**: as URLs relativas (`/api/...`) viraram
-  absolutas, montadas a partir de `VITE_API_URL` — uma URL relativa chamaria
-  o próprio domínio da Vercel, que não tem `/api` nenhum.
+- **`apps/frontend/vercel.json`**: rewrite de `/api/:path*` pro Render,
+  igual ao que existia pro Railway — é o que mantém a API "mesma origem" do
+  ponto de vista do navegador.
+- **`apps/frontend/src/utils/http.ts`** e todo `src/domain/*/api.ts`:
+  `credentials: "include"` nas chamadas e `VITE_API_URL` (que em produção
+  também é `/api`, igual ao dev) — mantidos porque não atrapalham e deixam
+  a base de URL centralizada num lugar só.
 - **`apps/backend/src/controllers/auth.controller.ts`**: os cookies de
-  sessão usavam `SameSite=Lax`, que o navegador **não envia** em
-  requisições cross-site feitas por `fetch`/XHR (só em navegação de
-  top-level, tipo clicar num link). Em produção agora é `SameSite=None` +
-  `Secure` (exige HTTPS, que o Render já dá de graça). Em dev continua
-  `Lax` porque front e back seguem na mesma origem ali (proxy do Vite) e
-  `None` sem HTTPS local seria descartado pelo navegador.
-- **`CORS_ORIGIN`** deixou de ser opcional: sem a origem exata da Vercel
-  configurada, o navegador bloqueia a resposta antes mesmo dela chegar no
-  código do front.
+  sessão usam `SameSite=Lax` (não `None`) — como o navegador só fala com a
+  Vercel, o cookie que ele recebe é first-party de verdade, `Lax` de
+  verdade funciona, e evita o descarte do cookie que o Safari/iOS faz com
+  `SameSite=None` em requisição cross-site.
+- **`CORS_ORIGIN`** continua existindo no backend mas é opcional agora — só
+  importa pra quem chamar o Render direto (fora do proxy da Vercel).
 
 ## Variáveis de ambiente: o que migra do Railway e o que é novo
 
@@ -133,7 +139,7 @@ mudanças, login e as chamadas autenticadas simplesmente não funcionariam
 | `SUPABASE_URL` | Passo 1.3 | **novo** |
 | `SUPABASE_SECRET_KEY` | Passo 1.3 | **novo** |
 | `SUPABASE_STORAGE_BUCKET` | `receipts` | **novo**, fixo |
-| `CORS_ORIGIN` | URL da Vercel (Passo 3.4) | **novo valor** — no Railway era vazio ou outra coisa; aqui é obrigatório e é a URL da Vercel |
+| `CORS_ORIGIN` | URL da Vercel (Passo 3.4), opcional | **novo valor**, mas não obrigatório — o front chama via proxy da Vercel, não direto |
 | `SUPABASE_PUBLISHABLE_KEY` | (o que você setou) | não usado pelo código, pode deixar ou remover |
 | `SUPABASE_JWKS_URL` | — | **não precisa**, não usado pelo código |
 | `PORT` | não setar | Render usa o `EXPOSE` do Dockerfile |
@@ -182,9 +188,9 @@ O `.env` local do backend (`apps/backend/.env.example`) precisa de
 sempre vão pro Supabase Storage, em qualquer ambiente, não existe mais disco
 local. `DATABASE_URL` do `docker-compose` continua apontando pro Postgres
 local (`db` no compose); só em produção (Render) é que `DATABASE_URL`
-aponta pro Supabase. `VITE_API_URL` do front continua `/api` em dev (proxy
-do Vite, mesma origem) — só em produção (Vercel) vira a URL absoluta do
-Render.
+aponta pro Supabase. `VITE_API_URL` do front é `/api` tanto em dev (proxy
+do Vite) quanto em produção (rewrite do `vercel.json`) — em ambos os casos
+é mesma origem do ponto de vista do navegador.
 
 ## Limitações do free tier
 

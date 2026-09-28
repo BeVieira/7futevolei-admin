@@ -17,18 +17,16 @@ import {
 import { loginSchema } from "../schemas/auth.schema";
 
 function setSessionCookies(res: Response, tokens: AdminSessionTokens) {
-  // Front (Vercel) e back (Render) são origens diferentes em produção, então
-  // o cookie precisa de `SameSite=None` pra ir em requisições cross-site —
-  // e `None` só é aceito pelo navegador junto com `Secure`. Em dev o front
-  // acessa a API via proxy do Vite (mesma origem, HTTP), onde `None`+`Secure`
-  // faria o navegador *descartar* o cookie — por isso o par continua preso a
-  // `NODE_ENV`, não é uma escolha independente.
+  // Front (Vercel) chama a API por um rewrite (`vercel.json`) que proxeia
+  // `/api/*` pro backend no Render — do ponto de vista do navegador isso é
+  // mesma origem, então o cookie pode ser `SameSite=Lax` de verdade (o
+  // Safari/iOS trata cookie `SameSite=None` de requisição cross-site como
+  // rastreamento e descarta, o que derrubava a sessão logo após o login).
   const secure = process.env.NODE_ENV === "production";
-  const sameSite = secure ? "none" : "lax";
 
   res.cookie(ADMIN_COOKIE_NAME, tokens.accessToken, {
     httpOnly: true,
-    sameSite,
+    sameSite: "lax",
     secure,
     maxAge: ADMIN_COOKIE_MAX_AGE_MS,
     path: "/",
@@ -36,7 +34,7 @@ function setSessionCookies(res: Response, tokens: AdminSessionTokens) {
 
   res.cookie(ADMIN_REFRESH_COOKIE_NAME, tokens.refreshToken, {
     httpOnly: true,
-    sameSite,
+    sameSite: "lax",
     secure,
     maxAge: ADMIN_REFRESH_COOKIE_MAX_AGE_MS,
     path: ADMIN_REFRESH_COOKIE_PATH,
