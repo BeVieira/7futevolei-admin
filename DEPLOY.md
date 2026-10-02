@@ -81,7 +81,13 @@ especificamente no Safari mobile. Ver "O que mudou no código" mais abaixo.
    CORS_ORIGIN=<URL da Vercel, ver Passo 3 — pode voltar aqui depois>
    GOOGLE_CLIENT_ID=<Client ID do OAuth do Google>
    ADMIN_EMAILS=<e-mails Google dos admins, separados por vírgula>
+   TRUST_PROXY_HOPS=4
    ```
+   `TRUST_PROXY_HOPS=4` é a estimativa pra cadeia rewrite da Vercel (1) →
+   proxies do Render (~3, segundo a comunidade do Render). **Confira**
+   depois do deploy: com o valor certo, o rate limit de login é por
+   aluno/rede; com valor baixo demais, todo mundo divide o mesmo contador
+   (o login começa a responder "Muitas tentativas" pra turma inteira).
 5. **Create Web Service**. O primeiro deploy builda a imagem e sobe o
    container, que já roda `prisma migrate deploy` sozinho (está no
    `Dockerfile`). Não há seed: o admin entra com Google, com o e-mail em
@@ -99,7 +105,14 @@ especificamente no Safari mobile. Ver "O que mudou no código" mais abaixo.
 3. **Environment Variables**:
    ```
    VITE_API_URL=/api
+   VITE_GOOGLE_CLIENT_ID=<o mesmo GOOGLE_CLIENT_ID do backend>
    ```
+   No console do Google (APIs e serviços → Credenciais → o Client ID),
+   cadastre a URL da Vercel em **Origens JavaScript autorizadas** e
+   `<URL da Vercel>/api/auth/google/callback` em **URIs de
+   redirecionamento autorizados** — o login usa o fluxo de redirect do
+   Google, que posta o resultado nesse endereço (via rewrite, chega no
+   backend).
    Igual ao dev: o front chama `/api` relativo, e o rewrite do
    `apps/frontend/vercel.json` (`/api/:path*` → URL do Render) é quem manda
    pro backend de verdade — mesma origem do ponto de vista do navegador.
@@ -139,7 +152,8 @@ especificamente no Safari mobile. Ver "O que mudou no código" mais abaixo.
 | `DATABASE_URL` | connection string do Supabase (Passo 1.4) | **novo** — banco novo, não é o do Railway |
 | `JWT_SECRET` | valor novo (`openssl rand -base64 48`) | **novo** — banco novo, sem sessão antiga pra preservar |
 | `GOOGLE_CLIENT_ID` | Client ID do OAuth do Google (tipo "Aplicativo da Web") | **novo** — login só com Google |
-| `ADMIN_EMAILS` | e-mails Google dos admins, separados por vírgula | **novo** — substitui `ADMIN_USERNAME`/`ADMIN_PASSWORD` |
+| `ADMIN_EMAILS` | e-mails Google dos admins, separados por vírgula, exatamente como aparecem na conta Google | **novo** — substitui `ADMIN_USERNAME`/`ADMIN_PASSWORD` |
+| `TRUST_PROXY_HOPS` | `4` (conferir — ver Passo 2.4) | **novo** — rate limit por IP atrás dos proxies |
 | `SUPABASE_URL` | Passo 1.3 | **novo** |
 | `SUPABASE_SECRET_KEY` | Passo 1.3 | **novo** |
 | `SUPABASE_STORAGE_BUCKET` | `receipts` | **novo**, fixo |

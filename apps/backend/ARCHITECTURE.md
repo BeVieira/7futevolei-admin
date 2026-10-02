@@ -12,6 +12,7 @@ o produto, não sobre a organização do código.
 src/
   routes/          # Express Router + doc OpenAPI, um arquivo por recurso
     class-session.routes.ts
+    user.routes.ts            # busca de usuários (admin) e edição do próprio perfil
   controllers/     # um handler por endpoint: valida, chama lib/, serializa a resposta
     class-session.controller.ts
   schemas/         # validação de payload com Zod
@@ -83,12 +84,12 @@ Três peças, cada uma num arquivo de `lib/`:
   de variável de ambiente", abaixo).
 - **`auth-service.ts`** — regra da sessão: `upsertUserFromGoogle` (upsert
   por `googleId`, não sobrescreve `name`, papel recalculado por
-  `ADMIN_EMAILS`), `issueSession` (emite o **par** access+refresh via JWT
-  com `{ sub: userId, role, jti, type }`, cada um com seu `jti` gravado em
-  `User.currentJti`/`currentRefreshJti` pra permitir revogar antes de
-  expirar), `refreshSession`, `invalidateSession`, `isSessionActive` e
+  `ADMIN_EMAILS` e mudança de papel no log), `issueSession`,
+  `refreshSession`, `invalidateSession`, `isSessionActive` e
   `toUserProfile` (o shape `{ id, name, email, photoUrl, role }` que
-  `/auth/google`, `/auth/refresh` e `/auth/me` devolvem).
+  `/auth/google`, `/auth/refresh`, `/auth/me` e `PATCH /users/me`
+  devolvem). Detalhes da sessão em "Sessão: uma linha de `Session` por
+  aparelho", abaixo.
 - **`requireAuth.ts`** — os dois middlewares Express. Ambos leem o cookie
   `access_token`, verificam assinatura e conferem `isSessionActive` (o
   `jti` do token ainda é o vigente no banco), respondendo `401` se
@@ -111,6 +112,75 @@ refresh token e emitir um par novo, invalidando o par anterior — é assim
 que o front renova a sessão sem pedir login de novo quando o access token
 de 5min expira.
 
+### Sessão: uma linha de `Session` por aparelho
+
+Cada login cria um registro em `Session` (`id` = `sid` no token,
+`accessJti`, `refreshJti`, `previousRefreshJti`, `lastUsedAt`,
+`expiresAt`); o JWT leva `{ sub: userId, role, jti, sid, type }`,
+assinado e verificado com `HS256` fixo. Multi-sessão: logar no celular não
+derruba o computador.
+
+- **`isSessionActive`** busca a sessão pela PK (`sid`) e confere que o
+  `jti` do access token é o `accessJti` gravado — é o que torna o JWT
+  revogável antes de expirar. Os middlewares continuam devolvendo só
+  `res.locals.user = { id, role }`.
+- **`refreshSession`** é um compare-and-swap: `updateMany({ where: { id,
+  refreshJti: <apresentado> } })` só rotaciona se o refresh ainda for o
+  vigente. O refresh da rotação anterior (`previousRefreshJti`) ainda é
+  aceito por 10s (`REFRESH_REUSE_GRACE_MS`) e recebe o par vigente
+  **reassinado** (mesmos `jti`, sem rotacionar de novo) — cobre duas abas
+  renovando juntas e o PWA do iOS que perdeu a resposta da renovação ao ir
+  pro segundo plano. Fora disso, `InvalidSessionError` (401 + limpa os
+  cookies). O **papel é recalculado** de `ADMIN_EMAILS` a cada renovação
+  (e gravado no `User` se mudou), nunca copiado do token antigo.
+- **Validade do refresh por papel** (`REFRESH_TTL_MS_BY_ROLE`): aluno 90
+  dias, admin 30. O cookie acompanha (`SessionTokens.refreshMaxAgeMs`).
+- **`invalidateSession`** (logout) apaga só a sessão do token apresentado.
+  `issueSession` aproveita o login pra apagar as sessões vencidas
+  (`expiresAt`) daquele usuário.
+- O `jti` fica puro no banco, sem hash: sozinho ele não vira token — falta
+  a assinatura com `JWT_SECRET`, que não está no banco.
+
+### Login com Google: JSON e callback de redirect
+
+Duas portas pro mesmo `startSessionFromGoogle` (`auth.controller.ts`):
+
+- `POST /api/auth/google` — JSON `{ credential }`, responde JSON. Fica pra
+  quem obtiver o ID token por conta própria (ex: Swagger, popup).
+- `POST /api/auth/google/callback` — o `login_uri` do fluxo de redirect
+  do Google Identity Services, que é o que o front usa (motivo em
+  `apps/frontend/ARCHITECTURE.md`). Recebe um **formulário**
+  (`express.urlencoded` só nessa rota), exige o double-submit
+  `g_csrf_token` (cookie == campo do corpo) e responde sempre com **303**
+  pra `/login?status=ok` ou `/login?erro=<código>` — caminho relativo, pra
+  o navegador resolver na origem do front (em produção a requisição chega
+  pelo rewrite da Vercel).
+
+Os erros de login (`InvalidGoogleCredentialError` → 401,
+`GoogleLoginNotConfiguredError` → 503, `P2002` de e-mail já usado por
+outra conta Google → 409) passam por `toLoginFailure`, que devolve status
+**e** código, pra cada porta responder do seu jeito.
+
+### `trust proxy` e rate limit
+
+Os rate limits (login, push) contam por `req.ip`. Atrás de proxy, o Express
+só lê o IP real do `X-Forwarded-For` se souber quantos saltos confiar:
+`TRUST_PROXY_HOPS` (env, padrão 0) vira `app.set("trust proxy", N)` em
+`src/index.ts`. Valor errado pra menos = todo mundo com o IP do proxy
+(limite global); pra mais = cliente forja o IP no header.
+
+### Visão pública × visão do admin no detalhe da turma
+
+`GET /api/class-sessions/:id` é público e devolve só nome e lado de cada
+inscrição. O admin usa `GET /api/class-sessions/:id/admin`
+(`requireAdmin`), que acrescenta `userId` (null = convidado) e o
+comprovante. Foi uma rota própria, e não a rota pública lendo a sessão de
+forma opcional, porque o cookie do access token expira junto com o token
+(5 min): depois disso o navegador simplesmente não manda cookie nenhum, a
+leitura opcional enxergaria um anônimo e devolveria a visão pública **sem
+erro** — e o front só renova a sessão quando recebe 401. Com
+`requireAdmin`, a falta de cookie vira 401, o front renova e repete.
+
 Rotas públicas, de aluno e de admin convivem no **mesmo** `Router`
 (`classSessionRouter`), então o middleware entra como argumento extra
 **por rota**, não como `router.use(...)` no arquivo inteiro — mesmo
@@ -132,6 +202,11 @@ classSessionRouter.post(
   asyncHandler(submitReceipt),
 );
 ```
+
+`userRouter` (`/api/users`) segue o mesmo padrão: `GET /` (busca por nome
+ou e-mail, até 20, pra o admin escolher quem inscrever) com
+`requireAdmin`, `PATCH /me` (o próprio usuário troca o nome exibido) com
+`requireAuth`.
 
 Os middlewares são `async` (conferem `isSessionActive` no banco), mas
 tratam os próprios erros com `try/catch` internamente — por isso não

@@ -1,9 +1,10 @@
 import { Request, Response } from "express";
+import { Prisma } from "@prisma/client";
 import {
   ACCESS_COOKIE_MAX_AGE_MS,
   ACCESS_COOKIE_NAME,
   InvalidSessionError,
-  REFRESH_COOKIE_MAX_AGE_MS,
+  LEGACY_COOKIES,
   REFRESH_COOKIE_NAME,
   REFRESH_COOKIE_PATH,
   SessionTokens,
@@ -20,7 +21,10 @@ import {
   verifyGoogleCredential,
 } from "../lib/google-auth";
 import { prisma } from "../lib/prisma";
-import { googleLoginSchema } from "../schemas/auth.schema";
+import {
+  googleLoginSchema,
+  googleRedirectLoginSchema,
+} from "../schemas/auth.schema";
 
 function setSessionCookies(res: Response, tokens: SessionTokens) {
   // Front (Vercel) chama a API por um rewrite (`vercel.json`) que proxeia
@@ -42,7 +46,7 @@ function setSessionCookies(res: Response, tokens: SessionTokens) {
     httpOnly: true,
     sameSite: "lax",
     secure,
-    maxAge: REFRESH_COOKIE_MAX_AGE_MS,
+    maxAge: tokens.refreshMaxAgeMs,
     path: REFRESH_COOKIE_PATH,
   });
 }
@@ -50,6 +54,49 @@ function setSessionCookies(res: Response, tokens: SessionTokens) {
 function clearSessionCookies(res: Response) {
   res.clearCookie(ACCESS_COOKIE_NAME, { path: "/" });
   res.clearCookie(REFRESH_COOKIE_NAME, { path: REFRESH_COOKIE_PATH });
+}
+
+function clearLegacyCookies(res: Response) {
+  for (const cookie of LEGACY_COOKIES) {
+    res.clearCookie(cookie.name, { path: cookie.path });
+  }
+}
+
+// Erros do login com Google que viram uma resposta específica (o resto
+// segue pro error handler global, 500). Compartilhado pelo login via JSON e
+// pelo callback do fluxo de redirect, que respondem de jeitos diferentes.
+type LoginFailure = { status: number; code: string; message: string };
+
+function toLoginFailure(error: unknown): LoginFailure | null {
+  if (error instanceof InvalidGoogleCredentialError) {
+    return { status: 401, code: "credencial", message: error.message };
+  }
+  if (error instanceof GoogleLoginNotConfiguredError) {
+    return { status: 503, code: "configuracao", message: error.message };
+  }
+  // Único campo único que o upsert por `googleId` pode violar é o e-mail:
+  // outra conta Google (outro `googleId`) com o mesmo e-mail já cadastrado.
+  if (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2002"
+  ) {
+    return {
+      status: 409,
+      code: "email-em-uso",
+      message: "Este e-mail já está vinculado a outra conta Google",
+    };
+  }
+  return null;
+}
+
+async function startSessionFromGoogle(res: Response, credential: string) {
+  const profile = await verifyGoogleCredential(credential);
+  const user = await upsertUserFromGoogle(profile);
+
+  const tokens = await issueSession(user);
+  setSessionCookies(res, tokens);
+
+  return user;
 }
 
 export async function loginWithGoogle(req: Request, res: Response) {
@@ -61,20 +108,52 @@ export async function loginWithGoogle(req: Request, res: Response) {
   }
 
   try {
-    const profile = await verifyGoogleCredential(result.data.credential);
-    const user = await upsertUserFromGoogle(profile);
-
-    const tokens = await issueSession(user);
-    setSessionCookies(res, tokens);
-
+    const user = await startSessionFromGoogle(res, result.data.credential);
     res.json(toUserProfile(user));
   } catch (error) {
-    if (error instanceof InvalidGoogleCredentialError) {
-      res.status(401).json({ error: error.message });
+    const failure = toLoginFailure(error);
+    if (failure) {
+      res.status(failure.status).json({ error: failure.message });
       return;
     }
-    if (error instanceof GoogleLoginNotConfiguredError) {
-      res.status(503).json({ error: error.message });
+    throw error;
+  }
+}
+
+// Fim do fluxo de redirect do Google Identity Services (`ux_mode:
+// "redirect"`, usado pelo front — ver apps/frontend/ARCHITECTURE.md): o
+// Google faz um POST de formulário pra cá com o `credential`, e a resposta é
+// uma navegação de página inteira, não um fetch. Por isso nada de JSON: o
+// resultado volta pro front como redirect 303 (vira GET) pra `/login`, com
+// `?status=ok` ou `?erro=<código>`. O caminho é relativo de propósito — em
+// produção a requisição chega pelo rewrite da Vercel, e o navegador resolve
+// o redirect na origem do front, onde os cookies acabaram de ser gravados.
+//
+// `g_csrf_token` é o double-submit do Google: a biblioteca grava o mesmo
+// valor num cookie da nossa origem e no corpo do POST. Um formulário forjado
+// por outro site não consegue ler nem gravar esse cookie, então os dois
+// precisam bater — senão alguém poderia logar a vítima na conta dele.
+export async function loginWithGoogleRedirect(req: Request, res: Response) {
+  const result = googleRedirectLoginSchema.safeParse(req.body);
+
+  if (!result.success) {
+    res.redirect(303, "/login?erro=credencial");
+    return;
+  }
+
+  const csrfCookie = req.cookies?.g_csrf_token;
+  if (!csrfCookie || csrfCookie !== result.data.g_csrf_token) {
+    res.redirect(303, "/login?erro=csrf");
+    return;
+  }
+
+  try {
+    await startSessionFromGoogle(res, result.data.credential);
+    res.redirect(303, "/login?status=ok");
+  } catch (error) {
+    const failure = toLoginFailure(error);
+    if (failure) {
+      res.redirect(303, `/login?erro=${failure.code}`);
       return;
     }
     throw error;
@@ -113,10 +192,11 @@ export async function logout(req: Request, res: Response) {
     null;
 
   if (payload) {
-    await invalidateSession(payload.sub);
+    await invalidateSession(payload);
   }
 
   clearSessionCookies(res);
+  clearLegacyCookies(res);
   res.status(204).send();
 }
 

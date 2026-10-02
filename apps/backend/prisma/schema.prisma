@@ -47,12 +47,16 @@ model ClassSession {
 // inscrito pelo admin só pelo nome (`guestName`) — exatamente um dos dois,
 // garantido pelo enrollment-service e por um CHECK na migration. O nome
 // exibido de quem tem `userId` é sempre o `User.name` atual (join), nunca
-// uma cópia.
+// uma cópia. `onDelete: Restrict` no usuário: apagar a conta direto no
+// banco apagaria as inscrições em cascata sem passar pela promoção da lista
+// de espera (enrollment-service) e levaria os comprovantes junto — hoje não
+// existe "excluir conta"; quando existir, precisa cancelar as inscrições
+// pelo service antes.
 model Enrollment {
   id                    Int              @id @default(autoincrement())
   classSession          ClassSession     @relation(fields: [classSessionId], references: [id], onDelete: Cascade)
   classSessionId        Int
-  user                  User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                  User?            @relation(fields: [userId], references: [id], onDelete: Restrict)
   userId                Int?
   guestName             String?
   side                  Side
@@ -79,12 +83,32 @@ model User {
   name              String
   photoUrl          String?
   role              UserRole           @default(STUDENT)
-  currentJti        String?
-  currentRefreshJti String?
+  sessions          Session[]
   enrollments       Enrollment[]
   pushSubscriptions PushSubscription[]
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
+}
+
+// Uma sessão por aparelho/navegador logado (multi-sessão: logar no celular
+// não derruba o computador). Guarda o `jti` vigente de cada token do par —
+// é isso que torna os JWTs revogáveis antes de expirar. Refresh rotaciona os
+// dois `jti` só desta sessão; logout apaga só esta sessão.
+// `previousRefreshJti` + `lastUsedAt` (momento da última rotação) dão a
+// tolerância curta pra renovação concorrente com o mesmo refresh antigo, e
+// `expiresAt` permite varrer sessões vencidas (ver auth-service.ts).
+model Session {
+  id                 String   @id
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId             Int
+  accessJti          String
+  refreshJti         String
+  previousRefreshJti String?
+  createdAt          DateTime @default(now())
+  lastUsedAt         DateTime @default(now())
+  expiresAt          DateTime
+
+  @@index([userId])
 }
 
 model Receipt {

@@ -13,6 +13,19 @@ import { pushRouter } from "./routes/push.routes";
 const app = express();
 const port = process.env.PORT ?? 3333;
 
+// Quantos proxies confiáveis existem entre o usuário e o Express — o
+// `req.ip` (usado pelos rate limits de login e de push) é lido do
+// X-Forwarded-For pulando exatamente esse número de saltos. Errar pra menos
+// faz todo mundo "ter o IP do proxy" (o limite vira global); errar pra mais
+// deixa o cliente forjar o próprio IP no header. Em dev é 0 (o proxy do
+// Vite não manda X-Forwarded-For). Em produção o valor depende da cadeia
+// rewrite da Vercel → proxies do Render — ver TRUST_PROXY_HOPS no
+// .env.example e no DEPLOY.md.
+const trustProxyHops = Number(process.env.TRUST_PROXY_HOPS ?? 0);
+if (Number.isInteger(trustProxyHops) && trustProxyHops > 0) {
+  app.set("trust proxy", trustProxyHops);
+}
+
 // Em dev o front acessa a API via proxy do Vite (mesma origem), então
 // CORS_ORIGIN fica vazio e nada externo é liberado. Em produção, setar
 // pra origem pública do front (ou lista separada por vírgula).

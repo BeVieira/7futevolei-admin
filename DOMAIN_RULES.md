@@ -32,24 +32,32 @@ faz upsert do `User` pelo id da conta Google:
 - **Logins seguintes** atualizam e-mail e foto (a foto é a URL do Google,
   não guardamos arquivo), mas **não** o nome — o nome é editável pelo
   próprio usuário e o que ele escolheu prevalece.
-- **Papel recalculado a cada login:** `ADMIN` se o e-mail está em
-  `ADMIN_EMAILS` (env do backend, lista separada por vírgula, sem
-  diferenciar maiúsculas), senão `STUDENT`. Tirar um e-mail da lista
-  rebaixa a conta no próximo login (ou na próxima renovação de sessão,
-  que relê o papel do banco — ver abaixo).
+- **Papel recalculado a cada login e a cada renovação de sessão:**
+  `ADMIN` se o e-mail está em `ADMIN_EMAILS` (env do backend, lista
+  separada por vírgula, sem diferenciar maiúsculas), senão `STUDENT`.
+  Tirar um e-mail da lista rebaixa a conta na próxima renovação — em até
+  5 minutos, o tempo de vida do access token em uso —, sem precisar que a
+  pessoa saia e entre de novo. Toda mudança de papel fica no log do
+  backend.
+- **E-mail já usado por outra conta Google:** se uma conta Google nova
+  chega com um e-mail que já pertence a outro usuário cadastrado, o login
+  é recusado (`409`, "Este e-mail já está vinculado a outra conta
+  Google") — não se mescla nem se sobrescreve conta.
 
 **O que exige login:**
 
 - **Público (sem login):** ver datas, turmas, vagas, nomes dos inscritos e
-  a lista de espera.
+  a lista de espera — só os nomes: a visão pública não diz quem é
+  convidado nem mostra comprovantes.
 - **Qualquer usuário logado:** se inscrever, cancelar a própria inscrição,
   ver "minhas aulas" e enviar comprovante — sempre **da própria conta**: a
   identidade vem da sessão, nunca de um nome digitado. Comprovante só é
   aceito para inscrição do próprio usuário (de outro, ou de convidado,
   responde `404`). Sem sessão, essas rotas respondem `401`.
 - **Só admin:** criar/editar/remover turma, remover inscrição, inscrever
-  alguém (um usuário cadastrado ou um convidado pelo nome) e
-  aprovar/negar comprovante. Sem sessão `401`; com sessão de aluno `403`.
+  alguém (um usuário cadastrado, escolhido por busca de nome/e-mail, ou um
+  convidado pelo nome), ver os comprovantes e quem é convidado nas turmas,
+  e aprovar/negar comprovante. Sem sessão `401`; com sessão de aluno `403`.
 
 **Convidado:** inscrição feita pelo admin só com um nome, para quem não
 tem (ou não quer) conta. Ocupa vaga e entra na fila igual a qualquer
@@ -58,39 +66,44 @@ remove) e não tem tela de comprovante.
 
 **Nome exibido = `User.name` atual** (join, não cópia): trocar o nome no
 perfil muda o nome em todas as listas, inclusive em turmas passadas.
-Convidado aparece com o nome digitado pelo admin.
+Convidado aparece com o nome digitado pelo admin; a etiqueta "convidado"
+aparece **só na visão do admin**.
+
+### Perfil
+
+Todo usuário logado tem uma página de perfil (`/perfil`, aberta pela foto
+no cabeçalho) com a foto do Google, o **nome editável** (1 a 100
+caracteres, espaços nas pontas removidos), o e-mail (só leitura — vem do
+Google), as notificações do aparelho e o botão de sair. O nome escolhido
+ali nunca é sobrescrito pelo Google nos logins seguintes; a foto, sim.
 
 ### Sessão
 
-Login devolve dois JWTs em cookies `httpOnly` — access token e refresh
-token — com `{ sub: userId, role, jti }`. O access token expira em 5
-minutos; o refresh token expira em **90 dias** (o app instalado no celular
-não deve pedir login toda semana) e cada renovação emite um novo, então
-quem abre o app pelo menos uma vez a cada 90 dias não precisa logar de
-novo. `User.currentJti`/`currentRefreshJti` guardam o `jti` vigente de
-cada um: login gera os dois e grava; toda rota protegida confere que o
-`jti` do access token ainda bate com o gravado no banco
-(`isSessionActive`). Quando o access token expira, o front chama
-`POST /api/auth/refresh` (cookie do refresh token, path restrito a
-`/api/auth`) pra renovar a sessão sem pedir login de novo — a renovação
-**sempre emite um par novo e invalida o par anterior** (o `jti` antigo de
-cada token deixa de bater com o gravado no banco), então tanto o access
-quanto o refresh token usados nessa renovação não servem mais depois
-dela. O papel do token renovado vem do banco, não do token antigo. Logout
-zera os dois campos, invalidando o par vigente de fato — não é só limpar
-cookie no navegador. Verificação/aprovação de comprovante continua sendo
-feita por uma pessoa (não é verificação automática de pagamento).
+**Uma sessão por aparelho/navegador** — logar no celular não derruba o
+computador, e o Safari e o app instalado no iPhone (que não compartilham
+cookies) ficam logados ao mesmo tempo. Login devolve dois JWTs em cookies
+`httpOnly` — access token (5 minutos) e refresh token. O backend guarda,
+por sessão, o identificador vigente de cada token, então toda rota
+protegida confere que o access token ainda é o da sessão — sair revoga de
+fato, não é só limpar cookie no navegador.
 
-**Limitações aceitas:**
+- **Renovação automática:** quando o access token expira, o front chama
+  `POST /api/auth/refresh` e recebe um par novo sem pedir login de novo.
+  Cada renovação troca o par daquela sessão (o par anterior deixa de
+  valer) e estende a validade do refresh. Duas renovações quase
+  simultâneas da mesma sessão (duas abas, ou o app do iPhone voltando do
+  segundo plano no meio de uma renovação) não derrubam a sessão: por 10
+  segundos o refresh anterior ainda é aceito.
+- **Validade do refresh por papel:** aluno **90 dias**, admin **30 dias**
+  — contados da última renovação. Quem abre o app pelo menos uma vez
+  nesse prazo nunca precisa logar de novo; o prazo menor do admin limita
+  um aparelho esquecido logado com acesso administrativo.
+- **Sair** encerra só a sessão daquele aparelho/navegador; as dos outros
+  aparelhos continuam. Antes de encerrar, o app desativa as notificações
+  push daquele aparelho (sem bloquear a saída se isso falhar).
 
-- **Uma sessão por conta.** Como só existe um par de `jti` por usuário,
-  logar num segundo aparelho/navegador derruba a sessão do primeiro
-  (inclusive Safari × app instalado no iPhone, que não compartilham
-  cookies).
-- Como o refresh rotaciona (invalida) o par anterior, duas abas renovando
-  quase simultaneamente podem fazer uma delas perder a sessão (a segunda
-  renovação chega com o refresh token que a primeira já invalidou) —
-  nesse caso a aba afetada só precisa logar de novo.
+Verificação/aprovação de comprovante continua sendo feita por uma pessoa
+(não é verificação automática de pagamento).
 
 ## Vagas por lado, não por turma
 
@@ -135,9 +148,11 @@ Depois desse horário:
 - **O aluno que já está inscrito não consegue mais cancelar a própria
   vaga.** A tentativa de auto-cancelamento é rejeitada (API responde
   `409`); a inscrição continua exatamente como estava.
-- **O admin não remove inscrições manualmente** — não há essa opção na
-  tela administrativa. O admin só pode inscrever alguém (um usuário
-  cadastrado ou um convidado pelo nome, e o lado), turma trancada ou não.
+- **O admin continua podendo remover qualquer inscrição** (inclusive de
+  convidado) e inscrever alguém (um usuário cadastrado ou um convidado
+  pelo nome, e o lado), turma trancada ou não — a trava só vale pro
+  auto-cancelamento do aluno. Remover um confirmado promove o próximo da
+  fila daquele lado, como qualquer outra vaga liberada.
 - **Novas inscrições continuam funcionando normalmente** mesmo depois de
   trancada, incluindo cair em lista de espera — a trava só afeta
   cancelamento, não inscrição.
