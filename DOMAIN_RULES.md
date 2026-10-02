@@ -188,11 +188,76 @@ fora do Brasil ou o app expandir para outro fuso, esse deslocamento fixo
 (`BRAZIL_UTC_OFFSET_HOURS` em `apps/backend/src/lib/class-session-lock.ts`)
 precisa virar configurável.
 
+## Notificações (push)
+
+Notificação push no aparelho (Web Push; no iPhone, só com o app adicionado
+à tela de início). Cada aparelho ativa as notificações **para a conta
+logada** nele — a sessão identifica o dono, não um nome digitado. Um
+aparelho pertence a uma conta por vez: outra pessoa logando nele assume as
+notificações; sair da conta (logout) desativa as notificações daquele
+aparelho. Uma conta pode ter vários aparelhos, e todos recebem.
+
+**Quem recebe:** só inscrições de usuário (`userId`). **Convidado nunca
+recebe** — não tem conta nem aparelho.
+
+**Quando:**
+
+- **Saiu da lista de espera → confirmado** (por cancelamento de outro
+  aluno, remoção pelo admin ou aumento de capacidade): avisa quem foi
+  promovido. Abre "Minhas aulas".
+- **Admin removeu a inscrição:** avisa o aluno removido (confirmado ou na
+  espera). Abre o início.
+- **Admin excluiu a turma:** avisa todos os inscritos dela (confirmados e
+  na espera). Abre o início.
+- **Lembrete de cobrança:** a aula terminou e o comprovante não foi
+  enviado — avisa cada inscrito **confirmado** sem comprovante (ver
+  abaixo). Abre "Minhas aulas".
+
+Os três primeiros saem na hora da mudança e só se a aula ainda não
+terminou (mexer numa turma antiga não avisa ninguém). O texto sempre traz
+o nível, o dia (dd/mm) e o horário da aula. Falha no envio nunca desfaz a
+inscrição/remoção — o aviso é "melhor esforço".
+
+**Redução de capacidade** (confirmado voltando pra lista de espera) **não
+avisa** nesta versão — pergunta em aberto com o usuário se deve avisar.
+
+### Lembrete de cobrança
+
+- **No máximo uma vez por inscrição**, depois do horário de término da
+  aula (horário de Brasília). Enviar o comprovante antes do lembrete
+  cancela o lembrete.
+- Só aulas que terminaram **nas últimas 24h**: nunca chega cobrança de
+  aula antiga (ex: quem ativa as notificações hoje não recebe lembrete de
+  aulas de semanas atrás).
+- A inscrição é dada como lembrada **mesmo se o aluno não tiver nenhum
+  aparelho com notificação ativa** naquele momento — o lembrete é do fim
+  da aula, não fica guardado pra quando ele ativar.
+- **Produção:** um cron externo (cron-job.org) chama
+  `POST /api/jobs/receipt-reminders` às **7:05, 8:05, 9:05 e 10:05**
+  (America/Sao_Paulo) — as aulas são das 7h às 10h, então cada disparo
+  pega as aulas que acabaram de terminar. Uma aula que termine depois do
+  último disparo do dia é lembrada no das 7:05 seguinte (ainda dentro das
+  24h). Chamar a rota de novo nunca repete aviso.
+- **Dev local:** o próprio backend roda a mesma checagem a cada
+  `RECEIPT_REMINDER_INTERVAL_MS`, se definido (desligado por padrão).
+
+### Como o aluno ativa
+
+- No **perfil** (`/perfil`), card de notificações: ativar/desativar neste
+  aparelho.
+- **Convite** logo depois de se inscrever numa aula ("Quer ser avisado se
+  sair da lista de espera ou na hora de enviar o comprovante?"), dentro do
+  card da aula. Dispensável; não volta neste aparelho depois de dispensado
+  ou ativado, e não aparece se o aparelho não suporta, bloqueou ou já
+  ativou. No iPhone sem o app instalado, mostra como instalar.
+
 ## Fora de escopo (por enquanto)
 
 - Cobrança/pagamento de fato — o aviso de "mediante pagamento" na trava de
   lista é só um aviso de texto, não existe integração de cobrança.
-- Notificações (WhatsApp/e-mail/push).
+- Notificações por WhatsApp/e-mail, e os avisos push ainda não feitos:
+  comprovante avaliado, novo comprovante pro admin, lembrete de trava de
+  lista.
 - Automação da criação semanal de turmas.
 - Testes automatizados.
 - Deploy/produção (os Dockerfiles são voltados para desenvolvimento local).

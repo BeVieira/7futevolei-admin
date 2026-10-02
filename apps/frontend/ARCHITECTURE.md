@@ -856,4 +856,3 @@ pelo cookie. Nada de nome/id no payload. Consequências:
   convite esconder todos os que estiverem na tela.
 - **`PushInstallInstructions`** (global): o texto "adicione à tela de
   início", compartilhado pelos dois acima.
-
