@@ -334,7 +334,8 @@ deixar virar 500.
 
 ## Notificação: depois do commit, fora do retry, sem `await`
 
-Promoção da lista de espera, remoção pelo admin e exclusão de turma avisam
+Promoção da lista de espera, rebaixamento pra espera (redução de
+capacidade), remoção pelo admin e exclusão de turma avisam
 o aluno por push (`lib/enrollment-notifications.ts`). O aviso **nunca**
 sai de dentro do `prisma.$transaction`:
 
@@ -345,7 +346,7 @@ sai de dentro do `prisma.$transaction`:
   esperando o serviço de push aumenta a chance de conflito (`P2034`).
 
 Por isso a transação só **devolve quem foi afetado** (`promoted` — pares
-`{ enrollmentId, userId }`,
+`{ enrollmentId, userId }`, `demoted` no reencaixe de capacidade,
 a inscrição removida, os `userId` da turma excluída — lidos antes do
 `delete`) e a função exportada dispara o aviso depois que o
 `withSerializableRetry` retorna:

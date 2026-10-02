@@ -103,6 +103,23 @@ export async function notifyWaitlistPromotion(
   );
 }
 
+export async function notifyWaitlistDemotion(
+  classSession: ClassSessionInfo,
+  recipients: EnrollmentRecipient[],
+) {
+  if (recipients.length === 0 || !isStillRelevant(classSession)) return;
+
+  await notifyRecipients(
+    recipients,
+    {
+      title: "Você voltou para a lista de espera",
+      body: `A aula ${describeClassSession(classSession)} teve as vagas reduzidas e sua inscrição voltou para a lista de espera.`,
+      url: "/minhas-aulas",
+    },
+    untilClassEnds(classSession),
+  );
+}
+
 export async function notifyEnrollmentRemoved(
   classSession: ClassSessionInfo,
   recipient: EnrollmentRecipient,

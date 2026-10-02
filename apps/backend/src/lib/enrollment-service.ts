@@ -5,6 +5,7 @@ import {
   EnrollmentRecipient,
   notifyClassSessionDeleted,
   notifyEnrollmentRemoved,
+  notifyWaitlistDemotion,
   notifyWaitlistPromotion,
 } from "./enrollment-notifications";
 
@@ -89,13 +90,18 @@ async function getCounters(
   return { confirmedCount, waitlistCount, capacity };
 }
 
-// Devolve quem foi promovido da espera, pra avisar depois do commit.
+// Quem mudou de status num reencaixe, pra avisar depois do commit.
+type RebalanceOutcome = {
+  promoted: EnrollmentRecipient[];
+  demoted: EnrollmentRecipient[];
+};
+
 async function rebalanceSide(
   tx: Prisma.TransactionClient,
   classSessionId: number,
   side: Side,
   sideCapacity: number,
-): Promise<EnrollmentRecipient[]> {
+): Promise<RebalanceOutcome> {
   const confirmed = await tx.enrollment.findMany({
     where: { classSessionId, side, status: "CONFIRMED" },
     orderBy: { createdAt: "asc" },
@@ -107,11 +113,11 @@ async function rebalanceSide(
       where: { id: { in: toWaitlist.map(e => e.id) } },
       data: { status: "WAITLISTED" },
     });
-    return [];
+    return { promoted: [], demoted: recipientsOf(toWaitlist) };
   }
 
   const openSlots = sideCapacity - confirmed.length;
-  if (openSlots <= 0) return [];
+  if (openSlots <= 0) return { promoted: [], demoted: [] };
 
   const toPromote = await tx.enrollment.findMany({
     where: { classSessionId, side, status: "WAITLISTED" },
@@ -126,7 +132,7 @@ async function rebalanceSide(
     });
   }
 
-  return recipientsOf(toPromote);
+  return { promoted: recipientsOf(toPromote), demoted: [] };
 }
 
 /**
@@ -138,13 +144,16 @@ async function rebalanceEnrollments(
   tx: Prisma.TransactionClient,
   classSessionId: number,
   capacity: number,
-): Promise<EnrollmentRecipient[]> {
+): Promise<RebalanceOutcome> {
   const sideCapacity = sideCapacityOf(capacity);
-  const promoted = await Promise.all([
+  const sides = await Promise.all([
     rebalanceSide(tx, classSessionId, "LEFT", sideCapacity),
     rebalanceSide(tx, classSessionId, "RIGHT", sideCapacity),
   ]);
-  return promoted.flat();
+  return {
+    promoted: sides.flatMap(side => side.promoted),
+    demoted: sides.flatMap(side => side.demoted),
+  };
 }
 
 async function deleteAndPromoteNext(
@@ -347,7 +356,7 @@ export async function updateClassSessionWithRebalance(
   classSessionId: number,
   data: Prisma.ClassSessionUpdateInput,
 ) {
-  const { classSession, promoted } = await withSerializableRetry(() =>
+  const { classSession, promoted, demoted } = await withSerializableRetry(() =>
     prisma.$transaction(
       async tx => {
         const classSession = await tx.classSession.update({
@@ -355,22 +364,24 @@ export async function updateClassSessionWithRebalance(
           data,
         });
 
-        const promoted = await rebalanceEnrollments(
+        const outcome = await rebalanceEnrollments(
           tx,
           classSession.id,
           classSession.capacity,
         );
 
-        return { classSession, promoted };
+        return { classSession, ...outcome };
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     ),
   );
 
-  // Aumento de capacidade promove da espera; a redução (confirmado voltando
-  // pra espera) não tem aviso nesta versão. Usa a turma já atualizada, então
-  // a data/horário do texto é a nova, se o admin também mudou o horário.
+  // Aumento de capacidade promove da espera; redução devolve os últimos
+  // confirmados pra espera — os dois lados são avisados. Usa a turma já
+  // atualizada, então a data/horário do texto é a nova, se o admin também
+  // mudou o horário.
   void notifyWaitlistPromotion(classSession, promoted);
+  void notifyWaitlistDemotion(classSession, demoted);
   return classSession;
 }
 

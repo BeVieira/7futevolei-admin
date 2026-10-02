@@ -205,6 +205,9 @@ recebe** — não tem conta nem aparelho.
 - **Saiu da lista de espera → confirmado** (por cancelamento de outro
   aluno, remoção pelo admin ou aumento de capacidade): avisa quem foi
   promovido. Abre "Minhas aulas".
+- **Voltou de confirmado para a lista de espera** (o admin reduziu a
+  capacidade e ele estava entre os últimos confirmados a entrar): avisa
+  quem foi rebaixado. Abre "Minhas aulas".
 - **Admin removeu a inscrição:** avisa o aluno removido (confirmado ou na
   espera). Abre o início.
 - **Admin excluiu a turma:** avisa todos os inscritos dela (confirmados e
@@ -213,13 +216,10 @@ recebe** — não tem conta nem aparelho.
   enviado — avisa cada inscrito **confirmado** sem comprovante (ver
   abaixo). Abre "Minhas aulas".
 
-Os três primeiros saem na hora da mudança e só se a aula ainda não
+Os quatro primeiros saem na hora da mudança e só se a aula ainda não
 terminou (mexer numa turma antiga não avisa ninguém). O texto sempre traz
 o nível, o dia (dd/mm) e o horário da aula. Falha no envio nunca desfaz a
 inscrição/remoção — o aviso é "melhor esforço".
-
-**Redução de capacidade** (confirmado voltando pra lista de espera) **não
-avisa** nesta versão — pergunta em aberto com o usuário se deve avisar.
 
 ### Lembrete de cobrança
 
