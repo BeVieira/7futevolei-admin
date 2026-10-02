@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { Prisma } from "@prisma/client";
+import { EnrollmentNotFoundError } from "../lib/enrollment-service";
 import * as receiptService from "../lib/receipt-service";
 import { uploadReceiptObject } from "../lib/storage";
 import { reviewReceiptSchema } from "../schemas/receipt.schema";
@@ -10,9 +11,10 @@ function parseId(value: string): number | null {
 }
 
 export async function submitReceipt(req: Request, res: Response) {
+  const classSessionId = parseId(req.params.id);
   const enrollmentId = parseId(req.params.enrollmentId);
 
-  if (enrollmentId === null) {
+  if (classSessionId === null || enrollmentId === null) {
     res.status(404).json({ error: "Enrollment not found" });
     return;
   }
@@ -20,6 +22,20 @@ export async function submitReceipt(req: Request, res: Response) {
   if (!req.file) {
     res.status(400).json({ error: "Arquivo obrigatório" });
     return;
+  }
+
+  try {
+    await receiptService.ensureEnrollmentBelongsToUser(
+      classSessionId,
+      enrollmentId,
+      res.locals.user.id,
+    );
+  } catch (error) {
+    if (error instanceof EnrollmentNotFoundError) {
+      res.status(404).json({ error: error.message });
+      return;
+    }
+    throw error;
   }
 
   const fileUrl = await uploadReceiptObject(

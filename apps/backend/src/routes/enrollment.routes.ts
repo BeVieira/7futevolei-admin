@@ -1,32 +1,28 @@
 import { Router } from "express";
 import { asyncHandler } from "../lib/asyncHandler";
-import { listEnrollmentsByStudentName } from "../controllers/enrollment.controller";
+import { requireAuth } from "../lib/requireAuth";
+import { listMyEnrollments } from "../controllers/enrollment.controller";
 
 export const enrollmentRouter = Router();
 
 /**
  * @openapi
- * /api/enrollments:
+ * /api/enrollments/me:
  *   get:
- *     summary: Lista as inscrições de um aluno pelo nome, em todas as turmas
+ *     summary: Lista as inscrições do usuário logado, em todas as turmas
  *     tags: [Enrollments]
- *     parameters:
- *       - in: query
- *         name: studentName
- *         required: true
- *         schema:
- *           type: string
- *         example: "Maria Silva"
+ *     security:
+ *       - cookieAuth: []
  *     responses:
  *       200:
- *         description: Inscrições do aluno, mais recentes primeiro
+ *         description: Inscrições do usuário, mais recentes primeiro
  *         content:
  *           application/json:
  *             schema:
  *               type: array
  *               items:
  *                 $ref: "#/components/schemas/MyEnrollment"
- *       400:
- *         description: Parâmetro 'studentName' ausente
+ *       401:
+ *         description: Não autenticado
  */
-enrollmentRouter.get("/", asyncHandler(listEnrollmentsByStudentName));
+enrollmentRouter.get("/me", requireAuth, asyncHandler(listMyEnrollments));

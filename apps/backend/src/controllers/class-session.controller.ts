@@ -7,16 +7,19 @@ import {
   isClassSessionLocked,
 } from "../lib/class-session-lock";
 import {
+  AlreadyEnrolledError,
   ClassSessionLockedError,
+  Enrollee,
   EnrollmentNotFoundError,
+  UserNotFoundError,
   cancelEnrollment,
   enrollStudent,
   removeEnrollmentById,
   updateClassSessionWithRebalance,
 } from "../lib/enrollment-service";
 import {
+  adminEnrollSchema,
   bulkCreateSchema,
-  cancelSchema,
   enrollSchema,
   updateClassSessionSchema,
 } from "../schemas/class-session.schema";
@@ -71,9 +74,22 @@ function getCurrentTimeInBrazil(): string {
   return `${hours}:${minutes}`;
 }
 
+type EnrollmentWithUser = Enrollment & { user: { name: string } | null };
+
+// Inclui só o nome do usuário de cada inscrição — o nome exibido é sempre o
+// `User.name` atual (join), e o resto do `User` não sai nas rotas públicas.
+const enrollmentUserName = { user: { select: { name: true } } } as const;
+
+// Nome exibido: o nome atual do usuário, ou o nome digitado pelo admin no
+// caso de convidado. `?? ""` só cobre um estado que o CHECK da migration
+// impede (sem usuário e sem nome de convidado).
+function displayNameOf(e: EnrollmentWithUser): string {
+  return e.user?.name ?? e.guestName ?? "";
+}
+
 function serializeSummary(
   classSession: {
-    enrollments: Enrollment[];
+    enrollments: EnrollmentWithUser[];
     date: Date;
     lockAt: string | null;
   } & Record<string, unknown>,
@@ -87,22 +103,22 @@ function serializeSummary(
     isLocked: isClassSessionLocked(classSession.date, classSession.lockAt),
     confirmedCount: confirmed.length,
     waitlistCount: waitlisted.length,
-    confirmedLeft: confirmed
-      .filter((e) => e.side === "LEFT")
-      .map((e) => e.studentName),
+    confirmedLeft: confirmed.filter(e => e.side === "LEFT").map(displayNameOf),
     confirmedRight: confirmed
-      .filter((e) => e.side === "RIGHT")
-      .map((e) => e.studentName),
-    waitlist: waitlisted.map((e) => e.studentName),
+      .filter(e => e.side === "RIGHT")
+      .map(displayNameOf),
+    waitlist: waitlisted.map(displayNameOf),
   };
 }
 
+// `userId: null` = convidado inscrito pelo admin.
 function serializeEnrollmentWithReceipt(
-  e: Enrollment & { receipt: Receipt | null },
+  e: EnrollmentWithUser & { receipt: Receipt | null },
 ) {
   return {
     id: e.id,
-    studentName: e.studentName,
+    userId: e.userId,
+    studentName: displayNameOf(e),
     side: e.side,
     createdAt: e.createdAt,
     receipt: e.receipt
@@ -118,7 +134,7 @@ function serializeEnrollmentWithReceipt(
 
 function serializeDetail(
   classSession: {
-    enrollments: (Enrollment & { receipt: Receipt | null })[];
+    enrollments: (EnrollmentWithUser & { receipt: Receipt | null })[];
     date: Date;
     lockAt: string | null;
   } & Record<string, unknown>,
@@ -240,7 +256,12 @@ export async function listClassSessions(req: Request, res: Response) {
   const classSessions = await prisma.classSession.findMany({
     where: { date },
     orderBy: { startTime: "asc" },
-    include: { enrollments: { orderBy: { createdAt: "asc" } } },
+    include: {
+      enrollments: {
+        orderBy: { createdAt: "asc" },
+        include: enrollmentUserName,
+      },
+    },
   });
 
   classSessions.sort(byStartTimeThenLevel);
@@ -259,7 +280,10 @@ export async function getClassSessionById(req: Request, res: Response) {
   const classSession = await prisma.classSession.findUnique({
     where: { id },
     include: {
-      enrollments: { orderBy: { createdAt: "asc" }, include: { receipt: true } },
+      enrollments: {
+        orderBy: { createdAt: "asc" },
+        include: { receipt: true, ...enrollmentUserName },
+      },
     },
   });
 
@@ -327,6 +351,36 @@ export async function deleteClassSession(req: Request, res: Response) {
   }
 }
 
+async function respondWithEnrollment(
+  res: Response,
+  classSessionId: number,
+  enrollee: Enrollee,
+  side: "LEFT" | "RIGHT",
+) {
+  try {
+    const outcome = await enrollStudent(classSessionId, enrollee, side);
+    res.status(201).json(outcome);
+  } catch (error) {
+    if (error instanceof AlreadyEnrolledError) {
+      res.status(409).json({ error: error.message });
+      return;
+    }
+    if (error instanceof UserNotFoundError) {
+      res.status(404).json({ error: error.message });
+      return;
+    }
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2025"
+    ) {
+      res.status(404).json({ error: "Class session not found" });
+      return;
+    }
+    throw error;
+  }
+}
+
+// Aluno logado se inscrevendo: a identidade vem da sessão, nunca do payload.
 export async function createEnrollment(req: Request, res: Response) {
   const id = parseId(req.params.id);
 
@@ -342,23 +396,32 @@ export async function createEnrollment(req: Request, res: Response) {
     return;
   }
 
-  try {
-    const outcome = await enrollStudent(
-      id,
-      result.data.studentName,
-      result.data.side,
-    );
-    res.status(201).json(outcome);
-  } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2025"
-    ) {
-      res.status(404).json({ error: "Class session not found" });
-      return;
-    }
-    throw error;
+  await respondWithEnrollment(
+    res,
+    id,
+    { userId: res.locals.user.id },
+    result.data.side,
+  );
+}
+
+// Admin inscrevendo um usuário cadastrado ou um convidado só pelo nome.
+export async function adminCreateEnrollment(req: Request, res: Response) {
+  const id = parseId(req.params.id);
+
+  if (id === null) {
+    res.status(404).json({ error: "Class session not found" });
+    return;
   }
+
+  const result = adminEnrollSchema.safeParse(req.body);
+
+  if (!result.success) {
+    res.status(400).json({ error: result.error.flatten() });
+    return;
+  }
+
+  const { side, ...enrollee } = result.data;
+  await respondWithEnrollment(res, id, enrollee, side);
 }
 
 export async function removeEnrollment(req: Request, res: Response) {
@@ -389,7 +452,7 @@ export async function removeEnrollment(req: Request, res: Response) {
   }
 }
 
-export async function cancelEnrollmentByName(req: Request, res: Response) {
+export async function cancelMyEnrollment(req: Request, res: Response) {
   const id = parseId(req.params.id);
 
   if (id === null) {
@@ -397,15 +460,8 @@ export async function cancelEnrollmentByName(req: Request, res: Response) {
     return;
   }
 
-  const result = cancelSchema.safeParse(req.body);
-
-  if (!result.success) {
-    res.status(400).json({ error: result.error.flatten() });
-    return;
-  }
-
   try {
-    const counters = await cancelEnrollment(id, result.data.studentName);
+    const counters = await cancelEnrollment(id, res.locals.user.id);
     res.json(counters);
   } catch (error) {
     if (error instanceof EnrollmentNotFoundError) {

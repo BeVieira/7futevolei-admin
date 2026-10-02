@@ -1,9 +1,10 @@
 import { Router } from "express";
 import { asyncHandler } from "../lib/asyncHandler";
-import { requireAdminAuth } from "../lib/requireAdminAuth";
+import { requireAdmin, requireAuth } from "../lib/requireAuth";
 import { uploadReceiptFile } from "../lib/upload";
 import {
-  cancelEnrollmentByName,
+  adminCreateEnrollment,
+  cancelMyEnrollment,
   createClassSessionsBulk,
   createEnrollment,
   deleteClassSession,
@@ -67,10 +68,12 @@ export const classSessionRouter = Router();
  *         description: Payload inválido
  *       401:
  *         description: Não autenticado
+ *       403:
+ *         description: Usuário logado não é admin
  */
 classSessionRouter.post(
   "/bulk",
-  requireAdminAuth,
+  requireAdmin,
   asyncHandler(createClassSessionsBulk),
 );
 
@@ -259,12 +262,14 @@ classSessionRouter.get("/:id", asyncHandler(getClassSessionById));
  *         description: Payload inválido
  *       401:
  *         description: Não autenticado
+ *       403:
+ *         description: Usuário logado não é admin
  *       404:
  *         description: Turma não encontrada
  */
 classSessionRouter.patch(
   "/:id",
-  requireAdminAuth,
+  requireAdmin,
   asyncHandler(updateClassSession),
 );
 
@@ -287,12 +292,14 @@ classSessionRouter.patch(
  *         description: Turma removida
  *       401:
  *         description: Não autenticado
+ *       403:
+ *         description: Usuário logado não é admin
  *       404:
  *         description: Turma não encontrada
  */
 classSessionRouter.delete(
   "/:id",
-  requireAdminAuth,
+  requireAdmin,
   asyncHandler(deleteClassSession),
 );
 
@@ -300,8 +307,10 @@ classSessionRouter.delete(
  * @openapi
  * /api/class-sessions/{id}/enrollments:
  *   post:
- *     summary: Inscreve um aluno na turma (confirmado ou lista de espera)
+ *     summary: Inscreve o usuário logado na turma (confirmado ou lista de espera)
  *     tags: [ClassSessions]
+ *     security:
+ *       - cookieAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -332,17 +341,27 @@ classSessionRouter.delete(
  *                   type: integer
  *       400:
  *         description: Payload inválido
+ *       401:
+ *         description: Não autenticado
  *       404:
  *         description: Turma não encontrada
+ *       409:
+ *         description: Usuário já inscrito nesta turma
  */
-classSessionRouter.post("/:id/enrollments", asyncHandler(createEnrollment));
+classSessionRouter.post(
+  "/:id/enrollments",
+  requireAuth,
+  asyncHandler(createEnrollment),
+);
 
 /**
  * @openapi
- * /api/class-sessions/{id}/enrollments/cancel:
+ * /api/class-sessions/{id}/enrollments/admin:
  *   post:
- *     summary: Cancela a inscrição do aluno pelo nome (promove o próximo da fila se aplicável)
+ *     summary: Admin inscreve um usuário cadastrado ou um convidado (só nome) na turma
  *     tags: [ClassSessions]
+ *     security:
+ *       - cookieAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -354,7 +373,54 @@ classSessionRouter.post("/:id/enrollments", asyncHandler(createEnrollment));
  *       content:
  *         application/json:
  *           schema:
- *             $ref: "#/components/schemas/CancelInput"
+ *             $ref: "#/components/schemas/AdminEnrollInput"
+ *     responses:
+ *       201:
+ *         description: Inscrição criada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 enrollment:
+ *                   $ref: "#/components/schemas/Enrollment"
+ *                 confirmedCount:
+ *                   type: integer
+ *                 waitlistCount:
+ *                   type: integer
+ *                 capacity:
+ *                   type: integer
+ *       400:
+ *         description: Payload inválido (precisa de exatamente um entre userId e guestName)
+ *       401:
+ *         description: Não autenticado
+ *       403:
+ *         description: Usuário logado não é admin
+ *       404:
+ *         description: Turma ou usuário não encontrado
+ *       409:
+ *         description: Usuário já inscrito nesta turma
+ */
+classSessionRouter.post(
+  "/:id/enrollments/admin",
+  requireAdmin,
+  asyncHandler(adminCreateEnrollment),
+);
+
+/**
+ * @openapi
+ * /api/class-sessions/{id}/enrollments/cancel:
+ *   post:
+ *     summary: Cancela a inscrição do usuário logado na turma (promove o próximo da fila se aplicável)
+ *     tags: [ClassSessions]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
  *     responses:
  *       200:
  *         description: Contadores atualizados após o cancelamento
@@ -369,14 +435,17 @@ classSessionRouter.post("/:id/enrollments", asyncHandler(createEnrollment));
  *                   type: integer
  *                 capacity:
  *                   type: integer
- *       400:
- *         description: Payload inválido
+ *       401:
+ *         description: Não autenticado
  *       404:
- *         description: Turma ou inscrição não encontrada
+ *         description: Turma não encontrada, ou o usuário não está inscrito nela
+ *       409:
+ *         description: Lista trancada — não é mais possível cancelar
  */
 classSessionRouter.post(
   "/:id/enrollments/cancel",
-  asyncHandler(cancelEnrollmentByName),
+  requireAuth,
+  asyncHandler(cancelMyEnrollment),
 );
 
 /**
@@ -414,12 +483,14 @@ classSessionRouter.post(
  *                   type: integer
  *       401:
  *         description: Não autenticado
+ *       403:
+ *         description: Usuário logado não é admin
  *       404:
  *         description: Turma ou inscrição não encontrada
  */
 classSessionRouter.delete(
   "/:id/enrollments/:enrollmentId",
-  requireAdminAuth,
+  requireAdmin,
   asyncHandler(removeEnrollment),
 );
 
@@ -427,8 +498,10 @@ classSessionRouter.delete(
  * @openapi
  * /api/class-sessions/{id}/enrollments/{enrollmentId}/receipt:
  *   post:
- *     summary: Envia (ou reenvia) o comprovante de pagamento de uma inscrição
+ *     summary: Envia (ou reenvia) o comprovante de pagamento de uma inscrição do usuário logado
  *     tags: [ClassSessions]
+ *     security:
+ *       - cookieAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -459,11 +532,14 @@ classSessionRouter.delete(
  *               $ref: "#/components/schemas/Receipt"
  *       400:
  *         description: Arquivo ausente, tipo inválido ou maior que 5MB
+ *       401:
+ *         description: Não autenticado
  *       404:
- *         description: Inscrição não encontrada
+ *         description: Inscrição não encontrada nesta turma, ou não pertence ao usuário logado
  */
 classSessionRouter.post(
   "/:id/enrollments/:enrollmentId/receipt",
+  requireAuth,
   uploadReceiptFile,
   asyncHandler(submitReceipt),
 );
@@ -504,11 +580,13 @@ classSessionRouter.post(
  *         description: Payload inválido (adminComment é obrigatório ao negar)
  *       401:
  *         description: Não autenticado
+ *       403:
+ *         description: Usuário logado não é admin
  *       404:
  *         description: Comprovante não encontrado
  */
 classSessionRouter.patch(
   "/:id/enrollments/:enrollmentId/receipt",
-  requireAdminAuth,
+  requireAdmin,
   asyncHandler(reviewReceipt),
 );

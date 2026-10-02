@@ -1,6 +1,7 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { asyncHandler } from "../lib/asyncHandler";
+import { requireAuth } from "../lib/requireAuth";
 import {
   getPublicKey,
   subscribe,
@@ -9,8 +10,8 @@ import {
 
 export const pushRouter = Router();
 
-// Inscrição é pública (aluno não tem login) — sem limite, qualquer um
-// encheria a tabela de endpoints falsos com um loop.
+// Mesmo exigindo login, qualquer conta Google entra — sem limite, um loop
+// encheria a tabela de endpoints falsos.
 const subscribeRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 30,
@@ -44,8 +45,10 @@ pushRouter.get("/public-key", getPublicKey);
  * @openapi
  * /api/push/subscribe:
  *   post:
- *     summary: Registra (ou atualiza) a inscrição de push deste aparelho
+ *     summary: Registra (ou atualiza) a inscrição de push deste aparelho para o usuário logado
  *     tags: [Push]
+ *     security:
+ *       - cookieAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -67,16 +70,20 @@ pushRouter.get("/public-key", getPublicKey);
  *                         type: string
  *                       auth:
  *                         type: string
- *               studentName:
- *                 type: string
- *                 example: "Maria Silva"
  *     responses:
  *       204:
  *         description: Inscrição salva
  *       400:
  *         description: Payload inválido
+ *       401:
+ *         description: Não autenticado
  */
-pushRouter.post("/subscribe", subscribeRateLimit, asyncHandler(subscribe));
+pushRouter.post(
+  "/subscribe",
+  requireAuth,
+  subscribeRateLimit,
+  asyncHandler(subscribe),
+);
 
 /**
  * @openapi

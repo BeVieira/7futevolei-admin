@@ -1,20 +1,10 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
 
-export async function listEnrollmentsByStudentName(req: Request, res: Response) {
-  const studentName = req.query.studentName;
-
-  if (typeof studentName !== "string" || !studentName.trim()) {
-    res
-      .status(400)
-      .json({ error: "Query param 'studentName' is required" });
-    return;
-  }
-
+// "Minhas aulas": as inscrições do usuário logado, pela sessão.
+export async function listMyEnrollments(_req: Request, res: Response) {
   const enrollments = await prisma.enrollment.findMany({
-    where: {
-      studentName: { equals: studentName.trim(), mode: "insensitive" },
-    },
+    where: { userId: res.locals.user.id },
     include: { classSession: true, receipt: true },
     orderBy: { classSession: { date: "desc" } },
   });

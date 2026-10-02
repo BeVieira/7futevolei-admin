@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { EnrollmentNotFoundError } from "./enrollment-service";
 import { prisma } from "./prisma";
 import { deleteReceiptObject } from "./storage";
 
@@ -13,6 +14,25 @@ type UploadedFile = {
   filePath: string;
   mimeType: string;
 };
+
+// Só o dono da inscrição envia comprovante dela — convidado (sem `userId`)
+// não tem tela de comprovante. Chamado antes do upload pro Storage, pra não
+// subir arquivo de quem não pode enviar. Inscrição de outra turma, de outro
+// usuário ou inexistente respondem igual (404), sem revelar qual é o caso.
+export async function ensureEnrollmentBelongsToUser(
+  classSessionId: number,
+  enrollmentId: number,
+  userId: number,
+) {
+  const enrollment = await prisma.enrollment.findFirst({
+    where: { id: enrollmentId, classSessionId, userId },
+    select: { id: true },
+  });
+
+  if (!enrollment) {
+    throw new EnrollmentNotFoundError();
+  }
+}
 
 // Um Receipt por Enrollment (relação 1–1): reenviar sobrescreve o arquivo
 // anterior no Supabase Storage e reseta o status para PENDING, em vez de

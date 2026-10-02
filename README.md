@@ -26,10 +26,11 @@ Sistema de gestão de aulas extraordinárias de futevôlei: o admin cria o dia d
    docker compose up --build
    ```
 
-   O container do backend já aplica as migrations existentes e roda o seed
-   do admin sozinho a cada start (lendo `ADMIN_USERNAME`/`ADMIN_PASSWORD` de
-   `apps/backend/.env` — ajuste antes de subir se quiser outra senha), então
-   não precisa de nenhum passo manual pra ficar pronto pra usar.
+   O container do backend já aplica as migrations existentes sozinho a cada
+   start, então não precisa de nenhum passo manual pra ficar pronto pra
+   usar. Não há seed nem senha de admin: o login é só com Google
+   (`GOOGLE_CLIENT_ID`), e entra como admin quem tiver o e-mail em
+   `ADMIN_EMAILS` (ambos em `apps/backend/.env`).
 
 3. Só quando você **mudar o schema do Prisma** (`apps/backend/prisma/schema.prisma`)
    é que precisa criar uma migration nova manualmente:
@@ -88,9 +89,8 @@ o celular pro IP certo.
 
 ### Admin (`/admin`, login em `/login`)
 
-- Login com usuário/senha (`User` no Postgres, sem tela de cadastro — o
-  usuário inicial é criado via `pnpm prisma:seed`); sessão guardada num
-  cookie `httpOnly`. `/admin` e `/admin/cobranca` redirecionam pra
+- Login com Google (admin = e-mail em `ADMIN_EMAILS`, sem tela de cadastro
+  nem senha); sessão guardada num cookie `httpOnly`. `/admin` e `/admin/cobranca` redirecionam pra
   `/login` sem sessão válida.
 - Escolher a data via um calendário em modal, com um indicador visual nos
   dias que já têm turma cadastrada.

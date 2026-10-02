@@ -24,6 +24,11 @@ src/
     asyncHandler.ts           # adapta handler async pro Express
     swagger.ts                # schemas OpenAPI compartilhados
     push-service.ts           # inscrições e envio de Web Push (VAPID)
+    google-auth.ts            # valida o ID token do Google (login)
+    auth-service.ts           # upsert do User, emissão/renovação/revogação da sessão
+    requireAuth.ts            # middlewares requireAuth / requireAdmin
+  types/
+    express.d.ts   # tipa res.locals.user (preenchido pelos middlewares de auth)
   index.ts         # monta o Express app, CORS, /health, /docs, error handler
 ```
 
@@ -66,45 +71,76 @@ segmento — incluindo o literal `"dates"`. Se a ordem fosse invertida,
 em vez de `listClassDatesByMonth`. Essa regra vale para qualquer rota
 estática nova que comece com o mesmo prefixo de uma rota `:param`.
 
-## Autenticação: `requireAdminAuth` por rota, não por router inteiro
+## Autenticação: `requireAuth`/`requireAdmin` por rota, não por router inteiro
 
-`lib/auth-service.ts` concentra a regra (`verifyAdminCredentials` contra o
-`User` do Postgres via bcrypt; `issueAdminSession` emite o **par**
-access+refresh token via JWT, cada um com seu próprio `jti` gravado em
-`User.currentJti`/`currentRefreshJti` pra permitir revogar antes de
-expirar) e `lib/requireAdminAuth.ts` é o middleware Express que lê o
-cookie `admin_token` (access), verifica assinatura e confere
-`isAdminSessionActive` (o `jti` do token ainda é o vigente no banco),
-respondendo `401` se ausente/inválido/revogado, ou seguindo com
-`res.locals.admin` preenchido. `POST /api/auth/refresh` (controller
-`refresh`, sem `requireAdminAuth` — é o próprio refresh token, cookie
-`admin_refresh_token` com path restrito a `/api/auth`, que autentica essa
-rota) usa `refreshAdminSession` pra validar o refresh token e emitir um
-par novo, invalidando o par anterior — é assim que o front renova a sessão
-sem pedir login de novo quando o access token de 5min expira. Como as
-rotas administrativas
-(`createClassSessionsBulk`, `updateClassSession`, `deleteClassSession`,
-`reviewReceipt`) convivem no **mesmo** `Router` que
-rotas públicas do aluno (`classSessionRouter`), o middleware entra como
-argumento extra **por rota**, não como `router.use(...)` no arquivo
-inteiro — mesmo padrão já usado por `uploadReceiptFile`:
+Três peças, cada uma num arquivo de `lib/`:
+
+- **`google-auth.ts`** — integração externa: `verifyGoogleCredential`
+  valida o ID token do Google Identity Services (`google-auth-library`,
+  `aud` = `GOOGLE_CLIENT_ID`, só e-mail verificado) e devolve um
+  `GoogleProfile`. Sem `GOOGLE_CLIENT_ID` lança
+  `GoogleLoginNotConfiguredError` (503 — ver "Funcionalidade que depende
+  de variável de ambiente", abaixo).
+- **`auth-service.ts`** — regra da sessão: `upsertUserFromGoogle` (upsert
+  por `googleId`, não sobrescreve `name`, papel recalculado por
+  `ADMIN_EMAILS`), `issueSession` (emite o **par** access+refresh via JWT
+  com `{ sub: userId, role, jti, type }`, cada um com seu `jti` gravado em
+  `User.currentJti`/`currentRefreshJti` pra permitir revogar antes de
+  expirar), `refreshSession`, `invalidateSession`, `isSessionActive` e
+  `toUserProfile` (o shape `{ id, name, email, photoUrl, role }` que
+  `/auth/google`, `/auth/refresh` e `/auth/me` devolvem).
+- **`requireAuth.ts`** — os dois middlewares Express. Ambos leem o cookie
+  `access_token`, verificam assinatura e conferem `isSessionActive` (o
+  `jti` do token ainda é o vigente no banco), respondendo `401` se
+  ausente/inválido/revogado:
+  - `requireAuth` — qualquer usuário logado (aluno ou admin);
+  - `requireAdmin` — idem, mais `role === "ADMIN"`, senão `403`.
+
+  Os dois seguem com `res.locals.user = { id, role }` (`SessionUser`,
+  tipado em `src/types/express.d.ts`). O controller lê a identidade **só**
+  dali — nunca de um id ou nome vindo do payload:
+
+  ```ts
+  await cancelEnrollment(id, res.locals.user.id);
+  ```
+
+`POST /api/auth/refresh` (controller `refresh`, sem middleware — é o
+próprio refresh token, cookie `refresh_token` com path restrito a
+`/api/auth`, que autentica essa rota) usa `refreshSession` pra validar o
+refresh token e emitir um par novo, invalidando o par anterior — é assim
+que o front renova a sessão sem pedir login de novo quando o access token
+de 5min expira.
+
+Rotas públicas, de aluno e de admin convivem no **mesmo** `Router`
+(`classSessionRouter`), então o middleware entra como argumento extra
+**por rota**, não como `router.use(...)` no arquivo inteiro — mesmo
+padrão já usado por `uploadReceiptFile`. Quando os dois aparecem juntos,
+o de auth vem primeiro (não faz sentido receber o arquivo de quem nem
+está logado):
 
 ```ts
 classSessionRouter.delete(
   "/:id",
-  requireAdminAuth,
+  requireAdmin,
   asyncHandler(deleteClassSession),
+);
+
+classSessionRouter.post(
+  "/:id/enrollments/:enrollmentId/receipt",
+  requireAuth,
+  uploadReceiptFile,
+  asyncHandler(submitReceipt),
 );
 ```
 
-`requireAdminAuth` é `async` (confere `isAdminSessionActive` no banco),
-mas trata os próprios erros com `try/catch` internamente — por isso não
-precisa de `asyncHandler` como os demais handlers assíncronos, que deixam
+Os middlewares são `async` (conferem `isSessionActive` no banco), mas
+tratam os próprios erros com `try/catch` internamente — por isso não
+precisam de `asyncHandler` como os demais handlers assíncronos, que deixam
 o `catch(next)` do `asyncHandler` reportar o erro. Ao proteger uma rota
-nova: adicione
-`requireAdminAuth` nesse mesmo lugar (antes do `asyncHandler(handler)`) e
-marque `security: [{ cookieAuth: [] }]` + a resposta `401` no bloco
-`@openapi` correspondente.
+nova: adicione `requireAuth` ou `requireAdmin` nesse mesmo lugar (antes
+do `asyncHandler(handler)`) e marque `security: [{ cookieAuth: [] }]` + a
+resposta `401` (e `403`, se for `requireAdmin`) no bloco `@openapi`
+correspondente.
 
 ## Erros: uma classe por regra, um `instanceof` por controller
 
@@ -207,7 +243,8 @@ UI) com o servidor rodando. Toda rota nova precisa do bloco correspondente
 Push (`lib/push-service.ts`) precisa das chaves `VAPID_*`. Sem elas o
 servidor **sobe normalmente** e só as rotas que dependem disso respondem
 `503` (via `PushNotConfiguredError`, tratado no controller como as outras
-classes de erro). Assim um ambiente sem a configuração — um dev novo, um
+classes de erro). O login com Google (`lib/google-auth.ts`) segue o mesmo
+padrão com `GOOGLE_CLIENT_ID` (`GoogleLoginNotConfiguredError`). Assim um ambiente sem a configuração — um dev novo, um
 preview — não quebra o resto da API. Siga o mesmo padrão para qualquer
 integração externa opcional: checa a configuração uma vez no carregamento
 do módulo, lança um erro próprio na hora do uso.

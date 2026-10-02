@@ -8,7 +8,6 @@ export const subscribeSchema = z.object({
       auth: z.string().min(1),
     }),
   }),
-  studentName: z.string().trim().min(1).max(100).optional(),
 });
 
 export const unsubscribeSchema = z.object({

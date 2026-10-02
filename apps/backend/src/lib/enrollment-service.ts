@@ -18,6 +18,20 @@ export class ClassSessionLockedError extends Error {
   }
 }
 
+export class AlreadyEnrolledError extends Error {
+  constructor(message = "Aluno já inscrito nesta turma") {
+    super(message);
+    this.name = "AlreadyEnrolledError";
+  }
+}
+
+export class UserNotFoundError extends Error {
+  constructor(message = "User not found") {
+    super(message);
+    this.name = "UserNotFoundError";
+  }
+}
+
 type EnrollmentCounters = {
   confirmedCount: number;
   waitlistCount: number;
@@ -141,22 +155,38 @@ async function deleteAndPromoteNext(
   return getCounters(tx, classSession.id, classSession.capacity);
 }
 
-// Identificar o aluno só pelo nome (sem login) é uma limitação conhecida e
-// aceita nesta fase — já é uma melhoria grande sobre a lista do WhatsApp,
-// mesmo não sendo à prova de falhas (ex: nomes duplicados ou digitados
-// diferente na hora de cancelar não são tratados).
+// Quem está sendo inscrito: um usuário logado (o próprio aluno, ou alguém
+// que o admin escolheu) ou um convidado só pelo nome (só o admin inscreve
+// convidado). Nunca os dois — o CHECK da migration também garante isso.
+export type Enrollee = { userId: number } | { guestName: string };
 
 export async function enrollStudent(
   classSessionId: number,
-  studentName: string,
+  enrollee: Enrollee,
   side: Side,
 ) {
   return withSerializableRetry(() =>
     prisma.$transaction(
-      async (tx) => {
+      async tx => {
         const classSession = await tx.classSession.findUniqueOrThrow({
           where: { id: classSessionId },
         });
+
+        if ("userId" in enrollee) {
+          const user = await tx.user.findUnique({
+            where: { id: enrollee.userId },
+          });
+          if (!user) {
+            throw new UserNotFoundError();
+          }
+
+          const existing = await tx.enrollment.findFirst({
+            where: { classSessionId, userId: enrollee.userId },
+          });
+          if (existing) {
+            throw new AlreadyEnrolledError();
+          }
+        }
 
         const confirmedSideCount = await tx.enrollment.count({
           where: { classSessionId, side, status: "CONFIRMED" },
@@ -168,7 +198,7 @@ export async function enrollStudent(
             : "WAITLISTED";
 
         const enrollment = await tx.enrollment.create({
-          data: { classSessionId, studentName, side, status },
+          data: { classSessionId, ...enrollee, side, status },
         });
 
         const counters = await getCounters(
@@ -184,13 +214,12 @@ export async function enrollStudent(
   );
 }
 
-export async function cancelEnrollment(
-  classSessionId: number,
-  studentName: string,
-) {
+// Auto-cancelamento do aluno logado: acha a inscrição dele pela sessão, não
+// por nome. Convidado não cancela sozinho (não tem login).
+export async function cancelEnrollment(classSessionId: number, userId: number) {
   return withSerializableRetry(() =>
     prisma.$transaction(
-      async (tx) => {
+      async tx => {
         const classSession = await tx.classSession.findUniqueOrThrow({
           where: { id: classSessionId },
         });
@@ -200,11 +229,7 @@ export async function cancelEnrollment(
         }
 
         const enrollment = await tx.enrollment.findFirst({
-          where: {
-            classSessionId,
-            studentName: { equals: studentName.trim(), mode: "insensitive" },
-          },
-          orderBy: { createdAt: "desc" },
+          where: { classSessionId, userId },
         });
 
         if (!enrollment) {

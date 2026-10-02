@@ -14,9 +14,9 @@ const options: swaggerJsdoc.Options = {
         cookieAuth: {
           type: "apiKey",
           in: "cookie",
-          name: "admin_token",
+          name: "access_token",
           description:
-            "Cookie httpOnly setado por POST /api/auth/login. Exigido pelas rotas administrativas.",
+            "Cookie httpOnly setado por POST /api/auth/google (e renovado por /api/auth/refresh). Exigido pelas rotas de usuário logado; as administrativas exigem também papel ADMIN (403 sem ele).",
         },
       },
       schemas: {
@@ -52,7 +52,17 @@ const options: swaggerJsdoc.Options = {
           properties: {
             id: { type: "integer", example: 1 },
             classSessionId: { type: "integer", example: 1 },
-            studentName: { type: "string", example: "Maria Silva" },
+            userId: {
+              type: "integer",
+              nullable: true,
+              description: "Null quando é um convidado inscrito pelo admin.",
+            },
+            studentName: {
+              type: "string",
+              example: "Maria Silva",
+              description:
+                "Nome exibido: o nome atual do usuário, ou o nome do convidado.",
+            },
             side: {
               type: "string",
               enum: ["LEFT", "RIGHT"],
@@ -71,6 +81,7 @@ const options: swaggerJsdoc.Options = {
           required: [
             "id",
             "classSessionId",
+            "userId",
             "studentName",
             "side",
             "status",
@@ -171,30 +182,57 @@ const options: swaggerJsdoc.Options = {
         },
         EnrollInput: {
           type: "object",
+          description:
+            "Quem se inscreve é o usuário logado — o payload só escolhe o lado.",
           properties: {
-            studentName: { type: "string", example: "Maria Silva" },
             side: {
               type: "string",
               enum: ["LEFT", "RIGHT"],
               description: "Lado da quadra (esquerda ou direita).",
             },
           },
-          required: ["studentName", "side"],
+          required: ["side"],
         },
-        CancelInput: {
+        AdminEnrollInput: {
+          type: "object",
+          description:
+            "Exatamente um entre userId (usuário cadastrado) e guestName (convidado só pelo nome).",
+          properties: {
+            side: {
+              type: "string",
+              enum: ["LEFT", "RIGHT"],
+              description: "Lado da quadra (esquerda ou direita).",
+            },
+            userId: { type: "integer", example: 1 },
+            guestName: { type: "string", example: "Maria Silva" },
+          },
+          required: ["side"],
+        },
+        GoogleLoginInput: {
           type: "object",
           properties: {
-            studentName: { type: "string", example: "Maria Silva" },
+            credential: {
+              type: "string",
+              description:
+                "ID token (JWT) entregue pelo Google Identity Services no front.",
+            },
           },
-          required: ["studentName"],
+          required: ["credential"],
         },
-        LoginInput: {
+        UserProfile: {
           type: "object",
           properties: {
-            username: { type: "string", example: "admin" },
-            password: { type: "string", format: "password" },
+            id: { type: "integer", example: 1 },
+            name: { type: "string", example: "Maria Silva" },
+            email: { type: "string", example: "maria@gmail.com" },
+            photoUrl: {
+              type: "string",
+              nullable: true,
+              description: "URL da foto do Google, atualizada a cada login.",
+            },
+            role: { type: "string", enum: ["STUDENT", "ADMIN"] },
           },
-          required: ["username", "password"],
+          required: ["id", "name", "email", "photoUrl", "role"],
         },
       },
     },

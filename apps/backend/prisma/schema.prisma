@@ -17,6 +17,11 @@ enum Side {
   RIGHT
 }
 
+enum UserRole {
+  STUDENT
+  ADMIN
+}
+
 enum ReceiptStatus {
   PENDING
   APPROVED
@@ -38,26 +43,48 @@ model ClassSession {
   @@index([date])
 }
 
+// Uma inscrição é de um usuário logado (`userId`) **ou** de um convidado
+// inscrito pelo admin só pelo nome (`guestName`) — exatamente um dos dois,
+// garantido pelo enrollment-service e por um CHECK na migration. O nome
+// exibido de quem tem `userId` é sempre o `User.name` atual (join), nunca
+// uma cópia.
 model Enrollment {
-  id             Int              @id @default(autoincrement())
-  classSession   ClassSession     @relation(fields: [classSessionId], references: [id], onDelete: Cascade)
-  classSessionId Int
-  studentName    String
-  side           Side
-  status         EnrollmentStatus @default(CONFIRMED)
-  createdAt      DateTime         @default(now())
-  receipt        Receipt?
+  id                    Int              @id @default(autoincrement())
+  classSession          ClassSession     @relation(fields: [classSessionId], references: [id], onDelete: Cascade)
+  classSessionId        Int
+  user                  User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId                Int?
+  guestName             String?
+  side                  Side
+  status                EnrollmentStatus @default(CONFIRMED)
+  receiptReminderSentAt DateTime?
+  createdAt             DateTime         @default(now())
+  receipt               Receipt?
 
+  // Um usuário só tem uma inscrição por turma. Convidados (`userId` nulo)
+  // ficam de fora: no Postgres, NULL nunca colide num índice único.
+  @@unique([classSessionId, userId])
   @@index([classSessionId, status])
+  @@index([userId])
 }
 
+// Conta criada no primeiro login com Google (não existe cadastro nem senha).
+// `role` é recalculado a cada login a partir de `ADMIN_EMAILS`; `name`
+// nasce do Google mas é editável pelo próprio usuário e não é sobrescrito
+// nos logins seguintes.
 model User {
-  id                Int      @id @default(autoincrement())
-  username          String   @unique
-  passwordHash      String
+  id                Int                @id @default(autoincrement())
+  googleId          String             @unique
+  email             String             @unique
+  name              String
+  photoUrl          String?
+  role              UserRole           @default(STUDENT)
   currentJti        String?
   currentRefreshJti String?
-  createdAt         DateTime @default(now())
+  enrollments       Enrollment[]
+  pushSubscriptions PushSubscription[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 }
 
 model Receipt {
@@ -72,17 +99,18 @@ model Receipt {
   updatedAt    DateTime      @updatedAt
 }
 
-// Um registro por aparelho/navegador que ativou notificações. `studentName`
-// amarra o aparelho ao aluno do mesmo jeito que "Minhas Aulas" (nome digitado,
-// sem login) — é por ele que notificações direcionadas vão achar o aparelho.
+// Um registro por aparelho/navegador que ativou notificações, amarrado ao
+// usuário logado que ativou — é por `userId` que notificações direcionadas
+// acham os aparelhos de um aluno.
 model PushSubscription {
-  id          Int      @id @default(autoincrement())
-  endpoint    String   @unique
-  p256dh      String
-  auth        String
-  studentName String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        Int      @id @default(autoincrement())
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@index([studentName])
+  @@index([userId])
 }

@@ -35,18 +35,17 @@ export function getVapidPublicKey(): string {
   return publicKey;
 }
 
-// Upsert por endpoint: o mesmo aparelho reativando (ou trocando de nome)
-// atualiza o registro em vez de duplicar. `studentName` undefined não mexe
-// no nome já salvo — o admin ativando no mesmo aparelho de um aluno não
-// apaga o vínculo com o aluno.
+// Upsert por endpoint: o mesmo aparelho reativando atualiza o registro em
+// vez de duplicar, e passa a pertencer ao usuário logado que ativou (outra
+// pessoa logando no mesmo aparelho assume as notificações dele).
 export function saveSubscription(
   subscription: SubscriptionInput,
-  studentName: string | undefined,
+  userId: number,
 ) {
   const data = {
     p256dh: subscription.keys.p256dh,
     auth: subscription.keys.auth,
-    ...(studentName !== undefined && { studentName }),
+    userId,
   };
 
   return prisma.pushSubscription.upsert({

@@ -74,15 +74,18 @@ especificamente no Safari mobile. Ver "O que mudou no código" mais abaixo.
    - **Instance Type**: **Free**
 3. **Advanced → Health Check Path**: `/health`.
 4. **Environment Variables** (ver tabela completa abaixo) — os que você já
-   setou (`DATABASE_URL`, `JWT_SECRET`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`,
-   `SUPABASE_URL`, `SUPABASE_STORAGE_BUCKET`) continuam valendo, só falta:
+   setou (`DATABASE_URL`, `JWT_SECRET`, `SUPABASE_URL`,
+   `SUPABASE_STORAGE_BUCKET`) continuam valendo, só falta:
    ```
    SUPABASE_SECRET_KEY=<passo 1.3>
    CORS_ORIGIN=<URL da Vercel, ver Passo 3 — pode voltar aqui depois>
+   GOOGLE_CLIENT_ID=<Client ID do OAuth do Google>
+   ADMIN_EMAILS=<e-mails Google dos admins, separados por vírgula>
    ```
 5. **Create Web Service**. O primeiro deploy builda a imagem e sobe o
-   container, que já roda `prisma migrate deploy` + seed sozinho (está no
-   `Dockerfile`). Acompanhe o log até `Backend rodando em http://...`.
+   container, que já roda `prisma migrate deploy` sozinho (está no
+   `Dockerfile`). Não há seed: o admin entra com Google, com o e-mail em
+   `ADMIN_EMAILS`. Acompanhe o log até `Backend rodando em http://...`.
 6. Anote a URL pública gerada, tipo `https://7futevolei-backend.onrender.com`
    — é o `VITE_API_URL` do Passo 3.
 
@@ -135,7 +138,8 @@ especificamente no Safari mobile. Ver "O que mudou no código" mais abaixo.
 |---|---|---|
 | `DATABASE_URL` | connection string do Supabase (Passo 1.4) | **novo** — banco novo, não é o do Railway |
 | `JWT_SECRET` | valor novo (`openssl rand -base64 48`) | **novo** — banco novo, sem sessão antiga pra preservar |
-| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | copiar do Railway se quiser manter o login | **migra** (ou novo) |
+| `GOOGLE_CLIENT_ID` | Client ID do OAuth do Google (tipo "Aplicativo da Web") | **novo** — login só com Google |
+| `ADMIN_EMAILS` | e-mails Google dos admins, separados por vírgula | **novo** — substitui `ADMIN_USERNAME`/`ADMIN_PASSWORD` |
 | `SUPABASE_URL` | Passo 1.3 | **novo** |
 | `SUPABASE_SECRET_KEY` | Passo 1.3 | **novo** |
 | `SUPABASE_STORAGE_BUCKET` | `receipts` | **novo**, fixo |
@@ -155,8 +159,8 @@ especificamente no Safari mobile. Ver "O que mudou no código" mais abaixo.
 
 Só necessário se o Railway hoje tem dados reais de produção (turmas,
 inscrições, comprovantes) que você não quer perder. Se ainda é ambiente de
-teste/pré-lançamento, pule — o seed do Passo 2 já cria o usuário admin do
-zero.
+teste/pré-lançamento, pule — o admin entra com Google no primeiro acesso,
+sem precisar de dado nenhum.
 
 1. Deixe o backend do Passo 2 no ar pelo menos uma vez — isso roda
    `prisma migrate deploy` e cria as tabelas vazias no Supabase.
@@ -173,8 +177,8 @@ zero.
      --no-owner --no-acl --data-only --disable-triggers \
      backup.dump
    ```
-   (`User` fica de fora porque o seed do Passo 2 já criou o admin — restaurar
-   por cima daria conflito de usuário duplicado.)
+   (`User` fica de fora porque o admin antigo era de usuário/senha, que não
+   existe mais — as contas nascem no primeiro login com Google.)
 4. Comprovantes (`Receipt.filePath`) que hoje apontam pra disco do Railway
    **não têm arquivo pra migrar automaticamente** — se havia comprovantes
    reais enviados, os arquivos ficaram no volume do Railway; precisa baixar

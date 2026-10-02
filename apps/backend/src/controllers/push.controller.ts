@@ -31,7 +31,7 @@ export async function subscribe(req: Request, res: Response) {
     return;
   }
 
-  await saveSubscription(result.data.subscription, result.data.studentName);
+  await saveSubscription(result.data.subscription, res.locals.user.id);
   res.status(204).send();
 }
 

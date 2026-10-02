@@ -20,9 +20,10 @@ EXPOSE 3333
 
 # Aplica migrations já existentes (não cria novas — isso é `prisma migrate
 # dev`, rodado manualmente via `docker compose exec backend pnpm
-# prisma:migrate` quando o schema mudar) e roda o seed (upsert, idempotente)
-# a cada start, pra já subir pronto pra usar num `docker compose up`.
-CMD ["sh", "-c", "pnpm prisma:migrate:deploy && pnpm prisma:seed && pnpm dev"]
+# prisma:migrate` quando o schema mudar) a cada start, pra já subir pronto
+# pra usar num `docker compose up`. Não há seed: as contas nascem no
+# primeiro login com Google, e admin é quem está em ADMIN_EMAILS.
+CMD ["sh", "-c", "pnpm prisma:migrate:deploy && pnpm dev"]
 
 FROM base AS build
 
@@ -46,9 +47,7 @@ USER node
 
 EXPOSE 3333
 
-# Usa os binários do Prisma/tsx direto do node_modules em vez de `pnpm exec`:
-# em produção não precisamos do corepack/pnpm dentro do container, só dos
-# CLIs já instalados como devDependency na etapa de build. O seed roda a
-# cada start (é upsert, idempotente) pra não depender de um passo manual
-# pós-deploy na plataforma gerenciada.
-CMD ["sh", "-c", "node_modules/.bin/prisma migrate deploy && node_modules/.bin/tsx prisma/seed.ts && node dist/index.js"]
+# Usa o binário do Prisma direto do node_modules em vez de `pnpm exec`: em
+# produção não precisamos do corepack/pnpm dentro do container, só do CLI
+# já instalado como devDependency na etapa de build.
+CMD ["sh", "-c", "node_modules/.bin/prisma migrate deploy && node dist/index.js"]

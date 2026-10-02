@@ -1,14 +1,8 @@
 import crypto from "node:crypto";
-import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { User, UserRole } from "@prisma/client";
 import { prisma } from "./prisma";
-
-export class InvalidCredentialsError extends Error {
-  constructor(message = "Usuário ou senha inválidos") {
-    super(message);
-    this.name = "InvalidCredentialsError";
-  }
-}
+import { GoogleProfile } from "./google-auth";
 
 export class InvalidSessionError extends Error {
   constructor(message = "Sessão inválida ou expirada") {
@@ -27,72 +21,110 @@ function readJwtSecret(): string {
 
 const JWT_SECRET: string = readJwtSecret();
 const ACCESS_TOKEN_TTL = "5m";
-const REFRESH_TOKEN_TTL = "7d";
+// Longo de propósito: o app instalado no celular não deve pedir login de
+// novo toda semana. Cada renovação emite um refresh novo, então quem abre o
+// app pelo menos uma vez a cada 90 dias nunca precisa logar de novo.
+const REFRESH_TOKEN_TTL = "90d";
 
-export const ADMIN_COOKIE_NAME = "admin_token";
-export const ADMIN_COOKIE_MAX_AGE_MS = 5 * 60 * 1000;
+// Comparação sem diferenciar maiúsculas: o e-mail do Google já é salvo em
+// minúsculas (ver google-auth.ts).
+const ADMIN_EMAILS = new Set(
+  (process.env.ADMIN_EMAILS ?? "")
+    .split(",")
+    .map(email => email.trim().toLowerCase())
+    .filter(Boolean),
+);
+
+export const ACCESS_COOKIE_NAME = "access_token";
+export const ACCESS_COOKIE_MAX_AGE_MS = 5 * 60 * 1000;
 
 // Path restrito a /api/auth: esse cookie só precisa ir pro backend nas
-// chamadas de /refresh e /logout, nunca nas demais rotas administrativas
-// (que só olham o access token) — reduz a exposição dele a cada requisição.
-export const ADMIN_REFRESH_COOKIE_NAME = "admin_refresh_token";
-export const ADMIN_REFRESH_COOKIE_PATH = "/api/auth";
-export const ADMIN_REFRESH_COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+// chamadas de /refresh e /logout, nunca nas demais rotas (que só olham o
+// access token) — reduz a exposição dele a cada requisição.
+export const REFRESH_COOKIE_NAME = "refresh_token";
+export const REFRESH_COOKIE_PATH = "/api/auth";
+export const REFRESH_COOKIE_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000;
 
-export type AdminTokenPayload = {
+export type SessionTokenPayload = {
   sub: number;
-  username: string;
+  role: UserRole;
   jti: string;
   type: "access" | "refresh";
 };
 
-export type AdminSessionTokens = {
+// O que os middlewares de autenticação deixam em `res.locals.user`.
+export type SessionUser = {
+  id: number;
+  role: UserRole;
+};
+
+export type SessionTokens = {
   accessToken: string;
   refreshToken: string;
 };
 
-export async function verifyAdminCredentials(
-  username: string,
-  password: string,
-) {
-  const user = await prisma.user.findFirst({
-    where: { username: { equals: username.trim(), mode: "insensitive" } },
-  });
+// Formato devolvido ao front por /auth/google, /auth/refresh e /auth/me.
+export type UserProfile = Pick<
+  User,
+  "id" | "name" | "email" | "photoUrl" | "role"
+>;
 
-  if (!user) {
-    throw new InvalidCredentialsError();
-  }
-
-  const passwordMatches = await bcrypt.compare(password, user.passwordHash);
-
-  if (!passwordMatches) {
-    throw new InvalidCredentialsError();
-  }
-
-  return user;
+export function toUserProfile(user: User): UserProfile {
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    photoUrl: user.photoUrl,
+    role: user.role,
+  };
 }
 
-function signAdminToken(
-  payload: AdminTokenPayload,
+function roleForEmail(email: string): UserRole {
+  return ADMIN_EMAILS.has(email.toLowerCase()) ? "ADMIN" : "STUDENT";
+}
+
+// Primeiro login cria a conta; os seguintes atualizam só o que vem do
+// Google (e-mail, foto) e o papel — recalculado a cada login a partir de
+// `ADMIN_EMAILS`, então tirar um e-mail da lista rebaixa o admin no próximo
+// login. `name` nunca é sobrescrito depois de criado: o usuário pode
+// editá-lo no perfil.
+export function upsertUserFromGoogle(profile: GoogleProfile) {
+  const role = roleForEmail(profile.email);
+
+  return prisma.user.upsert({
+    where: { googleId: profile.googleId },
+    create: {
+      googleId: profile.googleId,
+      email: profile.email,
+      name: profile.name,
+      photoUrl: profile.photoUrl,
+      role,
+    },
+    update: { email: profile.email, photoUrl: profile.photoUrl, role },
+  });
+}
+
+function signSessionToken(
+  payload: SessionTokenPayload,
   ttl: typeof ACCESS_TOKEN_TTL | typeof REFRESH_TOKEN_TTL,
 ): string {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: ttl });
 }
 
-export function verifyAdminToken(token: string): AdminTokenPayload {
-  return jwt.verify(token, JWT_SECRET) as unknown as AdminTokenPayload;
+export function verifySessionToken(token: string): SessionTokenPayload {
+  return jwt.verify(token, JWT_SECRET) as unknown as SessionTokenPayload;
 }
 
 // Verifica a assinatura ignorando expiração — usado só no logout, pra
 // conseguir identificar o dono de um token já vencido (access ou refresh)
 // e limpar a sessão dele mesmo assim.
-export function decodeAdminTokenIgnoringExpiry(
+export function decodeSessionTokenIgnoringExpiry(
   token: string,
-): AdminTokenPayload | null {
+): SessionTokenPayload | null {
   try {
     return jwt.verify(token, JWT_SECRET, {
       ignoreExpiration: true,
-    }) as unknown as AdminTokenPayload;
+    }) as unknown as SessionTokenPayload;
   } catch {
     return null;
   }
@@ -103,10 +135,12 @@ export function decodeAdminTokenIgnoringExpiry(
 // continuaria válido até expirar), cada uso confere se o `jti` do token
 // ainda é o mais recente emitido pra esse usuário. Login e refresh geram
 // um par novo (invalidando o par anterior); logout zera os dois campos.
-export async function issueAdminSession(user: {
+// Consequência: uma sessão por usuário — logar num aparelho derruba a
+// sessão do outro.
+export async function issueSession(user: {
   id: number;
-  username: string;
-}): Promise<AdminSessionTokens> {
+  role: UserRole;
+}): Promise<SessionTokens> {
   const accessJti = crypto.randomUUID();
   const refreshJti = crypto.randomUUID();
 
@@ -116,12 +150,12 @@ export async function issueAdminSession(user: {
   });
 
   return {
-    accessToken: signAdminToken(
-      { sub: user.id, username: user.username, jti: accessJti, type: "access" },
+    accessToken: signSessionToken(
+      { sub: user.id, role: user.role, jti: accessJti, type: "access" },
       ACCESS_TOKEN_TTL,
     ),
-    refreshToken: signAdminToken(
-      { sub: user.id, username: user.username, jti: refreshJti, type: "refresh" },
+    refreshToken: signSessionToken(
+      { sub: user.id, role: user.role, jti: refreshJti, type: "refresh" },
       REFRESH_TOKEN_TTL,
     ),
   };
@@ -130,14 +164,15 @@ export async function issueAdminSession(user: {
 // Renova a sessão a partir do refresh token: confere assinatura, validade
 // e que o `jti` ainda é o vigente, e então emite um par access+refresh
 // novo — o que já invalida os dois tokens anteriores (o `jti` antigo de
-// cada um deixa de bater com o que fica gravado no usuário).
-export async function refreshAdminSession(
+// cada um deixa de bater com o que fica gravado no usuário). O papel do
+// token novo vem do banco, não do token antigo.
+export async function refreshSession(
   refreshToken: string,
-): Promise<AdminSessionTokens & { username: string }> {
-  let payload: AdminTokenPayload;
+): Promise<SessionTokens & { user: User }> {
+  let payload: SessionTokenPayload;
 
   try {
-    payload = verifyAdminToken(refreshToken);
+    payload = verifySessionToken(refreshToken);
   } catch {
     throw new InvalidSessionError();
   }
@@ -152,11 +187,11 @@ export async function refreshAdminSession(
     throw new InvalidSessionError();
   }
 
-  const tokens = await issueAdminSession(user);
-  return { ...tokens, username: user.username };
+  const tokens = await issueSession(user);
+  return { ...tokens, user };
 }
 
-export async function invalidateAdminSession(userId: number): Promise<void> {
+export async function invalidateSession(userId: number): Promise<void> {
   await prisma.user
     .update({
       where: { id: userId },
@@ -165,8 +200,8 @@ export async function invalidateAdminSession(userId: number): Promise<void> {
     .catch(() => {});
 }
 
-export async function isAdminSessionActive(
-  payload: AdminTokenPayload,
+export async function isSessionActive(
+  payload: SessionTokenPayload,
 ): Promise<boolean> {
   if (payload.type !== "access") return false;
 
