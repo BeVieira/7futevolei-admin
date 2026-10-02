@@ -9,6 +9,7 @@ export { CollapsibleSectionHeader } from "./CollapsibleSectionHeader";
 export { GuestBadge } from "./GuestBadge";
 export { Layout } from "./Layout";
 export { Modal } from "./Modal";
+export { PushInstallInstructions } from "./PushInstallInstructions";
 export { PushNotificationsControl } from "./PushNotificationsControl";
 export { RequireAdmin } from "./RequireAdmin";
 export { RequireAuth } from "./RequireAuth";

@@ -822,3 +822,38 @@ local o aparelho cai em `unsupported`. Para testar no celular, use o túnel
 HTTPS (`cloudflared tunnel --url http://localhost:5173`; o domínio já está
 liberado em `server.allowedHosts`). No iPhone o push só aparece com o app
 adicionado à tela de início (status `needs-install` antes disso).
+
+### O dono da inscrição é a sessão, não o front
+
+`pushService.enable()`/`syncSubscription()` mandam só a inscrição do
+navegador (`subscription.toJSON()`); o backend amarra ao usuário logado
+pelo cookie. Nada de nome/id no payload. Consequências:
+
+- **Logout desinscreve o aparelho:** o caso de uso de logout chama
+  `await pushService.disable().catch(() => {})` **antes** de derrubar a
+  sessão. `disable()` desfaz a inscrição do navegador mesmo se a chamada
+  ao backend falhar (o endpoint morto passa a dar 410 e o servidor apaga o
+  registro no próximo envio), e o `/push/unsubscribe` é público — então a
+  ordem/estado da sessão nunca deixa o aparelho recebendo avisos da conta
+  que saiu.
+- **Troca de conta no aparelho:** `useSyncPushSubscription(me?.id)`,
+  montado onde a sessão é conhecida (o `Layout`), reenvia a inscrição já
+  existente uma vez por usuário (a key leva o `userId`) — o upsert por
+  endpoint no backend reatribui o aparelho a quem está logado agora.
+
+### Onde as notificações aparecem na tela
+
+- **`PushNotificationsControl`** (global, sem props): ativar/desativar,
+  ou a instrução de instalar no iPhone, ou o aviso de bloqueado. Fica no
+  card de notificações do `/perfil`.
+- **`PushNotificationsInvite`** (local da `PublicPage`): convite
+  contextual dentro do card da aula, logo depois de o aluno se inscrever.
+  Só aparece com status `disabled` (ou `needs-install`, mostrando a
+  instrução de instalar) e enquanto o aparelho não decidiu: ativar ou
+  "Agora não" grava `7futevolei:push-invite-dismissed` no `localStorage`
+  (`pushService.dismissInvite`) e ele não volta. A flag é lida por uma
+  query (`useGetPushInviteDismissed`), não `useState`, pra dispensar um
+  convite esconder todos os que estiverem na tela.
+- **`PushInstallInstructions`** (global): o texto "adicione à tela de
+  início", compartilhado pelos dois acima.
+

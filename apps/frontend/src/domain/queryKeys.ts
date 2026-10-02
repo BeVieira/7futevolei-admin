@@ -6,6 +6,8 @@ export enum DomainQueryKey {
   GoogleSignIn = "googleSignIn",
   PushStatus = "pushStatus",
   Users = "users",
+  PushInvite = "pushInvite",
+  PushSync = "pushSync",
 }
 
 export const queryKeys = {
@@ -31,6 +33,8 @@ export const queryKeys = {
   },
   push: {
     status: [DomainQueryKey.PushStatus] as const,
+    inviteDismissed: [DomainQueryKey.PushInvite] as const,
+    sync: (userId: number) => [DomainQueryKey.PushSync, userId] as const,
   },
   enrollments: {
     // Inscrições do usuário logado — quem é vem da sessão, então a key não

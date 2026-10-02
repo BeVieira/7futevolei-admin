@@ -6,14 +6,13 @@ function getPublicKey(): Promise<{ publicKey: string }> {
   return apiFetch(`${BASE_URL}/public-key`).then(res => handleResponse(res));
 }
 
-function subscribe(
-  subscription: PushSubscriptionJSON,
-  studentName?: string,
-): Promise<void> {
+// O dono da inscrição é o usuário da sessão (cookie) — o front não manda
+// identificação nenhuma.
+function subscribe(subscription: PushSubscriptionJSON): Promise<void> {
   return apiFetch(`${BASE_URL}/subscribe`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ subscription, studentName }),
+    body: JSON.stringify({ subscription }),
   }).then(res => handleResponse(res));
 }
 

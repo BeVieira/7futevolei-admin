@@ -1,6 +1,8 @@
 import { pushApi } from "./api";
 import { PushStatus } from "./types";
 
+const INVITE_DISMISSED_KEY = "7futevolei:push-invite-dismissed";
+
 function isSupported(): boolean {
   return (
     "serviceWorker" in navigator &&
@@ -52,7 +54,7 @@ function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
 // clique: o Safari/iOS só mostra o pedido de permissão se ele vier direto
 // de um gesto do usuário, e um `await` antes (ex: buscar a chave pública)
 // já quebra esse vínculo.
-async function enable(studentName?: string): Promise<void> {
+async function enable(): Promise<void> {
   const permission = await Notification.requestPermission();
   if (permission !== "granted") {
     throw new Error("Permissão para notificações não concedida");
@@ -69,29 +71,64 @@ async function enable(studentName?: string): Promise<void> {
     });
   }
 
-  await pushApi.subscribe(subscription.toJSON(), studentName);
+  await pushApi.subscribe(subscription.toJSON());
+  // Já decidiu: o convite pós-inscrição não precisa mais aparecer.
+  dismissInvite();
 }
 
+// Também chamado no logout, antes de derrubar a sessão. A inscrição do
+// navegador é desfeita mesmo se o backend falhar: o endpoint morto passa a
+// responder 410 pro servidor, que apaga o registro no próximo envio — o
+// aparelho nunca continua recebendo avisos da conta que saiu.
 async function disable(): Promise<void> {
   const subscription = await getCurrentSubscription();
   if (!subscription) return;
 
-  await pushApi.unsubscribe(subscription.endpoint);
-  await subscription.unsubscribe();
+  try {
+    await pushApi.unsubscribe(subscription.endpoint);
+  } finally {
+    await subscription.unsubscribe();
+  }
 }
 
-// Reenvia a inscrição já existente com o nome atual do aluno — mantém o
-// vínculo aparelho→aluno em dia quando ele troca o nome em "Minhas Aulas".
-async function syncStudentName(studentName: string): Promise<void> {
-  const subscription = await getCurrentSubscription();
-  if (!subscription) return;
+// Reenvia a inscrição que o navegador já tem pro usuário da sessão atual: o
+// upsert por endpoint no backend reatribui o aparelho a quem está logado
+// (ex: outra pessoa entrou no aparelho sem o logout anterior ter rodado).
+// Sem inscrição ou sem permissão, não faz nada.
+async function syncSubscription(): Promise<boolean> {
+  if (!isSupported() || Notification.permission !== "granted") return false;
 
-  await pushApi.subscribe(subscription.toJSON(), studentName);
+  const subscription = await getCurrentSubscription();
+  if (!subscription) return false;
+
+  await pushApi.subscribe(subscription.toJSON());
+  return true;
+}
+
+// Convite "quer ser avisado?" mostrado depois de se inscrever numa aula.
+// Dispensado ou ativado uma vez, não volta neste aparelho. `localStorage`
+// pode lançar (modo privado/bloqueado) — aí o convite só volta a aparecer.
+function isInviteDismissed(): boolean {
+  try {
+    return localStorage.getItem(INVITE_DISMISSED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function dismissInvite() {
+  try {
+    localStorage.setItem(INVITE_DISMISSED_KEY, "1");
+  } catch {
+    // Sem storage o convite volta na próxima visita; nada a fazer.
+  }
 }
 
 export const pushService = {
   getStatus,
   enable,
   disable,
-  syncStudentName,
+  syncSubscription,
+  isInviteDismissed,
+  dismissInvite,
 };

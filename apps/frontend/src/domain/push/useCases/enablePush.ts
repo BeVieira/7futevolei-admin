@@ -2,9 +2,9 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { pushService, queryKeys } from "@domain";
 import { toActionError } from "@utils";
 
-async function enablePush(studentName?: string) {
+async function enablePush() {
   try {
-    await pushService.enable(studentName);
+    await pushService.enable();
   } catch (err) {
     throw toActionError(err, "Erro ao ativar notificações");
   }
@@ -16,6 +16,9 @@ export function useEnablePush() {
     mutationFn: enablePush,
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.push.status });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.push.inviteDismissed,
+      });
     },
   });
 }

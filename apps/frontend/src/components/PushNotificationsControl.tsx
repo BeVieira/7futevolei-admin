@@ -1,28 +1,13 @@
-import { useEffect } from "react";
-import {
-  pushService,
-  useDisablePush,
-  useEnablePush,
-  useGetPushStatus,
-} from "@domain";
+import { useDisablePush, useEnablePush, useGetPushStatus } from "@domain";
 import { Button } from "./Button";
+import { PushInstallInstructions } from "./PushInstallInstructions";
 
-type Props = {
-  // Aluno dono deste aparelho — vincula a inscrição de push ao nome usado em
-  // "Minhas Aulas". Omitido no admin, pra não sobrescrever o vínculo.
-  studentName?: string;
-};
-
-export function PushNotificationsControl({ studentName }: Props) {
+// Ativar/desativar as notificações deste aparelho para o usuário logado (a
+// sessão identifica o dono da inscrição — sem props). Fica no perfil.
+export function PushNotificationsControl() {
   const { data: status } = useGetPushStatus();
   const enableMutation = useEnablePush();
   const disableMutation = useDisablePush();
-
-  useEffect(() => {
-    if (status === "enabled" && studentName) {
-      pushService.syncStudentName(studentName).catch(() => {});
-    }
-  }, [status, studentName]);
 
   if (!status) return null;
 
@@ -35,20 +20,7 @@ export function PushNotificationsControl({ studentName }: Props) {
   }
 
   if (status === "needs-install") {
-    return (
-      <div className="flex flex-col gap-1 text-sm text-slate-600">
-        <p className="font-medium text-slate-700">
-          Quer receber notificações no iPhone?
-        </p>
-        <p>
-          Adicione o app à tela de início: toque em{" "}
-          <span className="font-medium">Compartilhar</span> (o quadrado com a
-          seta) e depois em{" "}
-          <span className="font-medium">Adicionar à Tela de Início</span>. Abra
-          o app pelo ícone novo e ative as notificações por lá.
-        </p>
-      </div>
-    );
+    return <PushInstallInstructions />;
   }
 
   if (status === "denied") {
@@ -80,13 +52,19 @@ export function PushNotificationsControl({ studentName }: Props) {
           </Button>
         </div>
       ) : (
-        <Button
-          type="button"
-          disabled={isPending}
-          onClick={() => enableMutation.mutate(studentName)}
-        >
-          {isPending ? "Ativando..." : "Ativar notificações"}
-        </Button>
+        <>
+          <p className="text-sm text-slate-600">
+            Receba um aviso quando sair da lista de espera, se sua inscrição
+            mudar e na hora de enviar o comprovante.
+          </p>
+          <Button
+            type="button"
+            disabled={isPending}
+            onClick={() => enableMutation.mutate()}
+          >
+            {isPending ? "Ativando..." : "Ativar notificações"}
+          </Button>
+        </>
       )}
       {error && <p className="text-sm text-red-600">{error.message}</p>}
     </div>

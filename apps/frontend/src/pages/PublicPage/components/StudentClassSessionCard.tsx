@@ -1,6 +1,7 @@
 import { FormEvent, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { SideSlots } from "./SideSlots";
+import { PushNotificationsInvite } from "./PushNotificationsInvite";
 import { WaitlistModal } from "./WaitlistModal";
 import { Button, ClassSessionCard } from "@components";
 import { PeopleIcon } from "@assets";
@@ -141,6 +142,7 @@ export function StudentClassSessionCard({ session, me, myEnrollment }: Props) {
                 ? `${me.name}, você está na lista de espera`
                 : `${me.name}, você está inscrito`}
             </p>
+            <PushNotificationsInvite />
             {session.isLocked ? (
               <p className="text-xs text-slate-500">
                 Lista trancada — não é mais possível cancelar. Fale com o
