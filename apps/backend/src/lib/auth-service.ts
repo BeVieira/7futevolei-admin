@@ -259,8 +259,11 @@ export async function issueSession(user: {
 // um aparelho cuja resposta da renovação se perdeu — PWA do iOS voltando do
 // segundo plano no meio da requisição) chega com o refresh da rotação
 // anterior: dentro de `REFRESH_REUSE_GRACE_MS` ela recebe o par vigente
-// reassinado (mesmos `jti`, nada é rotacionado de novo); fora dessa janela,
-// é tratada como token inválido.
+// reassinado (mesmos `jti`, nada é rotacionado de novo). Qualquer outro
+// refresh que não seja o vigente (o anterior fora da janela, ou um mais
+// velho) é tratado como reuso de token — sinal de que alguém pode ter
+// copiado o refresh — e **apaga a sessão** inteira: o dono legítimo
+// precisa logar de novo, mas quem copiou também perde o acesso.
 export async function refreshSession(
   refreshToken: string,
 ): Promise<SessionTokens & { user: User }> {
@@ -296,7 +299,12 @@ export async function refreshSession(
       session.previousRefreshJti === payload.jti &&
       Date.now() - session.lastUsedAt.getTime() < REFRESH_REUSE_GRACE_MS;
 
-    if (!isRecentRotation) throw new InvalidSessionError();
+    if (!isRecentRotation) {
+      await revokeSession(session.id);
+      throw new InvalidSessionError();
+    }
+    // A validade (`expiresAt`) já foi conferida acima, antes de qualquer
+    // ramo: o par reassinado nunca estende uma sessão vencida.
     return { ...signSessionPair(user, session), user };
   }
 
@@ -324,12 +332,17 @@ export async function refreshSession(
       where: { id: session.id },
     });
     if (!current || current.previousRefreshJti !== payload.jti) {
+      if (current) await revokeSession(current.id);
       throw new InvalidSessionError();
     }
     return { ...signSessionPair(user, current), user };
   }
 
   return { ...signSessionPair(user, rotated), user };
+}
+
+async function revokeSession(sessionId: string): Promise<void> {
+  await prisma.session.deleteMany({ where: { id: sessionId } });
 }
 
 async function syncRole(user: User): Promise<User> {
