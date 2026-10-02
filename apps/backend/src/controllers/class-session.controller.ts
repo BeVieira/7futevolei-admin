@@ -13,6 +13,7 @@ import {
   EnrollmentNotFoundError,
   UserNotFoundError,
   cancelEnrollment,
+  deleteClassSessionAndNotify,
   enrollStudent,
   removeEnrollmentById,
   updateClassSessionWithRebalance,
@@ -374,7 +375,7 @@ export async function deleteClassSession(req: Request, res: Response) {
   }
 
   try {
-    await prisma.classSession.delete({ where: { id } });
+    await deleteClassSessionAndNotify(id);
     res.status(204).send();
   } catch (error) {
     if (

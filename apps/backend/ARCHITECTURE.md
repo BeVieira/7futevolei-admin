@@ -25,6 +25,7 @@ src/
     asyncHandler.ts           # adapta handler async pro Express
     swagger.ts                # schemas OpenAPI compartilhados
     push-service.ts           # inscrições e envio de Web Push (VAPID)
+    enrollment-notifications.ts # textos + disparo best-effort dos avisos de inscrição
     google-auth.ts            # valida o ID token do Google (login)
     login-nonce.ts            # tentativas de login do fluxo de redirect (nonce)
     auth-service.ts           # upsert do User, emissão/renovação/revogação da sessão
@@ -315,11 +316,51 @@ async function withSerializableRetry<T>(run: () => Promise<T>): Promise<T> {
 ```
 
 Toda função de `enrollment-service.ts` que muda estado (`enrollStudent`,
-`cancelEnrollment`, `updateClassSessionWithRebalance`) segue esse mesmo formato:
+`cancelEnrollment`, `removeEnrollmentById`, `updateClassSessionWithRebalance`,
+`deleteClassSessionAndNotify`) segue esse mesmo formato:
 `withSerializableRetry(() => prisma.$transaction(async (tx) => { ... }, { isolationLevel: Serializable }))`.
 Uma função nova que lê-then-escreve com uma invariante a proteger (capacidade,
 unicidade, etc.) deve seguir o mesmo padrão, não um `prisma.enrollment.create`
 solto fora de transação.
+
+O retry não cobre violação de índice único (`P2002`): duas inscrições do
+mesmo usuário na mesma turma ao mesmo tempo (clique duplo, duas abas)
+passam as duas pela checagem de "já inscrito" e a segunda bate no
+`@@unique([classSessionId, userId])`. `enrollStudent` traduz esse `P2002`
+pro mesmo `AlreadyEnrolledError` (409) da checagem explícita, em vez de
+deixar virar 500.
+
+## Notificação: depois do commit, fora do retry, sem `await`
+
+Promoção da lista de espera, remoção pelo admin e exclusão de turma avisam
+o aluno por push (`lib/enrollment-notifications.ts`). O aviso **nunca**
+sai de dentro do `prisma.$transaction`:
+
+- dentro da transação ela ainda pode abortar (ou ser reexecutada pelo
+  `withSerializableRetry`) — avisaria alguém de uma promoção que não
+  aconteceu, ou duas vezes;
+- push é rede externa lenta, e segurar uma transação `Serializable` aberta
+  esperando o serviço de push aumenta a chance de conflito (`P2034`).
+
+Por isso a transação só **devolve quem foi afetado** (`promotedUserIds`,
+a inscrição removida, os `userId` da turma excluída — lidos antes do
+`delete`) e a função exportada dispara o aviso depois que o
+`withSerializableRetry` retorna:
+
+```ts
+const { classSession, counters, promotedUserIds } =
+  await withSerializableRetry(() => prisma.$transaction(async tx => { ... }));
+
+void notifyWaitlistPromotion(classSession, promotedUserIds);
+return counters;
+```
+
+As funções `notifyX` são best-effort: nunca rejeitam (erro vira log, push
+não configurado é ignorado) e o chamador não espera por elas (`void`) — a
+resposta HTTP da inscrição não fica presa ao serviço de push nem falha por
+causa dele. Só `userId` entra (convidado não tem aparelho), e aula que já
+terminou não gera aviso. Um caminho novo que mude status de inscrição
+(promoção, remoção) deve seguir esse mesmo formato.
 
 ## Prisma: schema → migração → client
 

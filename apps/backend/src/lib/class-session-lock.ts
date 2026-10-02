@@ -23,3 +23,27 @@ export function isClassSessionLocked(
   const lockDate = computeLockAt(date, lockAt);
   return lockDate !== null && now >= lockDate;
 }
+
+// Instante real em que a aula termina: `date` (meia-noite UTC do dia no
+// Brasil) + `endTime` no horário de Brasília. Uma aula das 23h termina
+// "00:00" — o fim cai no dia seguinte.
+export function computeClassSessionEnd(classSession: {
+  date: Date;
+  startTime: string;
+  endTime: string;
+}): Date {
+  const [hours, minutes] = classSession.endTime.split(":").map(Number);
+  const end = new Date(classSession.date);
+  if (classSession.endTime <= classSession.startTime) {
+    end.setUTCDate(end.getUTCDate() + 1);
+  }
+  end.setUTCHours(hours + BRAZIL_UTC_OFFSET_HOURS, minutes, 0, 0);
+  return end;
+}
+
+export function hasClassSessionEnded(
+  classSession: { date: Date; startTime: string; endTime: string },
+  now: Date = new Date(),
+): boolean {
+  return now >= computeClassSessionEnd(classSession);
+}

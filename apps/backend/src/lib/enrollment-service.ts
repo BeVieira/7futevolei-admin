@@ -1,6 +1,11 @@
 import { Prisma, Side } from "@prisma/client";
 import { prisma } from "./prisma";
 import { isClassSessionLocked } from "./class-session-lock";
+import {
+  notifyClassSessionDeleted,
+  notifyEnrollmentRemoved,
+  notifyWaitlistPromotion,
+} from "./enrollment-notifications";
 
 export class EnrollmentNotFoundError extends Error {
   constructor(message = "Enrollment not found") {
@@ -56,6 +61,12 @@ async function withSerializableRetry<T>(run: () => Promise<T>): Promise<T> {
   }
 }
 
+// `userId` das inscrições, pra avisar por push — convidados (`userId` nulo)
+// ficam de fora, não recebem notificação.
+function userIdsOf(enrollments: { userId: number | null }[]): number[] {
+  return enrollments.flatMap(e => (e.userId === null ? [] : [e.userId]));
+}
+
 function sideCapacityOf(capacity: number): number {
   return Math.floor(capacity / 2);
 }
@@ -73,12 +84,13 @@ async function getCounters(
   return { confirmedCount, waitlistCount, capacity };
 }
 
+// Devolve os `userId` promovidos da espera, pra avisar depois do commit.
 async function rebalanceSide(
   tx: Prisma.TransactionClient,
   classSessionId: number,
   side: Side,
   sideCapacity: number,
-): Promise<void> {
+): Promise<number[]> {
   const confirmed = await tx.enrollment.findMany({
     where: { classSessionId, side, status: "CONFIRMED" },
     orderBy: { createdAt: "asc" },
@@ -87,14 +99,14 @@ async function rebalanceSide(
   if (confirmed.length > sideCapacity) {
     const toWaitlist = confirmed.slice(sideCapacity);
     await tx.enrollment.updateMany({
-      where: { id: { in: toWaitlist.map((e) => e.id) } },
+      where: { id: { in: toWaitlist.map(e => e.id) } },
       data: { status: "WAITLISTED" },
     });
-    return;
+    return [];
   }
 
   const openSlots = sideCapacity - confirmed.length;
-  if (openSlots <= 0) return;
+  if (openSlots <= 0) return [];
 
   const toPromote = await tx.enrollment.findMany({
     where: { classSessionId, side, status: "WAITLISTED" },
@@ -104,10 +116,12 @@ async function rebalanceSide(
 
   if (toPromote.length > 0) {
     await tx.enrollment.updateMany({
-      where: { id: { in: toPromote.map((e) => e.id) } },
+      where: { id: { in: toPromote.map(e => e.id) } },
       data: { status: "CONFIRMED" },
     });
   }
+
+  return userIdsOf(toPromote);
 }
 
 /**
@@ -119,20 +133,22 @@ async function rebalanceEnrollments(
   tx: Prisma.TransactionClient,
   classSessionId: number,
   capacity: number,
-): Promise<void> {
+): Promise<number[]> {
   const sideCapacity = sideCapacityOf(capacity);
-  await Promise.all([
+  const promoted = await Promise.all([
     rebalanceSide(tx, classSessionId, "LEFT", sideCapacity),
     rebalanceSide(tx, classSessionId, "RIGHT", sideCapacity),
   ]);
+  return promoted.flat();
 }
 
 async function deleteAndPromoteNext(
   tx: Prisma.TransactionClient,
   classSession: { id: number; capacity: number },
   enrollment: { id: number; status: string; side: Side },
-): Promise<EnrollmentCounters> {
+): Promise<{ counters: EnrollmentCounters; promotedUserIds: number[] }> {
   await tx.enrollment.delete({ where: { id: enrollment.id } });
+  let promotedUserIds: number[] = [];
 
   if (enrollment.status === "CONFIRMED") {
     const nextInLine = await tx.enrollment.findFirst({
@@ -149,10 +165,16 @@ async function deleteAndPromoteNext(
         where: { id: nextInLine.id },
         data: { status: "CONFIRMED" },
       });
+      promotedUserIds = userIdsOf([nextInLine]);
     }
   }
 
-  return getCounters(tx, classSession.id, classSession.capacity);
+  const counters = await getCounters(
+    tx,
+    classSession.id,
+    classSession.capacity,
+  );
+  return { counters, promotedUserIds };
 }
 
 // Quem está sendo inscrito: um usuário logado (o próprio aluno, ou alguém
@@ -161,6 +183,27 @@ async function deleteAndPromoteNext(
 export type Enrollee = { userId: number } | { guestName: string };
 
 export async function enrollStudent(
+  classSessionId: number,
+  enrollee: Enrollee,
+  side: Side,
+) {
+  try {
+    return await enrollStudentInTransaction(classSessionId, enrollee, side);
+  } catch (error) {
+    // Clique duplo / duas abas: as duas tentativas passam pela checagem de
+    // `existing` antes de qualquer uma commitar, e a segunda bate no índice
+    // único (classSessionId, userId) — é o mesmo "já inscrito", não um 500.
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      throw new AlreadyEnrolledError();
+    }
+    throw error;
+  }
+}
+
+function enrollStudentInTransaction(
   classSessionId: number,
   enrollee: Enrollee,
   side: Side,
@@ -217,76 +260,131 @@ export async function enrollStudent(
 // Auto-cancelamento do aluno logado: acha a inscrição dele pela sessão, não
 // por nome. Convidado não cancela sozinho (não tem login).
 export async function cancelEnrollment(classSessionId: number, userId: number) {
-  return withSerializableRetry(() =>
-    prisma.$transaction(
-      async tx => {
-        const classSession = await tx.classSession.findUniqueOrThrow({
-          where: { id: classSessionId },
-        });
+  const { classSession, counters, promotedUserIds } =
+    await withSerializableRetry(() =>
+      prisma.$transaction(
+        async tx => {
+          const classSession = await tx.classSession.findUniqueOrThrow({
+            where: { id: classSessionId },
+          });
 
-        if (isClassSessionLocked(classSession.date, classSession.lockAt)) {
-          throw new ClassSessionLockedError();
-        }
+          if (isClassSessionLocked(classSession.date, classSession.lockAt)) {
+            throw new ClassSessionLockedError();
+          }
 
-        const enrollment = await tx.enrollment.findFirst({
-          where: { classSessionId, userId },
-        });
+          const enrollment = await tx.enrollment.findFirst({
+            where: { classSessionId, userId },
+          });
 
-        if (!enrollment) {
-          throw new EnrollmentNotFoundError();
-        }
+          if (!enrollment) {
+            throw new EnrollmentNotFoundError();
+          }
 
-        return deleteAndPromoteNext(tx, classSession, enrollment);
-      },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-    ),
-  );
+          const outcome = await deleteAndPromoteNext(
+            tx,
+            classSession,
+            enrollment,
+          );
+          return { classSession, ...outcome };
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      ),
+    );
+
+  // Só depois do commit (e fora do retry, pra uma tentativa abortada não
+  // avisar ninguém): quem subiu da espera fica sabendo.
+  void notifyWaitlistPromotion(classSession, promotedUserIds);
+  return counters;
 }
 
 export async function removeEnrollmentById(
   classSessionId: number,
   enrollmentId: number,
 ) {
-  return withSerializableRetry(() =>
-    prisma.$transaction(
-      async (tx) => {
-        const classSession = await tx.classSession.findUniqueOrThrow({
-          where: { id: classSessionId },
-        });
+  const { classSession, removed, counters, promotedUserIds } =
+    await withSerializableRetry(() =>
+      prisma.$transaction(
+        async tx => {
+          const classSession = await tx.classSession.findUniqueOrThrow({
+            where: { id: classSessionId },
+          });
 
-        const enrollment = await tx.enrollment.findFirst({
-          where: { id: enrollmentId, classSessionId },
-        });
+          const enrollment = await tx.enrollment.findFirst({
+            where: { id: enrollmentId, classSessionId },
+          });
 
-        if (!enrollment) {
-          throw new EnrollmentNotFoundError();
-        }
+          if (!enrollment) {
+            throw new EnrollmentNotFoundError();
+          }
 
-        return deleteAndPromoteNext(tx, classSession, enrollment);
-      },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-    ),
-  );
+          const outcome = await deleteAndPromoteNext(
+            tx,
+            classSession,
+            enrollment,
+          );
+          return { classSession, removed: enrollment, ...outcome };
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      ),
+    );
+
+  if (removed.userId !== null) {
+    void notifyEnrollmentRemoved(classSession, removed.userId);
+  }
+  void notifyWaitlistPromotion(classSession, promotedUserIds);
+  return counters;
 }
 
 export async function updateClassSessionWithRebalance(
   classSessionId: number,
   data: Prisma.ClassSessionUpdateInput,
 ) {
-  return withSerializableRetry(() =>
+  const { classSession, promotedUserIds } = await withSerializableRetry(() =>
     prisma.$transaction(
-      async (tx) => {
+      async tx => {
         const classSession = await tx.classSession.update({
           where: { id: classSessionId },
           data,
         });
 
-        await rebalanceEnrollments(tx, classSession.id, classSession.capacity);
+        const promotedUserIds = await rebalanceEnrollments(
+          tx,
+          classSession.id,
+          classSession.capacity,
+        );
 
-        return classSession;
+        return { classSession, promotedUserIds };
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     ),
   );
+
+  // Aumento de capacidade promove da espera; a redução (confirmado voltando
+  // pra espera) não tem aviso nesta versão. Usa a turma já atualizada, então
+  // a data/horário do texto é a nova, se o admin também mudou o horário.
+  void notifyWaitlistPromotion(classSession, promotedUserIds);
+  return classSession;
 }
 
+// Exclui a turma (cascade nas inscrições) e avisa quem estava inscrito —
+// confirmado ou na espera. Os `userId` são lidos na mesma transação do
+// delete, antes dele, pra não perder quem se inscreveu no meio do caminho.
+export async function deleteClassSessionAndNotify(classSessionId: number) {
+  const { classSession, userIds } = await withSerializableRetry(() =>
+    prisma.$transaction(
+      async tx => {
+        const classSession = await tx.classSession.findUniqueOrThrow({
+          where: { id: classSessionId },
+          include: { enrollments: { select: { userId: true } } },
+        });
+
+        await tx.classSession.delete({ where: { id: classSessionId } });
+
+        return { classSession, userIds: userIdsOf(classSession.enrollments) };
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    ),
+  );
+
+  void notifyClassSessionDeleted(classSession, userIds);
+}
