@@ -9,6 +9,7 @@ import { authRouter } from "./routes/auth.routes";
 import { classSessionRouter } from "./routes/class-session.routes";
 import { enrollmentRouter } from "./routes/enrollment.routes";
 import { pushRouter } from "./routes/push.routes";
+import { userRouter } from "./routes/user.routes";
 
 const app = express();
 const port = process.env.PORT ?? 3333;
@@ -55,6 +56,7 @@ app.use("/api/auth", authRouter);
 app.use("/api/class-sessions", classSessionRouter);
 app.use("/api/enrollments", enrollmentRouter);
 app.use("/api/push", pushRouter);
+app.use("/api/users", userRouter);
 
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 

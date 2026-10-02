@@ -8,6 +8,7 @@ import {
   createClassSessionsBulk,
   createEnrollment,
   deleteClassSession,
+  getClassSessionAdminDetail,
   getClassSessionById,
   getNextAvailableDate,
   listClassDatesByMonth,
@@ -184,7 +185,10 @@ classSessionRouter.get(
  * @openapi
  * /api/class-sessions/{id}:
  *   get:
- *     summary: Detalha uma turma, com confirmados e lista de espera
+ *     summary: Detalha uma turma, com confirmados e lista de espera (só nomes e lados)
+ *     description: >
+ *       Visão pública — não diz quem é usuário ou convidado nem traz
+ *       comprovantes. O admin usa GET /api/class-sessions/{id}/admin.
  *     tags: [ClassSessions]
  *     parameters:
  *       - in: path
@@ -209,15 +213,64 @@ classSessionRouter.get(
  *                     confirmed:
  *                       type: array
  *                       items:
- *                         $ref: "#/components/schemas/Enrollment"
+ *                         $ref: "#/components/schemas/PublicEnrollment"
  *                     waitlist:
  *                       type: array
  *                       items:
- *                         $ref: "#/components/schemas/Enrollment"
+ *                         $ref: "#/components/schemas/PublicEnrollment"
  *       404:
  *         description: Turma não encontrada
  */
 classSessionRouter.get("/:id", asyncHandler(getClassSessionById));
+
+/**
+ * @openapi
+ * /api/class-sessions/{id}/admin:
+ *   get:
+ *     summary: Detalha uma turma na visão do admin (userId de cada inscrição e comprovantes)
+ *     tags: [ClassSessions]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Detalhe da turma
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: "#/components/schemas/ClassSession"
+ *                 - type: object
+ *                   properties:
+ *                     confirmedCount:
+ *                       type: integer
+ *                     waitlistCount:
+ *                       type: integer
+ *                     confirmed:
+ *                       type: array
+ *                       items:
+ *                         $ref: "#/components/schemas/AdminEnrollment"
+ *                     waitlist:
+ *                       type: array
+ *                       items:
+ *                         $ref: "#/components/schemas/AdminEnrollment"
+ *       401:
+ *         description: Não autenticado
+ *       403:
+ *         description: Usuário logado não é admin
+ *       404:
+ *         description: Turma não encontrada
+ */
+classSessionRouter.get(
+  "/:id/admin",
+  requireAdmin,
+  asyncHandler(getClassSessionAdminDetail),
+);
 
 /**
  * @openapi

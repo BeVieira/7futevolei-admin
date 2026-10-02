@@ -73,10 +73,6 @@ const options: swaggerJsdoc.Options = {
               enum: ["CONFIRMED", "WAITLISTED"],
             },
             createdAt: { type: "string", format: "date-time" },
-            receipt: {
-              nullable: true,
-              allOf: [{ $ref: "#/components/schemas/Receipt" }],
-            },
           },
           required: [
             "id",
@@ -88,6 +84,36 @@ const options: swaggerJsdoc.Options = {
             "createdAt",
           ],
         },
+        PublicEnrollment: {
+          type: "object",
+          description:
+            "Inscrição no detalhe público da turma: só nome exibido e lado.",
+          properties: {
+            id: { type: "integer", example: 1 },
+            studentName: { type: "string", example: "Maria Silva" },
+            side: { type: "string", enum: ["LEFT", "RIGHT"] },
+            createdAt: { type: "string", format: "date-time" },
+          },
+          required: ["id", "studentName", "side", "createdAt"],
+        },
+        AdminEnrollment: {
+          description:
+            "Inscrição no detalhe do admin: a visão pública mais userId (null = convidado) e o comprovante.",
+          allOf: [
+            { $ref: "#/components/schemas/PublicEnrollment" },
+            {
+              type: "object",
+              properties: {
+                userId: { type: "integer", nullable: true },
+                receipt: {
+                  nullable: true,
+                  allOf: [{ $ref: "#/components/schemas/Receipt" }],
+                },
+              },
+              required: ["userId", "receipt"],
+            },
+          ],
+        },
         Receipt: {
           type: "object",
           properties: {
@@ -95,7 +121,8 @@ const options: swaggerJsdoc.Options = {
             enrollmentId: { type: "integer", example: 1 },
             filePath: {
               type: "string",
-              example: "https://xxxx.supabase.co/storage/v1/object/public/receipts/uuid.jpg",
+              example:
+                "https://xxxx.supabase.co/storage/v1/object/public/receipts/uuid.jpg",
             },
             mimeType: { type: "string", example: "image/jpeg" },
             status: {
@@ -233,6 +260,29 @@ const options: swaggerJsdoc.Options = {
             role: { type: "string", enum: ["STUDENT", "ADMIN"] },
           },
           required: ["id", "name", "email", "photoUrl", "role"],
+        },
+        UserSearchResult: {
+          type: "object",
+          properties: {
+            id: { type: "integer", example: 1 },
+            name: { type: "string", example: "Maria Silva" },
+            email: { type: "string", example: "maria@gmail.com" },
+            photoUrl: { type: "string", nullable: true },
+          },
+          required: ["id", "name", "email", "photoUrl"],
+        },
+        UpdateMyProfileInput: {
+          type: "object",
+          properties: {
+            name: {
+              type: "string",
+              minLength: 1,
+              maxLength: 100,
+              example: "Maria Silva",
+              description: "Espaços nas pontas são removidos.",
+            },
+          },
+          required: ["name"],
         },
       },
     },

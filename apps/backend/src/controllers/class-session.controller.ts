@@ -95,8 +95,8 @@ function serializeSummary(
   } & Record<string, unknown>,
 ) {
   const { enrollments, ...rest } = classSession;
-  const confirmed = enrollments.filter((e) => e.status === "CONFIRMED");
-  const waitlisted = enrollments.filter((e) => e.status === "WAITLISTED");
+  const confirmed = enrollments.filter(e => e.status === "CONFIRMED");
+  const waitlisted = enrollments.filter(e => e.status === "WAITLISTED");
 
   return {
     ...rest,
@@ -111,16 +111,25 @@ function serializeSummary(
   };
 }
 
-// `userId: null` = convidado inscrito pelo admin.
-function serializeEnrollmentWithReceipt(
-  e: EnrollmentWithUser & { receipt: Receipt | null },
-) {
+// Visão pública de uma inscrição no detalhe da turma: só nome e lado —
+// quem é usuário e quem é convidado, e os comprovantes, ficam só na visão
+// do admin (`serializeEnrollmentForAdmin`).
+function serializeEnrollmentForPublic(e: EnrollmentWithUser) {
   return {
     id: e.id,
-    userId: e.userId,
     studentName: displayNameOf(e),
     side: e.side,
     createdAt: e.createdAt,
+  };
+}
+
+// `userId: null` = convidado inscrito pelo admin.
+function serializeEnrollmentForAdmin(
+  e: EnrollmentWithUser & { receipt: Receipt | null },
+) {
+  return {
+    ...serializeEnrollmentForPublic(e),
+    userId: e.userId,
     receipt: e.receipt
       ? {
           id: e.receipt.id,
@@ -132,20 +141,21 @@ function serializeEnrollmentWithReceipt(
   };
 }
 
-function serializeDetail(
+function serializeDetail<E extends EnrollmentWithUser, Out>(
   classSession: {
-    enrollments: (EnrollmentWithUser & { receipt: Receipt | null })[];
+    enrollments: E[];
     date: Date;
     lockAt: string | null;
   } & Record<string, unknown>,
+  serializeEnrollment: (e: E) => Out,
 ) {
   const { enrollments, ...rest } = classSession;
   const confirmed = enrollments
-    .filter((e) => e.status === "CONFIRMED")
-    .map(serializeEnrollmentWithReceipt);
+    .filter(e => e.status === "CONFIRMED")
+    .map(serializeEnrollment);
   const waitlist = enrollments
-    .filter((e) => e.status === "WAITLISTED")
-    .map(serializeEnrollmentWithReceipt);
+    .filter(e => e.status === "WAITLISTED")
+    .map(serializeEnrollment);
 
   return {
     ...rest,
@@ -168,8 +178,8 @@ export async function createClassSessionsBulk(req: Request, res: Response) {
   const { date, timeSlots, lockAt } = result.data;
 
   const created = await Promise.all(
-    timeSlots.flatMap((slot) =>
-      slot.levels.map((classLevel) =>
+    timeSlots.flatMap(slot =>
+      slot.levels.map(classLevel =>
         prisma.classSession.create({
           data: {
             date,
@@ -188,7 +198,7 @@ export async function createClassSessionsBulk(req: Request, res: Response) {
 
   res
     .status(201)
-    .json(created.map((c) => serializeSummary({ ...c, enrollments: [] })));
+    .json(created.map(c => serializeSummary({ ...c, enrollments: [] })));
 }
 
 export async function listClassDatesByMonth(req: Request, res: Response) {
@@ -212,7 +222,7 @@ export async function listClassDatesByMonth(req: Request, res: Response) {
   });
 
   res.json({
-    dates: classSessions.map((c) => c.date.toISOString().slice(0, 10)),
+    dates: classSessions.map(c => c.date.toISOString().slice(0, 10)),
   });
 }
 
@@ -269,7 +279,37 @@ export async function listClassSessions(req: Request, res: Response) {
   res.json(classSessions.map(serializeSummary));
 }
 
+// Detalhe público: nomes e lados, sem comprovante nem `userId`.
 export async function getClassSessionById(req: Request, res: Response) {
+  const id = parseId(req.params.id);
+
+  if (id === null) {
+    res.status(404).json({ error: "Class session not found" });
+    return;
+  }
+
+  const classSession = await prisma.classSession.findUnique({
+    where: { id },
+    include: {
+      enrollments: {
+        orderBy: { createdAt: "asc" },
+        include: enrollmentUserName,
+      },
+    },
+  });
+
+  if (!classSession) {
+    res.status(404).json({ error: "Class session not found" });
+    return;
+  }
+
+  res.json(serializeDetail(classSession, serializeEnrollmentForPublic));
+}
+
+// Detalhe do admin (rota própria com `requireAdmin`, ver
+// class-session.routes.ts): cada inscrição traz também `userId` (null =
+// convidado) e o comprovante.
+export async function getClassSessionAdminDetail(req: Request, res: Response) {
   const id = parseId(req.params.id);
 
   if (id === null) {
@@ -292,7 +332,7 @@ export async function getClassSessionById(req: Request, res: Response) {
     return;
   }
 
-  res.json(serializeDetail(classSession));
+  res.json(serializeDetail(classSession, serializeEnrollmentForAdmin));
 }
 
 export async function updateClassSession(req: Request, res: Response) {
@@ -311,10 +351,7 @@ export async function updateClassSession(req: Request, res: Response) {
   }
 
   try {
-    const classSession = await updateClassSessionWithRebalance(
-      id,
-      result.data,
-    );
+    const classSession = await updateClassSessionWithRebalance(id, result.data);
     res.json(classSession);
   } catch (error) {
     if (
@@ -358,8 +395,30 @@ async function respondWithEnrollment(
   side: "LEFT" | "RIGHT",
 ) {
   try {
-    const outcome = await enrollStudent(classSessionId, enrollee, side);
-    res.status(201).json(outcome);
+    const { enrollment, ...counters } = await enrollStudent(
+      classSessionId,
+      enrollee,
+      side,
+    );
+    const user = enrollment.userId
+      ? await prisma.user.findUnique({
+          where: { id: enrollment.userId },
+          select: { name: true },
+        })
+      : null;
+
+    res.status(201).json({
+      enrollment: {
+        id: enrollment.id,
+        classSessionId: enrollment.classSessionId,
+        userId: enrollment.userId,
+        studentName: displayNameOf({ ...enrollment, user }),
+        side: enrollment.side,
+        status: enrollment.status,
+        createdAt: enrollment.createdAt,
+      },
+      ...counters,
+    });
   } catch (error) {
     if (error instanceof AlreadyEnrolledError) {
       res.status(409).json({ error: error.message });
