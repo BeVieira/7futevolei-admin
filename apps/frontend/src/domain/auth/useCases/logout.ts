@@ -22,10 +22,12 @@ export function useLogout() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: logout,
+    // Nada do usuário anterior sobra em cache (inscrições, detalhe de
+    // turma do admin, busca de usuários, status do push...): limpa tudo e
+    // já marca "ninguém logado", pra o cabeçalho não piscar carregando.
     onSuccess: () => {
+      queryClient.clear();
       queryClient.setQueryData(queryKeys.auth.me, null);
-      queryClient.removeQueries({ queryKey: queryKeys.enrollments.mine });
-      queryClient.invalidateQueries({ queryKey: queryKeys.push.status });
     },
   });
 }

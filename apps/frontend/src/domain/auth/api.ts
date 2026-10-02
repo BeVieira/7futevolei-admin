@@ -1,5 +1,5 @@
 import { API_BASE_URL, apiFetch, handleResponse } from "@utils";
-import { Me } from "./types";
+import { GoogleLoginAttempt, GoogleLoginClaim, Me } from "./types";
 
 const BASE_URL = `${API_BASE_URL}/auth`;
 
@@ -18,13 +18,40 @@ function logout(): Promise<void> {
   }).then(res => handleResponse(res));
 }
 
-// Endereço pra onde o Google posta o resultado do login no fluxo de
-// redirect (ver `renderGoogleSignInButton` no service). Absoluto porque o
-// Google exige URL completa, e na origem do front porque é nela que os
-// cookies de sessão precisam ficar — em produção o rewrite da Vercel
-// repassa pro backend.
-function getGoogleLoginCallbackUrl(): string {
-  return new URL(`${BASE_URL}/google/callback`, window.location.origin).href;
+function createGoogleLoginAttempt(): Promise<GoogleLoginAttempt> {
+  return fetch(`${BASE_URL}/google/nonce`, {
+    method: "POST",
+    credentials: "include",
+  }).then(res => handleResponse(res));
 }
 
-export const authApi = { getMe, logout, getGoogleLoginCallbackUrl };
+// 409 = o Google ainda não devolveu essa tentativa; 401 = vencida/usada.
+async function claimGoogleLogin(secret: string): Promise<GoogleLoginClaim> {
+  const res = await fetch(`${BASE_URL}/google/claim`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ secret }),
+    credentials: "include",
+  });
+  if (res.status === 409) return { status: "pending" };
+  if (res.status === 401) return { status: "invalid" };
+  return { status: "logged-in", me: await handleResponse<Me>(res) };
+}
+
+// Endereço pra onde o Google posta o resultado do login no fluxo de
+// redirect (ver `renderGoogleSignInButton` no service). Fixo na origem do
+// front — de propósito **não** derivado de `VITE_API_URL`: é nessa origem
+// que os cookies de sessão precisam ser gravados (em produção o rewrite da
+// Vercel repassa pro backend), e é essa URL exata que fica cadastrada no
+// console do Google.
+function getGoogleLoginCallbackUrl(): string {
+  return `${window.location.origin}/api/auth/google/callback`;
+}
+
+export const authApi = {
+  getMe,
+  logout,
+  createGoogleLoginAttempt,
+  claimGoogleLogin,
+  getGoogleLoginCallbackUrl,
+};

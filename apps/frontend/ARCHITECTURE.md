@@ -305,6 +305,19 @@ raiz nem pelo barrel do próprio domínio — importar `@domain` de dentro de
 `domain/aula/useCases/algo.ts` seria circular (o barrel raiz reexporta
 `aula`, que reexporta `useCases/`, que importaria de volta o barrel raiz).
 
+Resumo da regra do alias, que vale pra todo arquivo novo ou reescrito:
+
+- **Dentro de `domain/`** → `@domain/<domínio>/<arquivo>` (ex:
+  `@domain/auth/service`, `@domain/queryKeys`), ou `./` pro arquivo ao
+  lado. Esse caminho profundo existe no `tsconfig.json` como
+  `"@domain/*"` (o Vite já resolve qualquer subcaminho de `@domain`).
+- **Fora de `domain/`** → só `@domain`, nunca o caminho profundo.
+
+Alguns `useCases/` mais antigos ainda importam `@domain` por dentro
+(funciona porque os símbolos só são usados dentro de funções, depois de o
+ciclo de módulos resolver); quando um deles for mexido, troque pro caminho
+profundo — não precisa converter os outros de uma vez.
+
 ## Export de `api.ts`/`service.ts`: uma const no final do arquivo, não `export` espalhado
 
 `api.ts` e `service.ts` não marcam cada função como `export` onde ela é
@@ -702,27 +715,53 @@ nunca `//...`) é aceito.
 
 ## Login com Google: fluxo de **redirect**, não popup
 
-O botão é o oficial do Google Identity Services, carregado em runtime
-(`useLoadGoogleSignIn` + `authService.renderGoogleSignInButton`) com
-`ux_mode: "redirect"` e `login_uri` = `<origem do front>/api/auth/google/callback`:
+O botão é o oficial do Google Identity Services, carregado em runtime com
+`ux_mode: "redirect"`, `login_uri` = `window.location.origin +
+"/api/auth/google/callback"` (fixo — não depende de `VITE_API_URL`: os
+cookies precisam ser gravados na origem do front, e essa é a URL
+cadastrada no console do Google) e um `nonce` pedido ao backend:
 
-1. O botão leva a página inteira pro Google.
-2. O Google faz um POST de formulário pro `login_uri` (backend, via proxy do
-   Vite em dev e rewrite da Vercel em produção), que valida, grava os
-   cookies e responde 303 pra `/login?status=ok` ou `/login?erro=<código>`.
-3. A `LoginPage` carrega de novo, `useGetMe` acha a sessão e ela navega
-   pro caminho guardado. Erro vira mensagem (`authService.loginErrorMessage`).
+1. `useLoadGoogleSignIn` carrega o script e chama `authService.
+   startGoogleLogin()` → `POST /api/auth/google/nonce`. O backend grava um
+   segredo no cookie `login_nonce` e devolve segredo + nonce (hash do
+   segredo). O segredo também fica no `localStorage` (até 3 recentes); o
+   nonce vai pro botão. Um nonce novo é pedido a cada 8 min (a tentativa
+   vale 10) e a cada visita à tela.
+2. O botão leva a página inteira pro Google, que faz um POST de
+   formulário pro `login_uri` (backend, via proxy do Vite em dev e rewrite
+   da Vercel em produção) com o ID token, que traz o nonce.
+3. O backend responde 303 pra `/login?status=ok` (sessão aberta neste
+   navegador — o cookie `login_nonce` voltou), `/login?status=confirmado`
+   (login validado, mas sem o cookie: outro navegador) ou
+   `/login?erro=<código>` (mensagem via `authService.loginErrorMessage`).
+4. **Resgate** (`useClaimGoogleLogin` → `POST /api/auth/google/claim`): a
+   `LoginPage`, se este aparelho tem segredo guardado e ainda não há
+   sessão, tenta resgatar ao abrir com `?status=confirmado` e sempre que
+   volta a ficar visível (`visibilitychange`/`focus`/`pageshow`). O
+   navegador "de fora", que não tem o segredo, só mostra "Login
+   confirmado, volte para o app".
 
-**Por que redirect:** no iPhone, o app instalado na tela de início roda em
-modo standalone, e o popup de OAuth ali é conhecidamente frágil — o popup
-abre fora do contexto do app e não consegue devolver o resultado pra
-janela que o abriu (o Google trata como webview embutida). No redirect
-tudo acontece na mesma janela: a navegação pro Google e a volta ficam
-dentro do app instalado, então os cookies de sessão são gravados no
-armazenamento **do app** (que no iOS é separado do Safari). Usamos redirect
-sempre, não só no iOS instalado, pra ter um fluxo só pra testar e manter.
-Custo: a página recarrega no login (estado de tela não salvo se perde —
-por isso o caminho de volta fica guardado).
+Os detalhes de segurança (por que o segredo nunca sai do aparelho, uso
+único, 2 min) estão no ARCHITECTURE do backend.
+
+**Por que redirect, e o que ainda é suposição.** A escolha parte de relatos
+de que, no iPhone, o app instalado na tela de início (modo standalone)
+não completa o popup de OAuth: o popup abre fora do contexto do app e não
+consegue devolver o resultado à janela que o abriu. **Isso não foi
+validado num aparelho** neste projeto. Com redirect, o esperado é que a
+ida ao Google e a volta aconteçam dentro do próprio app instalado — aí o
+cookie `login_nonce` volta, a sessão abre direto (`?status=ok`) e os
+cookies ficam no armazenamento do app (que no iOS é separado do Safari).
+O que **não** se sabe é se o iOS abre o domínio do Google (fora do escopo
+do PWA) num navegador sobreposto com outro pote de cookies; se abrir, o
+cookie não volta, o callback cai em `?status=confirmado` nesse navegador,
+e o resgate acima conclui o login no app quando a pessoa volta pra ele.
+Os dois caminhos estão implementados porque só o teste no iPhone diz qual
+acontece — e o mesmo resgate cobre o Safari em `http://localhost` (que
+não grava cookie `Secure` em http, então o `login_nonce` não volta). Usamos
+redirect em todo navegador, não só no iOS instalado, pra ter um fluxo só.
+Custo: a página recarrega no login (por isso o caminho de volta fica
+guardado).
 
 Configuração: `VITE_GOOGLE_CLIENT_ID` (o mesmo `GOOGLE_CLIENT_ID` do
 backend). No console do Google, a origem do front em "Origens JavaScript
@@ -730,14 +769,23 @@ autorizadas" e `<origem>/api/auth/google/callback` em "URIs de
 redirecionamento autorizados". Sem a variável, a tela de login mostra o
 erro em vez do botão.
 
+## Sessão que acaba no meio do uso
+
+Quando o `apiFetch` tenta renovar e o refresh responde 401 (sessão vencida
+ou revogada), ele avisa os ouvintes de `onSessionExpired`
+(`utils/http.ts`). `useClearSessionOnExpiry`, montado no `Layout`, zera
+`queryKeys.auth.me` e remove "minhas aulas": o cabeçalho volta pra
+"Entrar" e `RequireAuth`/`RequireAdmin` mandam pro login, em vez de a tela
+ficar mostrando erros. Falha de rede na renovação não dispara isso.
+
 ## Logout: um lugar só (`useLogout`)
 
 `auth/useCases/logout.ts` é o único caminho de saída. Antes de chamar o
 backend, faz `await pushService.disable().catch(() => {})`: desinscrever o
 push deste aparelho precisa da sessão ainda válida, e é best-effort — se
-falhar, a pessoa sai mesmo assim. Depois do logout: `me` vira `null`,
-"minhas aulas" é removida do cache e o status do push é invalidado. O
-botão "Sair" fica no `/perfil`.
+falhar, a pessoa sai mesmo assim. Depois do logout, `queryClient.clear()`
+(nada do usuário anterior sobra em cache, inclusive o status do push) e
+`me` já marcado como `null`. O botão "Sair" fica no `/perfil`.
 
 # PWA e service worker (`src/sw.ts`)
 

@@ -1,17 +1,42 @@
-// Em dev, "/api" (proxy do Vite, mesma origem). Em prod, aponta pro backend
-// no Render (origem diferente da Vercel) — precisa ser absoluta.
+// "/api" em dev (proxy do Vite) e em produção (rewrite da Vercel pro
+// Render) — sempre mesma origem do ponto de vista do navegador, que é o que
+// mantém os cookies de sessão first-party.
 export const API_BASE_URL = import.meta.env.VITE_API_URL;
 
-let refreshPromise: Promise<boolean> | null = null;
+type RefreshOutcome = "renewed" | "expired" | "failed";
 
-function refreshSession(): Promise<boolean> {
+let refreshPromise: Promise<RefreshOutcome> | null = null;
+
+// Quem quer saber quando a sessão acabou de vez (o refresh respondeu 401):
+// o domínio `auth` registra um ouvinte que zera o usuário em cache, pra as
+// rotas protegidas mandarem pro login (ver `useClearSessionOnExpiry`). Falha
+// de rede não conta — a sessão pode estar ótima.
+const sessionExpiredListeners = new Set<() => void>();
+
+export function onSessionExpired(listener: () => void): () => void {
+  sessionExpiredListeners.add(listener);
+  return () => {
+    sessionExpiredListeners.delete(listener);
+  };
+}
+
+function refreshSession(): Promise<RefreshOutcome> {
   if (!refreshPromise) {
     refreshPromise = fetch(`${API_BASE_URL}/auth/refresh`, {
       method: "POST",
       credentials: "include",
     })
-      .then(res => res.ok)
-      .catch(() => false)
+      .then((res): RefreshOutcome => {
+        if (res.ok) return "renewed";
+        return res.status === 401 ? "expired" : "failed";
+      })
+      .catch((): RefreshOutcome => "failed")
+      .then(outcome => {
+        if (outcome === "expired") {
+          sessionExpiredListeners.forEach(listener => listener());
+        }
+        return outcome;
+      })
       .finally(() => {
         refreshPromise = null;
       });
@@ -43,8 +68,10 @@ export async function apiFetch(
     return response;
   }
 
-  const refreshed = await refreshSession();
-  return refreshed ? fetch(url, { ...init, credentials: "include" }) : response;
+  const outcome = await refreshSession();
+  return outcome === "renewed"
+    ? fetch(url, { ...init, credentials: "include" })
+    : response;
 }
 
 export async function handleResponse<T>(res: Response): Promise<T> {

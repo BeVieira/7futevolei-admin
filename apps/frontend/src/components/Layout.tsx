@@ -1,11 +1,12 @@
 import { Link, Outlet, useLocation } from "react-router-dom";
-import { authService, useGetMe } from "@domain";
+import { authService, useClearSessionOnExpiry, useGetMe } from "@domain";
 import { Avatar } from "./Avatar";
 import { BottomNav } from "./BottomNav";
 
 export function Layout() {
   const location = useLocation();
   const { data: me, isLoading } = useGetMe();
+  useClearSessionOnExpiry();
 
   // integração (Dev 2): useSyncPushSubscription(me?.id) — reatribui a
   // inscrição de push deste aparelho a quem está logado.
