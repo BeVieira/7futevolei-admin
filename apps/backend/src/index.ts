@@ -8,8 +8,10 @@ import { swaggerSpec } from "./lib/swagger";
 import { authRouter } from "./routes/auth.routes";
 import { classSessionRouter } from "./routes/class-session.routes";
 import { enrollmentRouter } from "./routes/enrollment.routes";
+import { jobRouter } from "./routes/job.routes";
 import { pushRouter } from "./routes/push.routes";
 import { userRouter } from "./routes/user.routes";
+import { startReceiptReminderInterval } from "./lib/receipt-reminders";
 
 const app = express();
 const port = process.env.PORT ?? 3333;
@@ -57,6 +59,7 @@ app.use("/api/class-sessions", classSessionRouter);
 app.use("/api/enrollments", enrollmentRouter);
 app.use("/api/push", pushRouter);
 app.use("/api/users", userRouter);
+app.use("/api/jobs", jobRouter);
 
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
@@ -72,4 +75,5 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
 app.listen(port, () => {
   console.log(`Backend rodando em http://localhost:${port}`);
   console.log(`Documentação Swagger em http://localhost:${port}/docs`);
+  startReceiptReminderInterval();
 });

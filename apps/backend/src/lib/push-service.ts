@@ -30,6 +30,10 @@ if (isConfigured) {
   webpush.setVapidDetails(subject, publicKey, privateKey);
 }
 
+export function isPushConfigured(): boolean {
+  return isConfigured;
+}
+
 export function getVapidPublicKey(): string {
   if (!isConfigured) throw new PushNotConfiguredError();
   return publicKey;
@@ -59,7 +63,8 @@ export async function removeSubscription(endpoint: string) {
   await prisma.pushSubscription.deleteMany({ where: { endpoint } });
 }
 
-// Envia pra todos os aparelhos que batem com `where` (sem filtro = todos).
+// Envia pra todos os aparelhos que batem com `where` (sem filtro = todos —
+// notificação de um aluno específico filtra por `{ userId }`).
 // Inscrições que o serviço de push do navegador responde como inexistentes
 // (404/410 — permissão revogada, app desinstalado) são apagadas na hora,
 // pra não acumular lixo nem tentar de novo a cada envio.

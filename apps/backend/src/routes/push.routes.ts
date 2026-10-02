@@ -11,8 +11,9 @@ import {
 export const pushRouter = Router();
 
 // Mesmo exigindo login, qualquer conta Google entra — sem limite, um loop
-// encheria a tabela de endpoints falsos.
-const subscribeRateLimit = rateLimit({
+// encheria a tabela de endpoints falsos. O mesmo limite vale pro
+// unsubscribe, que é público (ver abaixo).
+const pushRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 30,
   standardHeaders: true,
@@ -81,7 +82,7 @@ pushRouter.get("/public-key", getPublicKey);
 pushRouter.post(
   "/subscribe",
   requireAuth,
-  subscribeRateLimit,
+  pushRateLimit,
   asyncHandler(subscribe),
 );
 
@@ -90,6 +91,12 @@ pushRouter.post(
  * /api/push/unsubscribe:
  *   post:
  *     summary: Remove a inscrição de push deste aparelho
+ *     description: |
+ *       Público de propósito: o `endpoint` é uma URL secreta e única do
+ *       aparelho (só quem tem a inscrição no navegador conhece), então ele
+ *       mesmo prova a posse. Assim o aparelho consegue parar de receber
+ *       notificações da conta anterior mesmo com a sessão já expirada ou
+ *       derrubada (ex: logout depois de 90 dias sem abrir o app).
  *     tags: [Push]
  *     requestBody:
  *       required: true
@@ -104,5 +111,7 @@ pushRouter.post(
  *     responses:
  *       204:
  *         description: Inscrição removida (ou já não existia)
+ *       400:
+ *         description: Payload inválido
  */
-pushRouter.post("/unsubscribe", asyncHandler(unsubscribe));
+pushRouter.post("/unsubscribe", pushRateLimit, asyncHandler(unsubscribe));

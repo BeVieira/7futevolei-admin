@@ -11,6 +11,12 @@ const options: swaggerJsdoc.Options = {
     servers: [{ url: "http://localhost:3333", description: "Local" }],
     components: {
       securitySchemes: {
+        cronSecret: {
+          type: "http",
+          scheme: "bearer",
+          description:
+            "Header `Authorization: Bearer <CRON_SECRET>`, exigido pelas rotas de job (/api/jobs/*) chamadas pelo cron externo.",
+        },
         cookieAuth: {
           type: "apiKey",
           in: "cookie",

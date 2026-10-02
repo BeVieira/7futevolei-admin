@@ -30,6 +30,8 @@ src/
     login-nonce.ts            # tentativas de login do fluxo de redirect (nonce)
     auth-service.ts           # upsert do User, emissão/renovação/revogação da sessão
     requireAuth.ts            # middlewares requireAuth / requireAdmin
+    requireCronSecret.ts      # middleware das rotas de job (Bearer CRON_SECRET)
+    receipt-reminders.ts      # job de lembrete de comprovante (rota + intervalo local)
   types/
     express.d.ts   # tipa res.locals.user (preenchido pelos middlewares de auth)
   index.ts         # monta o Express app, CORS, /health, /docs, error handler
@@ -399,6 +401,42 @@ preview — não quebra o resto da API. Siga o mesmo padrão para qualquer
 integração externa opcional: checa a configuração uma vez no carregamento
 do módulo, lança um erro próprio na hora do uso.
 
+As rotas de job (`/api/jobs/*`, ver abaixo) seguem a mesma ideia com
+`CRON_SECRET`: sem ele respondem `503` em vez de ficarem abertas.
+
 `sendPushNotification(payload, where)` é o ponto único de envio: recebe um
 filtro do Prisma para escolher os aparelhos e já apaga as inscrições que o
 serviço de push responde como expiradas (404/410).
+
+## Jobs: rota idempotente chamada de fora, não agendador interno
+
+Tarefa periódica (hoje só o lembrete de comprovante) é uma **rota** —
+`POST /api/jobs/receipt-reminders` — chamada por um cron externo
+(cron-job.org em produção), não um `setInterval`/`node-cron` no processo.
+O backend pode dormir/reiniciar/ter várias instâncias e o horário do
+disparo fica configurado num lugar visível, fora do código.
+
+- **Autenticação por segredo, não por sessão:** `requireCronSecret`
+  compara `Authorization: Bearer <token>` com `CRON_SECRET` em tempo
+  constante (`timingSafeEqual` sobre o SHA-256 dos dois, que iguala o
+  tamanho). Sem `CRON_SECRET` → `503`; segredo errado → `401`.
+- **Idempotente por marcação no banco:** cada inscrição lembrada recebe
+  `receiptReminderSentAt`. O job "reserva" a inscrição com um
+  `updateMany` condicionado a `receiptReminderSentAt: null` **antes** de
+  enviar o push e só envia se `count === 1` — duas execuções sobrepostas
+  (cron atrasado + intervalo local, retry do cron) nunca avisam o mesmo
+  aluno duas vezes. Rodar a rota de novo é sempre seguro.
+- **Janela limitada:** só entram aulas que terminaram nas últimas 24h
+  (`REMINDER_WINDOW_HOURS`), pra uma primeira execução (ou o job voltando
+  depois de dias desligado) não cobrar aulas antigas.
+- **Fuso:** o fim da aula é `computeClassSessionEnd` (`date` meia-noite
+  UTC + `endTime` em Brasília, ver `class-session-lock.ts`) — nunca
+  comparar `endTime` com a hora UTC do servidor.
+- **Intervalo local opcional:** `startReceiptReminderInterval` (chamado no
+  `app.listen`) roda a **mesma** função da rota a cada
+  `RECEIPT_REMINDER_INTERVAL_MS`, só se a variável estiver definida — pra
+  testar em dev sem cron externo.
+
+Um job novo (ex: lembrete de trava de lista) segue o mesmo formato: função
+em `lib/` com marcação idempotente própria, rota em `job.routes.ts` atrás de
+`requireCronSecret`, e um novo horário no cron externo.
