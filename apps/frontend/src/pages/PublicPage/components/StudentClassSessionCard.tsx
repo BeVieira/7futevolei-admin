@@ -33,6 +33,8 @@ export function StudentClassSessionCard({ session, me, myEnrollment }: Props) {
   const [side, setSide] = useState<Side | "">("");
   const [waitlistOpen, setWaitlistOpen] = useState(false);
   const [acceptsLockCommitment, setAcceptsLockCommitment] = useState(false);
+  // Convite de notificações: só no card da inscrição que acabou de dar certo.
+  const [showPushInvite, setShowPushInvite] = useState(false);
 
   const isFull = aulaService.isClassFull(session);
   const sideCapacity = aulaService.getSideCapacity(session.capacity);
@@ -73,6 +75,7 @@ export function StudentClassSessionCard({ session, me, myEnrollment }: Props) {
     if (session.isLocked && !acceptsLockCommitment) return;
     enrollMutation.mutate(side, {
       onSuccess: () => {
+        setShowPushInvite(true);
         setShowForm(false);
         setSide("");
         setAcceptsLockCommitment(false);
@@ -81,7 +84,9 @@ export function StudentClassSessionCard({ session, me, myEnrollment }: Props) {
   }
 
   function handleCancel() {
-    cancelMutation.mutate();
+    cancelMutation.mutate(undefined, {
+      onSuccess: () => setShowPushInvite(false),
+    });
   }
 
   function handleJoinWaitlist() {
@@ -133,16 +138,13 @@ export function StudentClassSessionCard({ session, me, myEnrollment }: Props) {
         )}
 
         {me && myEnrollment ? (
-          // Bloco "já inscrito" — (integração, Dev 2) o convite pra ativar
-          // notificações (<PushNotificationsInvite />) entra logo abaixo do
-          // texto de inscrito.
           <div className="flex flex-col gap-2">
             <p className="text-sm text-teal-500">
               {myEnrollment.enrollment.status === "WAITLISTED"
                 ? `${me.name}, você está na lista de espera`
                 : `${me.name}, você está inscrito`}
             </p>
-            <PushNotificationsInvite />
+            {showPushInvite && <PushNotificationsInvite />}
             {session.isLocked ? (
               <p className="text-xs text-slate-500">
                 Lista trancada — não é mais possível cancelar. Fale com o

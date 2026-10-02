@@ -2,6 +2,7 @@ import { pushApi } from "./api";
 import { PushStatus } from "./types";
 
 const INVITE_DISMISSED_KEY = "7futevolei:push-invite-dismissed";
+const SUBSCRIPTION_OWNER_KEY = "7futevolei:push-subscription-owner";
 
 function isSupported(): boolean {
   return (
@@ -50,6 +51,16 @@ function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
   return Uint8Array.from(raw, char => char.charCodeAt(0));
 }
 
+async function createSubscription(
+  registration: ServiceWorkerRegistration,
+): Promise<PushSubscription> {
+  const { publicKey } = await pushApi.getPublicKey();
+  return registration.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(publicKey),
+  });
+}
+
 // `requestPermission` tem que ser a primeira coisa assíncrona depois do
 // clique: o Safari/iOS só mostra o pedido de permissão se ele vier direto
 // de um gesto do usuário, e um `await` antes (ex: buscar a chave pública)
@@ -61,47 +72,86 @@ async function enable(): Promise<void> {
   }
 
   const registration = await navigator.serviceWorker.ready;
-  let subscription = await registration.pushManager.getSubscription();
+  const existing = await registration.pushManager.getSubscription();
 
-  if (!subscription) {
-    const { publicKey } = await pushApi.getPublicKey();
-    subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(publicKey),
-    });
+  if (existing) {
+    try {
+      await pushApi.subscribe(existing.toJSON());
+    } catch {
+      // O backend recusa (409) um endpoint já gravado com outras chaves, e
+      // uma inscrição antiga pode estar quebrada de outros jeitos: em vez de
+      // insistir nela, desfaz e cria uma nova (endpoint novo) uma vez.
+      await existing.unsubscribe();
+      await pushApi.subscribe(
+        (await createSubscription(registration)).toJSON(),
+      );
+    }
+  } else {
+    await pushApi.subscribe((await createSubscription(registration)).toJSON());
   }
 
-  await pushApi.subscribe(subscription.toJSON());
+  // O dono gravado no backend agora é quem está logado, mas o front não
+  // sabe o id aqui — esquece o dono local pra próxima sincronização
+  // conferir (e gravar) de novo.
+  forgetSubscriptionOwner();
   // Já decidiu: o convite pós-inscrição não precisa mais aparecer.
   dismissInvite();
 }
 
-// Também chamado no logout, antes de derrubar a sessão. A inscrição do
-// navegador é desfeita mesmo se o backend falhar: o endpoint morto passa a
-// responder 410 pro servidor, que apaga o registro no próximo envio — o
-// aparelho nunca continua recebendo avisos da conta que saiu.
+// Também chamado no logout, antes de derrubar a sessão. Desativar é desfazer
+// a inscrição **do navegador**: depois disso o endpoint morre, o serviço de
+// push passa a responder 410 e o backend apaga o registro no próximo envio.
+// Por isso a falha do aviso ao backend é engolida — o aparelho já parou de
+// receber de qualquer jeito; só uma falha do próprio navegador é erro.
 async function disable(): Promise<void> {
   const subscription = await getCurrentSubscription();
   if (!subscription) return;
 
+  await pushApi.unsubscribe(subscription.endpoint).catch(() => {});
+  forgetSubscriptionOwner();
+  await subscription.unsubscribe();
+}
+
+// Último usuário pra quem este aparelho mandou a inscrição — evita reenviar
+// a cada carregamento do app; só reenvia quando a conta logada muda.
+function readSubscriptionOwner(): string | null {
   try {
-    await pushApi.unsubscribe(subscription.endpoint);
-  } finally {
-    await subscription.unsubscribe();
+    return localStorage.getItem(SUBSCRIPTION_OWNER_KEY);
+  } catch {
+    return null;
   }
 }
 
-// Reenvia a inscrição que o navegador já tem pro usuário da sessão atual: o
-// upsert por endpoint no backend reatribui o aparelho a quem está logado
-// (ex: outra pessoa entrou no aparelho sem o logout anterior ter rodado).
-// Sem inscrição ou sem permissão, não faz nada.
-async function syncSubscription(): Promise<boolean> {
+function writeSubscriptionOwner(userId: number) {
+  try {
+    localStorage.setItem(SUBSCRIPTION_OWNER_KEY, String(userId));
+  } catch {
+    // Sem storage só reenvia de novo no próximo carregamento.
+  }
+}
+
+function forgetSubscriptionOwner() {
+  try {
+    localStorage.removeItem(SUBSCRIPTION_OWNER_KEY);
+  } catch {
+    // Idem.
+  }
+}
+
+// Reenvia a inscrição que o navegador já tem quando a conta logada não é a
+// última pra quem este aparelho mandou: o backend reatribui o aparelho (o
+// endpoint é o mesmo e as chaves batem). Ex: outra pessoa entrou no
+// aparelho sem o logout anterior ter rodado. Sem inscrição ou sem
+// permissão, não faz nada.
+async function syncSubscription(userId: number): Promise<boolean> {
+  if (readSubscriptionOwner() === String(userId)) return false;
   if (!isSupported() || Notification.permission !== "granted") return false;
 
   const subscription = await getCurrentSubscription();
   if (!subscription) return false;
 
   await pushApi.subscribe(subscription.toJSON());
+  writeSubscriptionOwner(userId);
   return true;
 }
 

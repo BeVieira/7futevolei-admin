@@ -831,15 +831,20 @@ pelo cookie. Nada de nome/id no payload. Consequências:
 
 - **Logout desinscreve o aparelho:** o caso de uso de logout chama
   `await pushService.disable().catch(() => {})` **antes** de derrubar a
-  sessão. `disable()` desfaz a inscrição do navegador mesmo se a chamada
-  ao backend falhar (o endpoint morto passa a dar 410 e o servidor apaga o
-  registro no próximo envio), e o `/push/unsubscribe` é público — então a
-  ordem/estado da sessão nunca deixa o aparelho recebendo avisos da conta
-  que saiu.
+  sessão. `disable()` desfaz a inscrição do navegador e engole a falha do
+  aviso ao backend: com a inscrição do navegador desfeita o endpoint morre,
+  o serviço de push passa a dar 410 e o servidor apaga o registro no
+  próximo envio. Como `/push/unsubscribe` também é público, a ordem/estado
+  da sessão nunca deixa o aparelho recebendo avisos da conta que saiu.
 - **Troca de conta no aparelho:** `useSyncPushSubscription(me?.id)`,
   montado onde a sessão é conhecida (o `Layout`), reenvia a inscrição já
-  existente uma vez por usuário (a key leva o `userId`) — o upsert por
-  endpoint no backend reatribui o aparelho a quem está logado agora.
+  existente só quando o usuário logado não é o último dono gravado no
+  aparelho (`7futevolei:push-subscription-owner` no `localStorage`) — no
+  carregamento comum não há chamada de rede. O backend reatribui o
+  aparelho porque o endpoint e as chaves batem.
+- **Endpoint recusado (409):** se o backend recusar uma inscrição já
+  existente no navegador (mesmo endpoint, chaves diferentes),
+  `enable()` desfaz a inscrição local e cria uma nova, uma vez.
 
 ### Onde as notificações aparecem na tela
 
@@ -847,7 +852,10 @@ pelo cookie. Nada de nome/id no payload. Consequências:
   ou a instrução de instalar no iPhone, ou o aviso de bloqueado. Fica no
   card de notificações do `/perfil`.
 - **`PushNotificationsInvite`** (local da `PublicPage`): convite
-  contextual dentro do card da aula, logo depois de o aluno se inscrever.
+  contextual **só no card cuja inscrição acabou de dar certo** — o
+  `StudentClassSessionCard` liga um estado (`showPushInvite`) no
+  `onSuccess` da inscrição e desliga ao cancelar; não aparece nos outros
+  cards em que o aluno já estava inscrito.
   Só aparece com status `disabled` (ou `needs-install`, mostrando a
   instrução de instalar) e enquanto o aparelho não decidiu: ativar ou
   "Agora não" grava `7futevolei:push-invite-dismissed` no `localStorage`

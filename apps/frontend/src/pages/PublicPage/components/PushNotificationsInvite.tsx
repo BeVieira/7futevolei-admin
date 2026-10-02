@@ -6,7 +6,8 @@ import {
   useGetPushStatus,
 } from "@domain";
 
-// Convite contextual logo depois de se inscrever numa aula. Só aparece
+// Convite contextual logo depois de se inscrever numa aula — o card só o
+// renderiza na inscrição que acabou de dar certo. Por dentro, só aparece
 // enquanto dá pra ativar (ou instalar, no iPhone) e o aluno ainda não
 // decidiu: ativar ou "Agora não" esconde de vez neste aparelho. Depois
 // disso, as notificações ficam só no perfil.
