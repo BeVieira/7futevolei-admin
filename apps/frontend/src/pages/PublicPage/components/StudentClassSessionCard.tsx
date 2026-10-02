@@ -1,13 +1,15 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { SideSlots } from "./SideSlots";
 import { WaitlistModal } from "./WaitlistModal";
 import { Button, ClassSessionCard } from "@components";
 import { PeopleIcon } from "@assets";
 import {
   ClassSessionSummary,
+  Me,
+  MyEnrollmentSummary,
   Side,
   aulaService,
-  enrollmentService,
   useCancelMyEnrollment,
   useEnrollStudent,
   useGetClassById,
@@ -15,51 +17,21 @@ import {
 
 type Props = {
   session: ClassSessionSummary;
+  // `null` = ninguém logado.
+  me: Me | null;
+  // Inscrição do usuário logado nesta turma (vem de "minhas aulas"), ou
+  // `null` se não está inscrito.
+  myEnrollment: MyEnrollmentSummary | null;
 };
 
-function isStillListed(session: ClassSessionSummary, name: string): boolean {
-  return (
-    session.confirmedLeft.includes(name) ||
-    session.confirmedRight.includes(name) ||
-    session.waitlist.includes(name)
-  );
-}
-
-export function StudentClassSessionCard({ session }: Props) {
+export function StudentClassSessionCard({ session, me, myEnrollment }: Props) {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [collapsed, setCollapsed] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [name, setName] = useState("");
   const [side, setSide] = useState<Side | "">("");
   const [waitlistOpen, setWaitlistOpen] = useState(false);
   const [acceptsLockCommitment, setAcceptsLockCommitment] = useState(false);
-
-  const [myEnrollment, setMyEnrollment] = useState(() =>
-    enrollmentService.getMyEnrollmentName(session.id),
-  );
-
-  // Fonte da verdade pro que aparece na tela é esse estado local, atualizado
-  // na hora pelas próprias ações do aluno (ver handleEnroll/handleCancel) —
-  // nunca derivado direto do `session` recebido por prop, que pode estar
-  // desatualizado logo após uma mutação e causaria um "pisca" de volta pra
-  // "quero participar", permitindo inscrição duplicada.
-  //
-  // Esse efeito só reconcilia com o servidor quando `session` muda de fato
-  // (nova busca concluída), pra pegar o caso do admin remover o aluno pela
-  // outra aba: o localStorage deste navegador fica com uma inscrição
-  // fantasma até a lista trazer dado fresco confirmando que ela sumiu.
-  useEffect(() => {
-    const stored = enrollmentService.getMyEnrollmentName(session.id);
-    if (!stored) {
-      setMyEnrollment(null);
-      return;
-    }
-    if (isStillListed(session, stored)) {
-      setMyEnrollment(stored);
-    } else {
-      enrollmentService.forgetMyEnrollment(session.id);
-      setMyEnrollment(null);
-    }
-  }, [session]);
 
   const isFull = aulaService.isClassFull(session);
   const sideCapacity = aulaService.getSideCapacity(session.capacity);
@@ -82,36 +54,38 @@ export function StudentClassSessionCard({ session }: Props) {
     { enabled: waitlistOpen },
   );
 
+  // Sem login, quem quer participar vai pro login e volta pra esta tela.
+  function openFormOrLogin() {
+    if (!me) {
+      navigate("/login", {
+        state: { from: location.pathname + location.search },
+      });
+      return;
+    }
+    setCollapsed(false);
+    setShowForm(true);
+  }
+
   function handleEnroll(e: FormEvent) {
     e.preventDefault();
-    if (!name.trim() || !side) return;
+    if (!side) return;
     if (session.isLocked && !acceptsLockCommitment) return;
-    const trimmedName = name.trim();
-    enrollMutation.mutate(
-      { studentName: trimmedName, side },
-      {
-        onSuccess: () => {
-          setMyEnrollment(trimmedName);
-          setShowForm(false);
-          setName("");
-          setSide("");
-          setAcceptsLockCommitment(false);
-        },
+    enrollMutation.mutate(side, {
+      onSuccess: () => {
+        setShowForm(false);
+        setSide("");
+        setAcceptsLockCommitment(false);
       },
-    );
+    });
   }
 
   function handleCancel() {
-    if (!myEnrollment) return;
-    cancelMutation.mutate(myEnrollment, {
-      onSuccess: () => setMyEnrollment(null),
-    });
+    cancelMutation.mutate();
   }
 
   function handleJoinWaitlist() {
     setWaitlistOpen(false);
-    setCollapsed(false);
-    setShowForm(true);
+    openFormOrLogin();
   }
 
   const submitting = enrollMutation.isPending || cancelMutation.isPending;
@@ -131,7 +105,7 @@ export function StudentClassSessionCard({ session }: Props) {
       <ClassSessionCard
         title={session.classLevel}
         collapsed={collapsed}
-        onToggle={() => setCollapsed((v) => !v)}
+        onToggle={() => setCollapsed(v => !v)}
         headerRight={
           <>
             {session.waitlistCount > 0 && (
@@ -157,10 +131,15 @@ export function StudentClassSessionCard({ session }: Props) {
           <p className="text-xs text-red-600">{actionError.message}</p>
         )}
 
-        {myEnrollment ? (
+        {me && myEnrollment ? (
+          // Bloco "já inscrito" — (integração, Dev 2) o convite pra ativar
+          // notificações (<PushNotificationsInvite />) entra logo abaixo do
+          // texto de inscrito.
           <div className="flex flex-col gap-2">
             <p className="text-sm text-teal-500">
-              {myEnrollment}, você está inscrito
+              {myEnrollment.enrollment.status === "WAITLISTED"
+                ? `${me.name}, você está na lista de espera`
+                : `${me.name}, você está inscrito`}
             </p>
             {session.isLocked ? (
               <p className="text-xs text-slate-500">
@@ -177,16 +156,11 @@ export function StudentClassSessionCard({ session }: Props) {
               </Button>
             )}
           </div>
-        ) : showForm ? (
+        ) : showForm && me ? (
           <form onSubmit={handleEnroll} className="flex flex-col gap-2">
-            <input
-              autoFocus
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Seu nome"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-base"
-            />
+            <p className="text-sm text-slate-600">
+              Inscrevendo <span className="font-medium">{me.name}</span>
+            </p>
             <div>
               <p className="mb-1 text-sm font-medium text-slate-600">
                 Lado da quadra
@@ -230,7 +204,7 @@ export function StudentClassSessionCard({ session }: Props) {
                     type="checkbox"
                     required
                     checked={acceptsLockCommitment}
-                    onChange={(e) => setAcceptsLockCommitment(e.target.checked)}
+                    onChange={e => setAcceptsLockCommitment(e.target.checked)}
                   />
                   Estou ciente e concordo
                 </label>
@@ -240,7 +214,9 @@ export function StudentClassSessionCard({ session }: Props) {
               <Button
                 type="submit"
                 disabled={
-                  submitting || (session.isLocked && !acceptsLockCommitment)
+                  submitting ||
+                  !side ||
+                  (session.isLocked && !acceptsLockCommitment)
                 }
               >
                 Confirmar
@@ -258,8 +234,12 @@ export function StudentClassSessionCard({ session }: Props) {
             </div>
           </form>
         ) : (
-          <Button onClick={() => setShowForm(true)}>
-            {isFull ? "Entrar na lista de espera" : "Quero participar"}
+          <Button onClick={openFormOrLogin}>
+            {me
+              ? isFull
+                ? "Entrar na lista de espera"
+                : "Quero participar"
+              : "Entrar para participar"}
           </Button>
         )}
       </ClassSessionCard>

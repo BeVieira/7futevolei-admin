@@ -1,12 +1,15 @@
 export { AdminTabs } from "./AdminTabs";
+export { Avatar } from "./Avatar";
 export { BottomNav } from "./BottomNav";
 export { Button } from "./Button";
 export { CalendarModal } from "./CalendarModal";
 export { Card } from "./Card";
 export { ClassSessionCard } from "./ClassSessionCard";
 export { CollapsibleSectionHeader } from "./CollapsibleSectionHeader";
+export { GuestBadge } from "./GuestBadge";
 export { Layout } from "./Layout";
 export { Modal } from "./Modal";
 export { PushNotificationsControl } from "./PushNotificationsControl";
 export { RequireAdmin } from "./RequireAdmin";
+export { RequireAuth } from "./RequireAuth";
 export { Tabs } from "./Tabs";

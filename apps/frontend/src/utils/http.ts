@@ -10,7 +10,7 @@ function refreshSession(): Promise<boolean> {
       method: "POST",
       credentials: "include",
     })
-      .then((res) => res.ok)
+      .then(res => res.ok)
       .catch(() => false)
       .finally(() => {
         refreshPromise = null;
@@ -19,12 +19,15 @@ function refreshSession(): Promise<boolean> {
   return refreshPromise;
 }
 
-// Chamadas administrativas devem usar isso em vez de `fetch` direto: um
-// 401 (access token de 5min expirado) tenta renovar a sessão pelo refresh
-// token uma vez e repete a requisição original, em vez de estourar erro no
-// meio de uma ação. Chamadas concorrentes compartilham a mesma renovação —
-// nunca duas em paralelo, já que renovar troca (invalida) o par anterior de
-// tokens, e uma segunda renovação com o refresh token já trocado falharia.
+// Toda chamada à API usa isso em vez de `fetch` direto: um 401 (access
+// token de 5min expirado) tenta renovar a sessão pelo refresh token uma vez
+// e repete a requisição original, em vez de estourar erro no meio de uma
+// ação. Chamadas concorrentes desta aba compartilham a mesma renovação
+// (single-flight) — renovar troca o par de tokens, então não faz sentido
+// disparar várias. Entre abas diferentes (que não compartilham esta
+// promise) o backend tolera por alguns segundos o refresh da rotação
+// anterior, então uma aba renovando logo depois da outra não perde a
+// sessão.
 //
 // `credentials: "include"` é obrigatório aqui: front (Vercel) e back
 // (Render) são origens diferentes, então o navegador só manda os cookies
@@ -41,9 +44,7 @@ export async function apiFetch(
   }
 
   const refreshed = await refreshSession();
-  return refreshed
-    ? fetch(url, { ...init, credentials: "include" })
-    : response;
+  return refreshed ? fetch(url, { ...init, credentials: "include" }) : response;
 }
 
 export async function handleResponse<T>(res: Response): Promise<T> {

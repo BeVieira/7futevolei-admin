@@ -238,7 +238,7 @@ cada domínio, a porta de entrada pra quem está fora de `domain/`:
 
 ```
 src/domain/
-  index.ts            # barrel raiz: export * de aula/enrollment/receipt/push — importe por aqui de fora de domain/
+  index.ts            # barrel raiz: export * de auth/aula/enrollment/receipt/push/user — importe por aqui de fora de domain/
   queryKeys.ts        # enum + builders de queryKey, compartilhado entre domínios, não entra no barrel raiz
 
   aula/
@@ -247,7 +247,8 @@ src/domain/
     service.ts           # espelha o api.ts 1:1 + funções puras de negócio
     useCases/             # uma ação da tela = um arquivo: função interna + hook
       getClassesByDate.ts    # useGetClassesByDate
-      getClassById.ts        # useGetClassById
+      getClassById.ts        # useGetClassById (visão pública: só nomes)
+      getClassAdminDetailById.ts # useGetClassAdminDetailById (admin: convidado + comprovantes)
       createClassesForDay.ts # useCreateClassesForDay
       updateClass.ts         # useUpdateClass
       deleteClass.ts         # useDeleteClass
@@ -259,11 +260,23 @@ src/domain/
     api.ts
     service.ts
     useCases/
-      enrollStudent.ts        # useEnrollStudent
-      adminEnrollStudent.ts   # useAdminEnrollStudent
+      enrollStudent.ts        # useEnrollStudent (usuário logado)
+      adminEnrollStudent.ts   # useAdminEnrollStudent (usuário cadastrado ou convidado)
       cancelMyEnrollment.ts   # useCancelMyEnrollment
+      getMyEnrollments.ts     # useGetMyEnrollments
       index.ts
     index.ts             # barrel do domínio: export * de types/api/service/useCases
+
+  auth/                 # sessão: usuário logado, login com Google, logout
+    useCases/
+      getMe.ts               # useGetMe — `data: null` = deslogado
+      loadGoogleSignIn.ts    # useLoadGoogleSignIn — script do Google
+      logout.ts              # useLogout — desinscreve o push e sai
+
+  user/                 # perfil do próprio usuário e busca de usuários (admin)
+    useCases/
+      updateMyName.ts        # useUpdateMyName
+      searchUsers.ts         # useSearchUsers
 ```
 
 Fora de `domain/` (tela, componente global), o import é sempre pelo barrel
@@ -420,7 +433,7 @@ import {
 
 type Props = { session: ClassSessionSummary };
 // aulaService.isClassFull(session), aulaService.getSideCapacity(session.capacity)
-// enrollmentService.getMyEnrollmentName(session.id)
+// enrollmentService.sideLabel(side)
 ```
 
 `aulaService`/`enrollmentService` são importados por nome como qualquer
@@ -446,10 +459,10 @@ sem precisar abrir o arquivo:
 - "Estou criando aulas para um dia" → `createClassesForDay(date, timeSlots)`
 - "Estou pegando as aulas de uma data" → `getClassesByDate(date)`
 - "Estou pegando uma aula pelo id" → `getClassById(id)`
-- "Estou inscrevendo um aluno numa aula" →
-  `enrollStudentInClass(classId, studentName, side)`
-- "Estou cancelando pelo nome do aluno" →
-  `cancelEnrollmentByStudentName(classId, studentName)`
+- "Estou me inscrevendo numa aula (usuário da sessão)" →
+  `enrollMeInClass(classId, side)`
+- "Estou cancelando a minha inscrição numa aula" →
+  `cancelMyEnrollmentInClass(classId)`
 
 Evite nomes genéricos (`update`, `fetchData`, `handleSubmit`) e payloads
 opacos (`{ ...payload }`) quando os parâmetros nomeados deixam a assinatura
@@ -570,11 +583,10 @@ tela (.tsx) → hook do useCase (trata erro) → service.ts (espelho do api) →
   importado do `index.ts` do domínio) — são leitura/transformação, não
   precisam de caso de uso nem de tratamento de erro.
 - Um caso de uso pode compor lógica de outro domínio quando a ação cruza
-  domínios. Exemplo: `enrollment/useCases/enrollStudent.ts` chama
-  `enrollmentService.enrollStudentInClass` (efetiva a inscrição no backend)
-  e depois `enrollmentService.rememberMyEnrollment` (lembra localmente o
-  nome usado, via `localStorage`) — as duas chamadas, junto, são o "caso de
-  uso" por trás do hook `useEnrollStudent`.
+  domínios. Exemplo: `auth/useCases/logout.ts` chama
+  `pushService.disable()` (desinscreve o push deste aparelho, best-effort)
+  e depois `authService.logout()` — as duas chamadas, nessa ordem, são o
+  "caso de uso" por trás do hook `useLogout` (ver "Sessão e login", abaixo).
 
 ## Telas: `data`, `isLoading`, `isError` — nunca `useQuery`/`useMutation` cru
 
@@ -595,7 +607,7 @@ const {
 
 ```ts
 const enrollMutation = useEnrollStudent(session.id);
-// no JSX: enrollMutation.mutate({ studentName, side }), enrollMutation.isPending, enrollMutation.error?.message
+// no JSX: enrollMutation.mutate(side), enrollMutation.isPending, enrollMutation.error?.message
 ```
 
 - **Query keys** vivem em `domain/queryKeys.ts`
@@ -643,6 +655,89 @@ const enrollMutation = useEnrollStudent(session.id);
    `domain/aula/useCases`, etc.). Uma leitura pura (item 3) é chamada via
    o objeto `aulaService`/`enrollmentService`, também importado do
    `index.ts` raiz do domínio.
+
+# Sessão e login (domínios `auth` e `user`)
+
+**Quem é o usuário vem sempre da sessão**, nunca de um nome guardado no
+aparelho: não existe mais "Quem é você?" nem nome por turma no
+`localStorage`. `useGetMe()` é a fonte única — `data` é o `Me`
+(`{ id, name, email, photoUrl, role }`) ou `null` se ninguém está logado
+(o `authApi.getMe` converte o 401 final em `null`, então "deslogado" não é
+erro). Na abertura do app, o `apiFetch` tenta renovar a sessão pelo
+refresh token antes de devolver esse 401, então quem tem sessão válida não
+vê "Entrar" piscar — e o cabeçalho não mostra nada enquanto a sessão
+carrega.
+
+- **Cabeçalho (`Layout`):** "Entrar" quando deslogado; logado, a foto do
+  Google em círculo (`Avatar`, com a inicial do nome se não houver foto ou
+  ela não carregar) levando a `/perfil`. O link "Admin" só aparece pra
+  `role === "ADMIN"`.
+- **"Estou inscrito nesta turma?"**: a lista pública só tem nomes, então
+  a `PublicPage` busca "minhas aulas" (`useGetMyEnrollments`, uma query só
+  pra tela toda, habilitada só com login) e passa a inscrição de cada card
+  via `enrollmentService.findMyEnrollmentInClass`. As mutations de
+  inscrever/cancelar esperam essa query recarregar antes de terminar, pra o
+  botão não piscar de volta.
+- **Deslogado tentando participar:** o botão vira "Entrar para participar"
+  e leva pro `/login` com `state.from` = tela atual.
+- **Visão do admin:** as telas do admin usam `useGetClassAdminDetailById`
+  (rota `/:id/admin`, com `userId` e comprovante — `GuestBadge` marca
+  convidado); a pública usa `useGetClassById` (só nome e lado).
+
+## Rotas protegidas: `RequireAuth` e `RequireAdmin`
+
+Dois componentes de rota (`<Route element={<RequireAuth />}>` em
+`App.tsx`), no mesmo formato do `Outlet`:
+
+- `RequireAuth` — `/minhas-aulas`, `/perfil`. Sem sessão: `<Navigate
+  to="/login" state={{ from }} />`.
+- `RequireAdmin` — `/admin*`. Sem sessão, igual; logado como aluno, vai
+  pra `/` (o backend responderia 403 de qualquer jeito).
+
+A `LoginPage` guarda o `from` (`authService.rememberLoginReturnPath`) e,
+quando a sessão aparece, navega pra ele (`takeLoginReturnPath`, que lê e
+apaga). Fica no `localStorage`, não no state do router, porque o login sai
+do app e volta numa página nova (ver abaixo). Só caminho interno (`/...`,
+nunca `//...`) é aceito.
+
+## Login com Google: fluxo de **redirect**, não popup
+
+O botão é o oficial do Google Identity Services, carregado em runtime
+(`useLoadGoogleSignIn` + `authService.renderGoogleSignInButton`) com
+`ux_mode: "redirect"` e `login_uri` = `<origem do front>/api/auth/google/callback`:
+
+1. O botão leva a página inteira pro Google.
+2. O Google faz um POST de formulário pro `login_uri` (backend, via proxy do
+   Vite em dev e rewrite da Vercel em produção), que valida, grava os
+   cookies e responde 303 pra `/login?status=ok` ou `/login?erro=<código>`.
+3. A `LoginPage` carrega de novo, `useGetMe` acha a sessão e ela navega
+   pro caminho guardado. Erro vira mensagem (`authService.loginErrorMessage`).
+
+**Por que redirect:** no iPhone, o app instalado na tela de início roda em
+modo standalone, e o popup de OAuth ali é conhecidamente frágil — o popup
+abre fora do contexto do app e não consegue devolver o resultado pra
+janela que o abriu (o Google trata como webview embutida). No redirect
+tudo acontece na mesma janela: a navegação pro Google e a volta ficam
+dentro do app instalado, então os cookies de sessão são gravados no
+armazenamento **do app** (que no iOS é separado do Safari). Usamos redirect
+sempre, não só no iOS instalado, pra ter um fluxo só pra testar e manter.
+Custo: a página recarrega no login (estado de tela não salvo se perde —
+por isso o caminho de volta fica guardado).
+
+Configuração: `VITE_GOOGLE_CLIENT_ID` (o mesmo `GOOGLE_CLIENT_ID` do
+backend). No console do Google, a origem do front em "Origens JavaScript
+autorizadas" e `<origem>/api/auth/google/callback` em "URIs de
+redirecionamento autorizados". Sem a variável, a tela de login mostra o
+erro em vez do botão.
+
+## Logout: um lugar só (`useLogout`)
+
+`auth/useCases/logout.ts` é o único caminho de saída. Antes de chamar o
+backend, faz `await pushService.disable().catch(() => {})`: desinscrever o
+push deste aparelho precisa da sessão ainda válida, e é best-effort — se
+falhar, a pessoa sai mesmo assim. Depois do logout: `me` vira `null`,
+"minhas aulas" é removida do cache e o status do push é invalidado. O
+botão "Sair" fica no `/perfil`.
 
 # PWA e service worker (`src/sw.ts`)
 

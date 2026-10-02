@@ -1,11 +1,7 @@
-import { FormEvent, useState } from "react";
+import { useState } from "react";
 import { MyEnrollmentCard } from "./components/MyEnrollmentCard";
-import { Button, Card, PushNotificationsControl, Tabs } from "@components";
-import {
-  MyEnrollmentSummary,
-  enrollmentService,
-  useGetMyEnrollments,
-} from "@domain";
+import { Tabs } from "@components";
+import { MyEnrollmentSummary, useGetMyEnrollments } from "@domain";
 
 type ReceiptFilter = "PENDING" | "APPROVED" | "REJECTED" | "ALL";
 
@@ -34,9 +30,9 @@ function matchesFilter(
   return entry.receipt?.status === filter;
 }
 
+// Rota protegida por `RequireAuth`: as inscrições são as do usuário da
+// sessão (nada de nome digitado).
 export function MinhasAulasPage() {
-  const [myName, setMyName] = useState(() => enrollmentService.getMyName());
-  const [nameInput, setNameInput] = useState("");
   const [filter, setFilter] = useState<ReceiptFilter>("PENDING");
 
   const {
@@ -44,7 +40,7 @@ export function MinhasAulasPage() {
     isLoading,
     isError,
     error,
-  } = useGetMyEnrollments(myName ?? "");
+  } = useGetMyEnrollments();
 
   const filteredEntries = entries.filter(entry => matchesFilter(entry, filter));
 
@@ -55,57 +51,8 @@ export function MinhasAulasPage() {
       entries.some(entry => matchesFilter(entry, tab.key)),
   }));
 
-  function handleConfirmName(e: FormEvent) {
-    e.preventDefault();
-    if (!nameInput.trim()) return;
-    enrollmentService.rememberMyName(nameInput.trim());
-    setMyName(nameInput.trim());
-  }
-
-  function handleForgetName() {
-    enrollmentService.forgetMyName();
-    setMyName(null);
-    setNameInput("");
-  }
-
-  if (!myName) {
-    return (
-      <Card className="flex flex-col gap-3">
-        <p className="text-sm font-medium text-slate-700">Quem é você?</p>
-        <form onSubmit={handleConfirmName} className="flex flex-col gap-2">
-          <input
-            autoFocus
-            required
-            value={nameInput}
-            onChange={e => setNameInput(e.target.value)}
-            placeholder="Seu nome"
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-base"
-          />
-          <Button type="submit">Ver minhas aulas</Button>
-        </form>
-      </Card>
-    );
-  }
-
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-sm text-slate-600">
-          Aulas de <span className="font-medium">{myName}</span>
-        </p>
-        <button
-          type="button"
-          onClick={handleForgetName}
-          className="text-xs text-teal-600 underline"
-        >
-          Trocar nome
-        </button>
-      </div>
-
-      <Card>
-        <PushNotificationsControl studentName={myName} />
-      </Card>
-
       <Tabs options={tabs} active={filter} onChange={setFilter} />
 
       {isLoading && <p className="text-slate-500">Carregando...</p>}
@@ -124,11 +71,7 @@ export function MinhasAulasPage() {
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {filteredEntries.map(entry => (
-          <MyEnrollmentCard
-            key={entry.enrollment.id}
-            entry={entry}
-            studentName={myName}
-          />
+          <MyEnrollmentCard key={entry.enrollment.id} entry={entry} />
         ))}
       </div>
     </div>

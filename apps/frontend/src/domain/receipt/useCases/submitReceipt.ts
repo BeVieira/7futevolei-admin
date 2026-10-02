@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { receiptService, queryKeys } from "@domain";
+import { receiptService } from "@domain/receipt/service";
+import { queryKeys } from "@domain/queryKeys";
 import { toActionError } from "@utils";
 
 async function submitReceipt(
@@ -18,11 +19,7 @@ async function submitReceipt(
   }
 }
 
-export function useSubmitReceipt(
-  classSessionId: number,
-  enrollmentId: number,
-  studentName: string,
-) {
+export function useSubmitReceipt(classSessionId: number, enrollmentId: number) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (file: File) =>
@@ -32,7 +29,7 @@ export function useSubmitReceipt(
         queryKey: queryKeys.classes.detail(classSessionId),
       });
       queryClient.invalidateQueries({
-        queryKey: queryKeys.enrollments.myEnrollments(studentName),
+        queryKey: queryKeys.enrollments.mine,
       });
     },
   });

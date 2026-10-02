@@ -53,7 +53,11 @@ faz upsert do `User` pelo id da conta Google:
   ver "minhas aulas" e enviar comprovante — sempre **da própria conta**: a
   identidade vem da sessão, nunca de um nome digitado. Comprovante só é
   aceito para inscrição do próprio usuário (de outro, ou de convidado,
-  responde `404`). Sem sessão, essas rotas respondem `401`.
+  responde `404`). Sem sessão, essas rotas respondem `401`; na tela, quem
+  não está logado vê "Entrar para participar", que leva ao login e volta
+  pra mesma tela depois. "Minhas aulas" e o perfil também mandam pro login
+  e voltam; as telas do admin, logado como aluno, voltam pra tela
+  inicial.
 - **Só admin:** criar/editar/remover turma, remover inscrição, inscrever
   alguém (um usuário cadastrado, escolhido por busca de nome/e-mail, ou um
   convidado pelo nome), ver os comprovantes e quem é convidado nas turmas,

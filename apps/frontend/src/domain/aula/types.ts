@@ -1,4 +1,7 @@
-import { EnrollmentSummary } from "@domain";
+import {
+  AdminEnrollmentSummary,
+  EnrollmentSummary,
+} from "@domain/enrollment/types";
 
 export const CLASS_LEVELS = ["Iniciante", "Intermediário", "Avançado"] as const;
 
@@ -20,7 +23,9 @@ export type ClassSessionSummary = {
   waitlist: string[];
 };
 
-export type ClassSessionDetail = {
+// Detalhe da turma. Por padrão, a visão pública (só nome e lado de cada
+// inscrição); `AdminClassSessionDetail` é a do admin.
+export type ClassSessionDetail<E = EnrollmentSummary> = {
   id: number;
   date: string;
   startTime: string;
@@ -31,9 +36,12 @@ export type ClassSessionDetail = {
   isLocked: boolean;
   confirmedCount: number;
   waitlistCount: number;
-  confirmed: EnrollmentSummary[];
-  waitlist: EnrollmentSummary[];
+  confirmed: E[];
+  waitlist: E[];
 };
+
+export type AdminClassSessionDetail =
+  ClassSessionDetail<AdminEnrollmentSummary>;
 
 export type TimeSlotInput = {
   startTime: string;

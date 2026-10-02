@@ -1,5 +1,6 @@
 import { API_BASE_URL, apiFetch, handleResponse } from "@utils";
 import {
+  AdminClassSessionDetail,
   ClassLevel,
   ClassSessionDetail,
   ClassSessionSummary,
@@ -9,23 +10,27 @@ import {
 const BASE_URL = `${API_BASE_URL}/class-sessions`;
 
 function getClassesByDate(date: string): Promise<ClassSessionSummary[]> {
-  return apiFetch(`${BASE_URL}?date=${date}`).then((res) => handleResponse(res));
+  return apiFetch(`${BASE_URL}?date=${date}`).then(res => handleResponse(res));
 }
 
 function getClassById(id: number): Promise<ClassSessionDetail> {
-  return apiFetch(`${BASE_URL}/${id}`).then((res) => handleResponse(res));
+  return apiFetch(`${BASE_URL}/${id}`).then(res => handleResponse(res));
+}
+
+function getClassAdminDetailById(id: number): Promise<AdminClassSessionDetail> {
+  return apiFetch(`${BASE_URL}/${id}/admin`).then(res => handleResponse(res));
 }
 
 function getClassDatesByMonth(month: string): Promise<string[]> {
   return apiFetch(`${BASE_URL}/dates?month=${month}`)
-    .then((res) => handleResponse<{ dates: string[] }>(res))
-    .then((body) => body.dates);
+    .then(res => handleResponse<{ dates: string[] }>(res))
+    .then(body => body.dates);
 }
 
 function getNextAvailableDate(): Promise<string> {
   return apiFetch(`${BASE_URL}/next-available-date`)
-    .then((res) => handleResponse<{ date: string }>(res))
-    .then((body) => body.date);
+    .then(res => handleResponse<{ date: string }>(res))
+    .then(body => body.date);
 }
 
 function createClassesForDay(
@@ -37,7 +42,7 @@ function createClassesForDay(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ date, timeSlots, lockAt }),
-  }).then((res) => handleResponse(res));
+  }).then(res => handleResponse(res));
 }
 
 function updateClass(
@@ -54,11 +59,11 @@ function updateClass(
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(changes),
-  }).then((res) => handleResponse(res));
+  }).then(res => handleResponse(res));
 }
 
 function deleteClass(id: number): Promise<void> {
-  return apiFetch(`${BASE_URL}/${id}`, { method: "DELETE" }).then((res) =>
+  return apiFetch(`${BASE_URL}/${id}`, { method: "DELETE" }).then(res =>
     handleResponse(res),
   );
 }
@@ -66,6 +71,7 @@ function deleteClass(id: number): Promise<void> {
 export const aulaApi = {
   getClassesByDate,
   getClassById,
+  getClassAdminDetailById,
   getClassDatesByMonth,
   getNextAvailableDate,
   createClassesForDay,

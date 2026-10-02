@@ -1,15 +1,15 @@
-import { FormEvent, useState } from "react";
-import { Button, ClassSessionCard } from "@components";
+import { useState } from "react";
+import { AdminEnrollForm } from "./AdminEnrollForm";
+import { Button, ClassSessionCard, GuestBadge } from "@components";
 import { PeopleIcon } from "@assets";
 import {
+  AdminEnrollmentSummary,
   CLASS_LEVELS,
   ClassLevel,
-  Side,
   aulaService,
   enrollmentService,
-  useAdminEnrollStudent,
   useDeleteClass,
-  useGetClassById,
+  useGetClassAdminDetailById,
   useRemoveEnrollment,
   useUpdateClass,
 } from "@domain";
@@ -25,26 +25,21 @@ export function AdminClassSessionCard({ sessionId }: Props) {
   const [capacity, setCapacity] = useState(8);
   const [lockAt, setLockAt] = useState("");
   const [addingStudent, setAddingStudent] = useState(false);
-  const [studentName, setStudentName] = useState("");
-  const [side, setSide] = useState<Side | "">("");
 
-  const { data: detail, isLoading } = useGetClassById(sessionId);
+  const { data: detail, isLoading } = useGetClassAdminDetailById(sessionId);
 
   const updateMutation = useUpdateClass(sessionId);
   const deleteMutation = useDeleteClass(sessionId);
-  const enrollMutation = useAdminEnrollStudent(sessionId);
   const removeEnrollmentMutation = useRemoveEnrollment(sessionId);
 
   const busy =
     updateMutation.isPending ||
     deleteMutation.isPending ||
-    enrollMutation.isPending ||
     removeEnrollmentMutation.isPending;
 
   const error =
     updateMutation.error ??
     deleteMutation.error ??
-    enrollMutation.error ??
     removeEnrollmentMutation.error;
 
   function handleRemoveEnrollment(enrollmentId: number) {
@@ -57,21 +52,6 @@ export function AdminClassSessionCard({ sessionId }: Props) {
     setCapacity(detail.capacity);
     setLockAt(detail.lockAt ?? "");
     setEditing(true);
-  }
-
-  function handleAddStudent(e: FormEvent) {
-    e.preventDefault();
-    if (!studentName.trim() || !side) return;
-    enrollMutation.mutate(
-      { studentName: studentName.trim(), side },
-      {
-        onSuccess: () => {
-          setAddingStudent(false);
-          setStudentName("");
-          setSide("");
-        },
-      },
-    );
   }
 
   if (isLoading || !detail) {
@@ -218,12 +198,7 @@ export function AdminClassSessionCard({ sessionId }: Props) {
               key={enrollment.id}
               className="flex items-center justify-between text-sm text-slate-700"
             >
-              <span>
-                {enrollment.studentName}{" "}
-                <span className="text-xs text-slate-400">
-                  ({enrollmentService.sideLabel(enrollment.side)})
-                </span>
-              </span>
+              <EnrollmentLabel enrollment={enrollment} />
               <button
                 type="button"
                 onClick={() => handleRemoveEnrollment(enrollment.id)}
@@ -248,12 +223,7 @@ export function AdminClassSessionCard({ sessionId }: Props) {
                 key={enrollment.id}
                 className="flex items-center justify-between text-sm text-slate-700"
               >
-                <span>
-                  {enrollment.studentName}{" "}
-                  <span className="text-xs text-slate-400">
-                    ({enrollmentService.sideLabel(enrollment.side)})
-                  </span>
-                </span>
+                <EnrollmentLabel enrollment={enrollment} />
                 <button
                   type="button"
                   onClick={() => handleRemoveEnrollment(enrollment.id)}
@@ -269,64 +239,35 @@ export function AdminClassSessionCard({ sessionId }: Props) {
       )}
 
       {addingStudent ? (
-        <form onSubmit={handleAddStudent} className="flex flex-col gap-2">
-          <input
-            autoFocus
-            required
-            value={studentName}
-            onChange={e => setStudentName(e.target.value)}
-            placeholder="Nome do aluno"
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          />
-          <div className="flex flex-wrap gap-4">
-            <label className="flex items-center gap-1.5 text-sm text-slate-700">
-              <input
-                type="radio"
-                name={`add-side-${sessionId}`}
-                value="LEFT"
-                required
-                checked={side === "LEFT"}
-                onChange={() => setSide("LEFT")}
-              />
-              Esquerda ({leftCount}/{sideCapacity}
-              {leftCount >= sideCapacity ? " — lista de espera" : ""})
-            </label>
-            <label className="flex items-center gap-1.5 text-sm text-slate-700">
-              <input
-                type="radio"
-                name={`add-side-${sessionId}`}
-                value="RIGHT"
-                required
-                checked={side === "RIGHT"}
-                onChange={() => setSide("RIGHT")}
-              />
-              Direita ({rightCount}/{sideCapacity}
-              {rightCount >= sideCapacity ? " — lista de espera" : ""})
-            </label>
-          </div>
-          <div className="flex gap-2">
-            <Button type="submit" disabled={busy}>
-              Inscrever
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => {
-                setAddingStudent(false);
-                setStudentName("");
-                setSide("");
-              }}
-              disabled={busy}
-            >
-              Cancelar
-            </Button>
-          </div>
-        </form>
+        <AdminEnrollForm
+          sessionId={sessionId}
+          sideCapacity={sideCapacity}
+          leftCount={leftCount}
+          rightCount={rightCount}
+          onClose={() => setAddingStudent(false)}
+        />
       ) : (
         <Button variant="secondary" onClick={() => setAddingStudent(true)}>
           Inscrever aluno
         </Button>
       )}
     </ClassSessionCard>
+  );
+}
+
+// Nome + lado, com a etiqueta "convidado" pra quem foi inscrito só pelo nome.
+function EnrollmentLabel({
+  enrollment,
+}: {
+  enrollment: AdminEnrollmentSummary;
+}) {
+  return (
+    <span className="flex flex-wrap items-center gap-1">
+      {enrollment.studentName}
+      {enrollmentService.isGuest(enrollment) && <GuestBadge />}
+      <span className="text-xs text-slate-400">
+        ({enrollmentService.sideLabel(enrollment.side)})
+      </span>
+    </span>
   );
 }

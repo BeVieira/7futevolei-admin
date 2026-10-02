@@ -3,7 +3,10 @@ import { StudentClassSessionCard } from "./components/StudentClassSessionCard";
 import { Button, CalendarModal, CollapsibleSectionHeader } from "@components";
 import {
   aulaService,
+  enrollmentService,
   useGetClassesByDate,
+  useGetMe,
+  useGetMyEnrollments,
   useGetNextAvailableDate,
 } from "@domain";
 import { formatDateLabel, pluralize } from "@utils";
@@ -30,13 +33,21 @@ export function PublicPage() {
 
   const isLoading = isLoadingSessions || !date;
 
+  // A lista pública só tem nomes; é por "minhas aulas" (uma query só pra
+  // tela toda, não uma por card) que cada card sabe se o usuário logado
+  // está inscrito nele.
+  const { data: me } = useGetMe();
+  const { data: myEnrollments = [] } = useGetMyEnrollments({
+    enabled: Boolean(me),
+  });
+
   const groups = useMemo(
     () => aulaService.groupClassesByTimeSlot(sessions),
     [sessions],
   );
 
   function toggleSlot(slotKey: string) {
-    setCollapsedSlots((prev) => {
+    setCollapsedSlots(prev => {
       const next = new Set(prev);
       if (next.has(slotKey)) {
         next.delete(slotKey);
@@ -67,7 +78,7 @@ export function PublicPage() {
       {calendarOpen && date && (
         <CalendarModal
           selectedDate={date}
-          onSelect={(selected) => {
+          onSelect={selected => {
             setManualDate(selected);
             setCalendarOpen(false);
           }}
@@ -101,8 +112,16 @@ export function PublicPage() {
             />
             {!isCollapsed && (
               <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-4">
-                {slotSessions.map((session) => (
-                  <StudentClassSessionCard key={session.id} session={session} />
+                {slotSessions.map(session => (
+                  <StudentClassSessionCard
+                    key={session.id}
+                    session={session}
+                    me={me ?? null}
+                    myEnrollment={enrollmentService.findMyEnrollmentInClass(
+                      myEnrollments,
+                      session.id,
+                    )}
+                  />
                 ))}
               </div>
             )}

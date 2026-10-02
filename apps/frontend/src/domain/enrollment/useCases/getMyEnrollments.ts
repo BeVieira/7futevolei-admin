@@ -1,20 +1,24 @@
 import { useQuery } from "@tanstack/react-query";
-import { enrollmentService, queryKeys } from "@domain";
+import { enrollmentService } from "@domain/enrollment/service";
+import { queryKeys } from "@domain/queryKeys";
 import { LIVE_REFRESH_INTERVAL_MS, toActionError } from "@utils";
 
-async function getMyEnrollments(studentName: string) {
+async function getMyEnrollments() {
   try {
-    return await enrollmentService.getEnrollmentsByStudentName(studentName);
+    return await enrollmentService.getMyEnrollments();
   } catch (err) {
     throw toActionError(err, "Erro ao carregar suas inscrições");
   }
 }
 
-export function useGetMyEnrollments(studentName: string) {
+// Inscrições do usuário logado. `enabled: false` pra quem não está logado
+// (a rota exige sessão — chamar sem login só geraria um 401).
+export function useGetMyEnrollments(options?: { enabled?: boolean }) {
+  const enabled = options?.enabled ?? true;
   return useQuery({
-    queryKey: queryKeys.enrollments.myEnrollments(studentName),
-    queryFn: () => getMyEnrollments(studentName),
-    enabled: !!studentName,
-    refetchInterval: LIVE_REFRESH_INTERVAL_MS,
+    queryKey: queryKeys.enrollments.mine,
+    queryFn: getMyEnrollments,
+    enabled,
+    refetchInterval: enabled ? LIVE_REFRESH_INTERVAL_MS : false,
   });
 }

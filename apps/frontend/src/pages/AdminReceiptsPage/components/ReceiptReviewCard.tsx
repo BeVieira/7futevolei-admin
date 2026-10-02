@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { Card, ClassSessionCard } from "@components";
+import { Card, ClassSessionCard, GuestBadge } from "@components";
 import {
-  EnrollmentSummary,
+  AdminEnrollmentSummary,
   enrollmentService,
   receiptService,
-  useGetClassById,
+  useGetClassAdminDetailById,
   useReviewReceipt,
 } from "@domain";
 
@@ -18,12 +18,12 @@ const STATUS_BADGE_CLASSES: Record<string, string> = {
   PENDING: "bg-amber-100 text-amber-700",
 };
 
-type EntryWithListLabel = EnrollmentSummary & {
+type EntryWithListLabel = AdminEnrollmentSummary & {
   listLabel: string;
 };
 
 export function ReceiptReviewCard({ sessionId }: Props) {
-  const { data: detail, isLoading } = useGetClassById(sessionId);
+  const { data: detail, isLoading } = useGetClassAdminDetailById(sessionId);
 
   if (isLoading || !detail) {
     return (
@@ -34,11 +34,11 @@ export function ReceiptReviewCard({ sessionId }: Props) {
   }
 
   const entries: EntryWithListLabel[] = [
-    ...detail.confirmed.map((e) => ({ ...e, listLabel: "Confirmado" })),
-    ...detail.waitlist.map((e) => ({ ...e, listLabel: "Lista de espera" })),
+    ...detail.confirmed.map(e => ({ ...e, listLabel: "Confirmado" })),
+    ...detail.waitlist.map(e => ({ ...e, listLabel: "Lista de espera" })),
   ];
   const approvedCount = entries.filter(
-    (e) => e.receipt?.status === "APPROVED",
+    e => e.receipt?.status === "APPROVED",
   ).length;
   const allApproved = entries.length > 0 && approvedCount === entries.length;
 
@@ -66,7 +66,7 @@ export function ReceiptReviewCard({ sessionId }: Props) {
       )}
 
       <ul className="flex flex-col gap-2">
-        {entries.map((enrollment) => (
+        {entries.map(enrollment => (
           <ReceiptReviewRow
             key={enrollment.id}
             sessionId={sessionId}
@@ -109,8 +109,9 @@ function ReceiptReviewRow({ sessionId, enrollment }: RowProps) {
   return (
     <li className="flex flex-col gap-1 border-b border-slate-100 pb-2 last:border-0 last:pb-0">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-sm text-slate-700">
-          {enrollment.studentName}{" "}
+        <span className="flex flex-wrap items-center gap-1 text-sm text-slate-700">
+          {enrollment.studentName}
+          {enrollmentService.isGuest(enrollment) && <GuestBadge />}
           <span className="text-xs text-slate-400">
             ({enrollmentService.sideLabel(enrollment.side)} ·{" "}
             {enrollment.listLabel})
@@ -126,7 +127,11 @@ function ReceiptReviewRow({ sessionId, enrollment }: RowProps) {
       </div>
 
       {!receipt && (
-        <p className="text-xs text-slate-400">Sem comprovante enviado.</p>
+        <p className="text-xs text-slate-400">
+          {enrollmentService.isGuest(enrollment)
+            ? "Convidado — não envia comprovante pelo app."
+            : "Sem comprovante enviado."}
+        </p>
       )}
 
       {receipt && (
@@ -175,7 +180,7 @@ function ReceiptReviewRow({ sessionId, enrollment }: RowProps) {
                   <textarea
                     autoFocus
                     value={comment}
-                    onChange={(e) => setComment(e.target.value)}
+                    onChange={e => setComment(e.target.value)}
                     placeholder="Motivo da recusa"
                     rows={2}
                     className="w-full rounded-lg border border-slate-300 px-2 py-1 text-xs"

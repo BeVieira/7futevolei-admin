@@ -14,6 +14,10 @@ function getClassById(id: number) {
   return aulaApi.getClassById(id);
 }
 
+function getClassAdminDetailById(id: number) {
+  return aulaApi.getClassAdminDetailById(id);
+}
+
 function getClassDatesByMonth(month: string) {
   return aulaApi.getClassDatesByMonth(month);
 }
@@ -82,6 +86,7 @@ function groupClassesByTimeSlot(
 export const aulaService = {
   getClassesByDate,
   getClassById,
+  getClassAdminDetailById,
   getClassDatesByMonth,
   getNextAvailableDate,
   createClassesForDay,

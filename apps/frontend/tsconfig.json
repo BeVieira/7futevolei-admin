@@ -18,6 +18,7 @@
     "paths": {
       "@components": ["src/components/index.ts"],
       "@domain": ["src/domain/index.ts"],
+      "@domain/*": ["src/domain/*"],
       "@pages/*": ["src/pages/*"],
       "@utils": ["src/utils/index.ts"],
       "@assets": ["src/assets/index.ts"],

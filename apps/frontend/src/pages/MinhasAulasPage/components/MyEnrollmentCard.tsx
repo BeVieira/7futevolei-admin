@@ -10,7 +10,6 @@ import { formatDateLabel } from "@utils";
 
 type Props = {
   entry: MyEnrollmentSummary;
-  studentName: string;
 };
 
 const STATUS_BADGE_CLASSES: Record<string, string> = {
@@ -19,15 +18,11 @@ const STATUS_BADGE_CLASSES: Record<string, string> = {
   PENDING: "bg-amber-100 text-amber-700",
 };
 
-export function MyEnrollmentCard({ entry, studentName }: Props) {
+export function MyEnrollmentCard({ entry }: Props) {
   const { classSession, enrollment, receipt } = entry;
   const [file, setFile] = useState<File | null>(null);
 
-  const submitMutation = useSubmitReceipt(
-    classSession.id,
-    enrollment.id,
-    studentName,
-  );
+  const submitMutation = useSubmitReceipt(classSession.id, enrollment.id);
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
