@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { pushService, queryKeys } from "@domain";
+import { pushService } from "@domain/push/service";
+import { queryKeys } from "@domain/queryKeys";
 import { toActionError } from "@utils";
 
 async function disablePush() {

@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { pushService, queryKeys } from "@domain";
+import { pushService } from "@domain/push/service";
+import { queryKeys } from "@domain/queryKeys";
 
 // Reatribui a inscrição de push deste aparelho ao usuário logado quando ele
 // não é o último dono gravado no aparelho — no caso comum a checagem é

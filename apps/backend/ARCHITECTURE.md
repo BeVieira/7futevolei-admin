@@ -13,6 +13,7 @@ src/
   routes/          # Express Router + doc OpenAPI, um arquivo por recurso
     class-session.routes.ts
     user.routes.ts            # busca de usuários (admin) e edição do próprio perfil
+    job.routes.ts             # jobs chamados pelo cron externo (lembrete de comprovante)
   controllers/     # um handler por endpoint: valida, chama lib/, serializa a resposta
     class-session.controller.ts
   schemas/         # validação de payload com Zod

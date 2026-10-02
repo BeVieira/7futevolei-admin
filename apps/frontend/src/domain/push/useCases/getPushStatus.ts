@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { pushService, queryKeys } from "@domain";
+import { pushService } from "@domain/push/service";
+import { queryKeys } from "@domain/queryKeys";
 
 // Estado local do navegador (permissão + inscrição), não do servidor. O
 // refetch ao voltar pra aba (padrão do react-query) pega permissão alterada

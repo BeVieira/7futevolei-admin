@@ -1,5 +1,10 @@
 import { Link, Outlet, useLocation } from "react-router-dom";
-import { authService, useClearSessionOnExpiry, useGetMe } from "@domain";
+import {
+  authService,
+  useClearSessionOnExpiry,
+  useGetMe,
+  useSyncPushSubscription,
+} from "@domain";
 import { Avatar } from "./Avatar";
 import { BottomNav } from "./BottomNav";
 
@@ -8,8 +13,9 @@ export function Layout() {
   const { data: me, isLoading } = useGetMe();
   useClearSessionOnExpiry();
 
-  // integração (Dev 2): useSyncPushSubscription(me?.id) — reatribui a
-  // inscrição de push deste aparelho a quem está logado.
+  // Reatribui a inscrição de push deste aparelho a quem está logado (só
+  // chama o backend quando a conta muda — ver domain/push).
+  useSyncPushSubscription(me?.id);
 
   return (
     <div className="min-h-screen bg-background text-slate-900">

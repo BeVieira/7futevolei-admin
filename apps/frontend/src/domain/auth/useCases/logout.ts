@@ -4,10 +4,12 @@ import { pushService } from "@domain/push/service";
 import { queryKeys } from "@domain/queryKeys";
 import { toActionError } from "@utils";
 
-// Ponto único de saída do app. A ordem importa: desinscrever o push deste
-// aparelho precisa da sessão ainda de pé (a rota de unsubscribe exige
-// login), então vem antes do logout — e é best-effort: se falhar (sem
-// permissão, offline, push não configurado), a pessoa sai mesmo assim.
+// Ponto único de saída do app. Desinscreve o push deste aparelho antes de
+// derrubar a sessão, pra ele não continuar recebendo avisos da conta que
+// saiu. A rota de unsubscribe é pública (o endpoint prova a posse) e
+// `disable()` desfaz a inscrição do navegador mesmo se o backend falhar,
+// então isso não depende da sessão — e é best-effort: se falhar (sem
+// permissão, push não suportado), a pessoa sai mesmo assim.
 async function logout() {
   await pushService.disable().catch(() => {});
 
