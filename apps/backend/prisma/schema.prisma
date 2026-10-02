@@ -84,7 +84,6 @@ model User {
   photoUrl          String?
   role              UserRole           @default(STUDENT)
   sessions          Session[]
-  loginNonces       LoginNonce[]
   enrollments       Enrollment[]
   pushSubscriptions PushSubscription[]
   createdAt         DateTime           @default(now())
@@ -112,17 +111,13 @@ model Session {
   @@index([userId])
 }
 
-// Um login com Google em andamento (fluxo de redirect). `nonce` é o hash
-// SHA-256 de um segredo que só o aparelho que pediu o login conhece (cookie
-// `login_nonce` + localStorage do app): o hash vai pro Google e volta dentro
-// do ID token, o segredo nunca sai do aparelho. Uso único, curto. `userId`
-// fica nulo até o callback validar o ID token; preenchido, a linha é um
-// login confirmado esperando ser resgatado por `POST /auth/google/claim`
+// Uma tentativa de login com Google em andamento (fluxo de redirect).
+// `nonce` é o hash SHA-256 de um segredo que só existe no cookie httpOnly
+// `login_nonce` do navegador que pediu o login: o hash vai pro Google e
+// volta dentro do ID token, e o callback confere os dois. Uso único, 10 min
 // (ver lib/login-nonce.ts).
 model LoginNonce {
   nonce     String   @id
-  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId    Int?
   createdAt DateTime @default(now())
   expiresAt DateTime
 

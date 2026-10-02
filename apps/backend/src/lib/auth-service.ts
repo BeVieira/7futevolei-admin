@@ -92,7 +92,7 @@ export type SessionTokens = {
   refreshMaxAgeMs: number;
 };
 
-// Formato devolvido ao front por /auth/google, /auth/refresh, /auth/me e
+// Formato devolvido ao front por /auth/refresh, /auth/me e
 // PATCH /users/me.
 export type UserProfile = Pick<
   User,

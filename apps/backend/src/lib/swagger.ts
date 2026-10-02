@@ -16,7 +16,7 @@ const options: swaggerJsdoc.Options = {
           in: "cookie",
           name: "access_token",
           description:
-            "Cookie httpOnly setado por POST /api/auth/google (e renovado por /api/auth/refresh). Exigido pelas rotas de usuário logado; as administrativas exigem também papel ADMIN (403 sem ele).",
+            "Cookie httpOnly setado pelo callback do login com Google, POST /api/auth/google/callback (e renovado por /api/auth/refresh). Exigido pelas rotas de usuário logado; as administrativas exigem também papel ADMIN (403 sem ele).",
         },
       },
       schemas: {
@@ -234,17 +234,6 @@ const options: swaggerJsdoc.Options = {
             guestName: { type: "string", example: "Maria Silva" },
           },
           required: ["side"],
-        },
-        GoogleLoginInput: {
-          type: "object",
-          properties: {
-            credential: {
-              type: "string",
-              description:
-                "ID token (JWT) entregue pelo Google Identity Services no front.",
-            },
-          },
-          required: ["credential"],
         },
         UserProfile: {
           type: "object",

@@ -6,10 +6,6 @@ import {
   updateMyProfileSchema,
 } from "../schemas/user.schema";
 
-// Teto de resultados da busca: a tela do admin mostra uma lista curta pra
-// escolher, e quem não aparece é só digitar mais do nome/e-mail.
-const SEARCH_RESULTS_LIMIT = 20;
-
 type UserSearchRow = {
   id: number;
   name: string;
@@ -26,7 +22,9 @@ function escapeLikePattern(value: string): string {
 }
 
 // Admin escolhendo um usuário cadastrado pra inscrever numa turma: busca
-// por pedaço do nome ou do e-mail, sem diferenciar maiúsculas. SQL cru (em
+// por pedaço do nome ou do e-mail, sem diferenciar maiúsculas. Até 20
+// resultados (`LIMIT` literal): a tela mostra uma lista curta pra escolher,
+// e quem não aparece é só digitar mais do nome/e-mail. SQL cru (em
 // vez do `contains` do Prisma) pra controlar o escape dos curingas do LIKE
 // explicitamente, sem depender de como o Prisma trata `%`/`_` no termo.
 export async function searchUsers(req: Request, res: Response) {
@@ -47,7 +45,7 @@ export async function searchUsers(req: Request, res: Response) {
        OR "name" ILIKE ${pattern} ESCAPE '!'
        OR "email" ILIKE ${pattern} ESCAPE '!'
     ORDER BY "name" ASC
-    LIMIT ${SEARCH_RESULTS_LIMIT}
+    LIMIT 20
   `;
 
   res.json(users);

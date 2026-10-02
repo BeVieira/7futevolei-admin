@@ -1,5 +1,5 @@
 import { API_BASE_URL, apiFetch, handleResponse } from "@utils";
-import { GoogleLoginAttempt, GoogleLoginClaim, Me } from "./types";
+import { GoogleLoginAttempt, Me } from "./types";
 
 const BASE_URL = `${API_BASE_URL}/auth`;
 
@@ -25,19 +25,6 @@ function createGoogleLoginAttempt(): Promise<GoogleLoginAttempt> {
   }).then(res => handleResponse(res));
 }
 
-// 409 = o Google ainda não devolveu essa tentativa; 401 = vencida/usada.
-async function claimGoogleLogin(secret: string): Promise<GoogleLoginClaim> {
-  const res = await fetch(`${BASE_URL}/google/claim`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ secret }),
-    credentials: "include",
-  });
-  if (res.status === 409) return { status: "pending" };
-  if (res.status === 401) return { status: "invalid" };
-  return { status: "logged-in", me: await handleResponse<Me>(res) };
-}
-
 // Endereço pra onde o Google posta o resultado do login no fluxo de
 // redirect (ver `renderGoogleSignInButton` no service). Fixo na origem do
 // front — de propósito **não** derivado de `VITE_API_URL`: é nessa origem
@@ -52,6 +39,5 @@ export const authApi = {
   getMe,
   logout,
   createGoogleLoginAttempt,
-  claimGoogleLogin,
   getGoogleLoginCallbackUrl,
 };

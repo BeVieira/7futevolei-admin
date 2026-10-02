@@ -26,7 +26,7 @@ src/
     swagger.ts                # schemas OpenAPI compartilhados
     push-service.ts           # inscrições e envio de Web Push (VAPID)
     google-auth.ts            # valida o ID token do Google (login)
-    login-nonce.ts            # tentativas de login do fluxo de redirect (nonce + resgate)
+    login-nonce.ts            # tentativas de login do fluxo de redirect (nonce)
     auth-service.ts           # upsert do User, emissão/renovação/revogação da sessão
     requireAuth.ts            # middlewares requireAuth / requireAdmin
   types/
@@ -79,16 +79,17 @@ Três peças, cada uma num arquivo de `lib/`:
 
 - **`google-auth.ts`** — integração externa: `verifyGoogleCredential`
   valida o ID token do Google Identity Services (`google-auth-library`,
-  `aud` = `GOOGLE_CLIENT_ID`, só e-mail verificado) e devolve um
-  `GoogleProfile`. Sem `GOOGLE_CLIENT_ID` lança
-  `GoogleLoginNotConfiguredError` (503 — ver "Funcionalidade que depende
-  de variável de ambiente", abaixo).
+  `aud` = `GOOGLE_CLIENT_ID`, só e-mail verificado) e devolve o
+  `GoogleProfile` mais o `nonce` do token. Sem `GOOGLE_CLIENT_ID` lança
+  `GoogleLoginNotConfiguredError` (o callback redireciona com
+  `?erro=configuracao` — ver "Funcionalidade que depende de variável de
+  ambiente", abaixo).
 - **`auth-service.ts`** — regra da sessão: `upsertUserFromGoogle` (upsert
   por `googleId`, não sobrescreve `name`, papel recalculado por
   `ADMIN_EMAILS` e mudança de papel no log), `issueSession`,
   `refreshSession`, `invalidateSession`, `isSessionActive` e
   `toUserProfile` (o shape `{ id, name, email, photoUrl, role }` que
-  `/auth/google`, `/auth/refresh`, `/auth/me` e `PATCH /users/me`
+  `/auth/refresh`, `/auth/me` e `PATCH /users/me`
   devolvem). Detalhes da sessão em "Sessão: uma linha de `Session` por
   aparelho", abaixo.
 - **`requireAuth.ts`** — os dois middlewares Express. Ambos leem o cookie
@@ -143,58 +144,46 @@ derruba o computador.
 - O `jti` fica puro no banco, sem hash: sozinho ele não vira token — falta
   a assinatura com `JWT_SECRET`, que não está no banco.
 
-### Login com Google: JSON, e o fluxo de redirect com nonce
+### Login com Google: fluxo de redirect com nonce
 
-`POST /api/auth/google` (JSON `{ credential }`) fica pra quem obtiver o ID
-token por conta própria (Swagger, popup). O front usa o **fluxo de
-redirect** do Google Identity Services (motivo em
-`apps/frontend/ARCHITECTURE.md`), em três rotas, com a regra em
+Só existe uma porta de login: o **fluxo de redirect** do Google Identity
+Services (motivo em `apps/frontend/ARCHITECTURE.md`). Não há rota que
+aceite um ID token em JSON — ela aceitaria token sem nonce (um token
+capturado poderia ser reapresentado). Duas rotas, com a regra em
 `lib/login-nonce.ts`:
 
 1. `POST /google/nonce` — cria uma tentativa (`LoginNonce`, 10 min): um
-   **segredo** aleatório vai pro cookie `login_nonce` (httpOnly,
-   `SameSite=None; Secure`, path `/api/auth/google`) e volta no JSON; o
-   **nonce** (SHA-256 do segredo) é o que o front passa pro Google, que o
-   embute no ID token. Só o hash sai do aparelho.
+   **segredo** aleatório vai **só** pro cookie `login_nonce` (httpOnly,
+   `SameSite=None; Secure`, path `/api/auth/google`); o JSON devolve só o
+   **nonce** (SHA-256 do segredo), que o front passa pro Google e o Google
+   embute no ID token. O segredo nunca fica acessível ao JavaScript.
 2. `POST /google/callback` — o `login_uri`. Recebe um **formulário**
    (`express.urlencoded` só nessa rota), valida o ID token e exige que o
-   `nonce` dele seja uma tentativa nossa, pendente e não vencida.
-   - Cookie `login_nonce` presente e com hash igual ao nonce → mesmo
-     navegador que pediu: consome a tentativa, abre a sessão, 303 pra
-     `/login?status=ok`.
-   - Sem o cookie → o Google voltou num navegador com outro pote de
-     cookies: **não** abre sessão ali; marca a tentativa como confirmada
-     pro usuário por 2 minutos e responde 303 pra
-     `/login?status=confirmado`.
-3. `POST /google/claim { secret }` — quem tem o segredo (o app que pediu,
-   que o guardou) resgata a tentativa confirmada: uso único (a linha é
-   apagada no mesmo passo), só dentro dos 2 min, só depois de o callback
-   ter validado o ID token. Os cookies de sessão vão pro pote de quem
-   chamou. 409 = ainda não confirmado (o app tenta de novo); 401 =
-   inexistente/vencido/usado.
+   `nonce` dele seja o hash do segredo do cookie **deste** navegador e uma
+   tentativa pendente; consome a tentativa (uso único, `deleteMany`
+   condicionado), abre a sessão e responde 303 pra `/login?status=ok`. Sem
+   o cookie (outro navegador, cookie recusado, tentativa vencida ou já
+   usada): nenhuma sessão, 303 pra `/login?erro=tentativa-expirada`.
 
 Por que o cookie é `SameSite=None`: o POST do Google pro callback é uma
 navegação cross-site, e um cookie `Lax` não vai nela (a exceção "Lax+POST"
 de 2 minutos é só do Chrome e só pra cookie sem `SameSite` declarado). Por
-isso também o double-submit `g_csrf_token` do próprio Google não é usado
-— é um cookie gravado pelo script do Google sem `SameSite=None`.
+isso também o double-submit `g_csrf_token` do próprio Google não é usado.
+Consequência: o Safari não grava cookie `Secure` em `http://localhost`,
+então nele o login só funciona por HTTPS (túnel) — Chrome e Firefox aceitam
+`Secure` em localhost.
 
-O que protege contra login forjado (outro site postando um ID token do
-atacante pro nosso callback): o nonce do token do atacante não tem o
-segredo da vítima — ou é uma tentativa que não existe, ou o callback não
-acha o cookie da vítima e só deixa a tentativa do **atacante** confirmada
-pra resgate, que a vítima nunca pede. Riscos aceitos no resgate: durante 2
-minutos o segredo vale uma sessão, então ele nunca sai do aparelho (só o
-hash vai pro Google e fica em histórico/log de URL), é de uso único e tem
-256 bits. Não dá pra amarrar o resgate ao "mesmo aparelho" por IP ou
-cookie — o caso que ele cobre é justamente o de outro pote de cookies, e
-IP de celular muda.
+O que isso impede: um site (ou link) que leve a vítima a logar e faça o
+navegador dela postar um ID token pro nosso callback não abre sessão em
+lugar nenhum além do navegador da própria vítima, e só se ela mesma pediu
+aquela tentativa; o ID token de outra conta postado no navegador da vítima
+(login forjado) não bate com o cookie dela.
 
-Os erros de login (`InvalidGoogleCredentialError` → 401,
-`InvalidLoginNonceError` → 401 / `?erro=tentativa-expirada`,
-`GoogleLoginNotConfiguredError` → 503, `P2002` de e-mail já usado por
-outra conta Google → 409) passam por `toLoginFailure`, que devolve status
-**e** código, pra cada porta responder do seu jeito.
+Os erros do callback viram códigos em `/login?erro=<código>` via
+`toLoginErrorCode`: `InvalidGoogleCredentialError` → `credencial`,
+`InvalidLoginNonceError` → `tentativa-expirada`,
+`GoogleLoginNotConfiguredError` → `configuracao`, `P2002` de e-mail já
+usado por outra conta Google → `email-em-uso`.
 
 ### `trust proxy` e rate limit
 
@@ -362,7 +351,9 @@ Push (`lib/push-service.ts`) precisa das chaves `VAPID_*`. Sem elas o
 servidor **sobe normalmente** e só as rotas que dependem disso respondem
 `503` (via `PushNotConfiguredError`, tratado no controller como as outras
 classes de erro). O login com Google (`lib/google-auth.ts`) segue o mesmo
-padrão com `GOOGLE_CLIENT_ID` (`GoogleLoginNotConfiguredError`). Assim um ambiente sem a configuração — um dev novo, um
+padrão com `GOOGLE_CLIENT_ID` (`GoogleLoginNotConfiguredError` — como o
+callback responde com redirect, ali o erro vira `?erro=configuracao` em
+vez de 503). Assim um ambiente sem a configuração — um dev novo, um
 preview — não quebra o resto da API. Siga o mesmo padrão para qualquer
 integração externa opcional: checa a configuração uma vez no carregamento
 do módulo, lança um erro próprio na hora do uso.

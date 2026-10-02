@@ -22,8 +22,8 @@ export type GoogleProfile = {
 };
 
 // O ID token validado: o perfil, mais o `nonce` que o front pediu pro
-// Google embutir (fluxo de redirect — ver login-nonce.ts). `null` quando o
-// token veio sem nonce (ex: POST /auth/google em JSON).
+// Google embutir (ver login-nonce.ts). `null` quando o token veio sem nonce
+// — o callback recusa.
 export type VerifiedGoogleCredential = {
   profile: GoogleProfile;
   nonce: string | null;

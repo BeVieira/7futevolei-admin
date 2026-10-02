@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { Prisma, UserRole } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import {
   ACCESS_COOKIE_MAX_AGE_MS,
   ACCESS_COOKIE_NAME,
@@ -25,20 +25,11 @@ import {
   LOGIN_NONCE_COOKIE_NAME,
   LOGIN_NONCE_COOKIE_PATH,
   LOGIN_NONCE_TTL_MS,
-  LoginNotConfirmedError,
-  assertLoginNonceIsPending,
-  claimLoginNonce,
-  confirmLoginNonceForClaim,
   consumeLoginNonce,
   createLoginNonce,
-  secretMatchesNonce,
 } from "../lib/login-nonce";
 import { prisma } from "../lib/prisma";
-import {
-  claimGoogleLoginSchema,
-  googleLoginSchema,
-  googleRedirectLoginSchema,
-} from "../schemas/auth.schema";
+import { googleRedirectLoginSchema } from "../schemas/auth.schema";
 
 function setSessionCookies(res: Response, tokens: SessionTokens) {
   // Front (Vercel) chama a API por um rewrite (`vercel.json`) que proxeia
@@ -76,75 +67,31 @@ function clearLegacyCookies(res: Response) {
   }
 }
 
-// Erros do login com Google que viram uma resposta específica (o resto
-// segue pro error handler global, 500). Compartilhado pelo login via JSON e
-// pelo callback do fluxo de redirect, que respondem de jeitos diferentes.
-type LoginFailure = { status: number; code: string; message: string };
-
-function toLoginFailure(error: unknown): LoginFailure | null {
-  if (error instanceof InvalidGoogleCredentialError) {
-    return { status: 401, code: "credencial", message: error.message };
-  }
-  if (error instanceof GoogleLoginNotConfiguredError) {
-    return { status: 503, code: "configuracao", message: error.message };
-  }
-  if (error instanceof InvalidLoginNonceError) {
-    return { status: 401, code: "tentativa-expirada", message: error.message };
-  }
+// Erros do login com Google que viram um código em `/login?erro=<código>`
+// (o resto segue pro error handler global, 500).
+function toLoginErrorCode(error: unknown): string | null {
+  if (error instanceof InvalidGoogleCredentialError) return "credencial";
+  if (error instanceof GoogleLoginNotConfiguredError) return "configuracao";
+  if (error instanceof InvalidLoginNonceError) return "tentativa-expirada";
   // Único campo único que o upsert por `googleId` pode violar é o e-mail:
   // outra conta Google (outro `googleId`) com o mesmo e-mail já cadastrado.
   if (
     error instanceof Prisma.PrismaClientKnownRequestError &&
     error.code === "P2002"
   ) {
-    return {
-      status: 409,
-      code: "email-em-uso",
-      message: "Este e-mail já está vinculado a outra conta Google",
-    };
+    return "email-em-uso";
   }
   return null;
 }
 
-async function startSession(
-  res: Response,
-  user: { id: number; role: UserRole },
-) {
-  const tokens = await issueSession(user);
-  setSessionCookies(res, tokens);
-}
-
-export async function loginWithGoogle(req: Request, res: Response) {
-  const result = googleLoginSchema.safeParse(req.body);
-
-  if (!result.success) {
-    res.status(400).json({ error: result.error.flatten() });
-    return;
-  }
-
-  try {
-    const { profile } = await verifyGoogleCredential(result.data.credential);
-    const user = await upsertUserFromGoogle(profile);
-    await startSession(res, user);
-    res.json(toUserProfile(user));
-  } catch (error) {
-    const failure = toLoginFailure(error);
-    if (failure) {
-      res.status(failure.status).json({ error: failure.message });
-      return;
-    }
-    throw error;
-  }
-}
-
 // Começo do fluxo de redirect: cria uma tentativa de login (ver
-// lib/login-nonce.ts), grava o segredo no cookie `login_nonce` e devolve o
-// segredo (pro app guardar e poder resgatar o login) e o `nonce` (o hash,
-// que o front passa pro Google). O cookie é `SameSite=None; Secure` porque
-// precisa voltar no POST que o Google faz pro callback — uma navegação
-// cross-site, em que cookie `Lax` não é enviado. `Secure` vale também em
-// http://localhost no Chrome e no Firefox; onde o navegador recusar (Safari
-// em localhost), o cookie não chega e o login segue pelo resgate.
+// lib/login-nonce.ts), grava o segredo no cookie `login_nonce` e devolve
+// **só** o `nonce` (o hash), que o front passa pro Google — o segredo nunca
+// fica acessível ao JavaScript. O cookie é `SameSite=None; Secure` porque
+// precisa voltar no POST que o Google faz pro callback, uma navegação
+// cross-site em que cookie `Lax` não é enviado. `Secure` vale também em
+// http://localhost no Chrome e no Firefox; o Safari não grava cookie
+// `Secure` em http, então nele o login só funciona por HTTPS (túnel).
 export async function createGoogleLoginNonce(_req: Request, res: Response) {
   const { secret, nonce } = await createLoginNonce();
 
@@ -155,7 +102,7 @@ export async function createGoogleLoginNonce(_req: Request, res: Response) {
     maxAge: LOGIN_NONCE_TTL_MS,
     path: LOGIN_NONCE_COOKIE_PATH,
   });
-  res.json({ nonce, secret });
+  res.json({ nonce });
 }
 
 function clearLoginNonceCookie(res: Response) {
@@ -167,21 +114,22 @@ function clearLoginNonceCookie(res: Response) {
 }
 
 // Fim do fluxo de redirect do Google Identity Services (`ux_mode:
-// "redirect"`, usado pelo front — ver apps/frontend/ARCHITECTURE.md): o
-// Google faz um POST de formulário pra cá com o `credential`, e a resposta é
-// uma navegação de página inteira, não um fetch. Por isso nada de JSON: o
-// resultado volta pro front como redirect 303 (vira GET) pra `/login`. O
-// caminho é relativo de propósito — em produção a requisição chega pelo
-// rewrite da Vercel, e o navegador resolve o redirect na origem do front.
+// "redirect"`, usado pelo front — ver apps/frontend/ARCHITECTURE.md), e a
+// única porta de login: o Google faz um POST de formulário pra cá com o
+// `credential`, e a resposta é uma navegação de página inteira, não um
+// fetch. Por isso nada de JSON: o resultado volta pro front como redirect
+// 303 (vira GET) pra `/login?status=ok` ou `/login?erro=<código>`. O caminho
+// é relativo de propósito — em produção a requisição chega pelo rewrite da
+// Vercel, e o navegador resolve o redirect na origem do front, onde os
+// cookies acabaram de ser gravados.
 //
-// O `nonce` do ID token precisa ser uma tentativa nossa, pendente:
-// - cookie `login_nonce` presente e batendo → mesmo navegador que pediu: a
-//   sessão abre aqui e volta `?status=ok`;
-// - sem o cookie → o redirect voltou em outro navegador (ver
-//   login-nonce.ts): nada de cookie de sessão aqui; o login fica
-//   confirmado pra resgate e volta `?status=confirmado`.
+// O `nonce` do ID token precisa bater com o segredo do cookie `login_nonce`
+// deste navegador (e ser uma tentativa pendente). Sem o cookie — outro
+// navegador, cookie recusado, tentativa vencida — não há sessão.
 export async function loginWithGoogleRedirect(req: Request, res: Response) {
   const result = googleRedirectLoginSchema.safeParse(req.body);
+  const secret = req.cookies?.[LOGIN_NONCE_COOKIE_NAME];
+  clearLoginNonceCookie(res);
 
   if (!result.success) {
     res.redirect(303, "/login?erro=credencial");
@@ -189,58 +137,20 @@ export async function loginWithGoogleRedirect(req: Request, res: Response) {
   }
 
   try {
-    const verified = await verifyGoogleCredential(result.data.credential);
-    const nonce = await assertLoginNonceIsPending(verified.nonce);
-    const { profile } = verified;
+    const { profile, nonce } = await verifyGoogleCredential(
+      result.data.credential,
+    );
+    await consumeLoginNonce(nonce, secret);
+
     const user = await upsertUserFromGoogle(profile);
+    const tokens = await issueSession(user);
+    setSessionCookies(res, tokens);
 
-    const secret = req.cookies?.[LOGIN_NONCE_COOKIE_NAME];
-    clearLoginNonceCookie(res);
-
-    if (secretMatchesNonce(secret, nonce)) {
-      await consumeLoginNonce(nonce);
-      await startSession(res, user);
-      res.redirect(303, "/login?status=ok");
-      return;
-    }
-
-    await confirmLoginNonceForClaim(nonce, user.id);
-    res.redirect(303, "/login?status=confirmado");
+    res.redirect(303, "/login?status=ok");
   } catch (error) {
-    const failure = toLoginFailure(error);
-    if (failure) {
-      res.redirect(303, `/login?erro=${failure.code}`);
-      return;
-    }
-    throw error;
-  }
-}
-
-// Resgate do login confirmado em outro navegador: quem tem o segredo da
-// tentativa (o app que a pediu) recebe os cookies de sessão no próprio pote
-// de cookies. 409 = o Google ainda não devolveu (o app tenta de novo depois);
-// 401 = tentativa inexistente, vencida ou já usada.
-export async function claimGoogleLogin(req: Request, res: Response) {
-  const result = claimGoogleLoginSchema.safeParse(req.body);
-
-  if (!result.success) {
-    res.status(400).json({ error: result.error.flatten() });
-    return;
-  }
-
-  try {
-    const userId = await claimLoginNonce(result.data.secret);
-    const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
-    await startSession(res, user);
-    clearLoginNonceCookie(res);
-    res.json(toUserProfile(user));
-  } catch (error) {
-    if (error instanceof LoginNotConfirmedError) {
-      res.status(409).json({ error: error.message });
-      return;
-    }
-    if (error instanceof InvalidLoginNonceError) {
-      res.status(401).json({ error: error.message });
+    const code = toLoginErrorCode(error);
+    if (code) {
+      res.redirect(303, `/login?erro=${code}`);
       return;
     }
     throw error;

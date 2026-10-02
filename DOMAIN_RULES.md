@@ -23,9 +23,12 @@ onde/como está implementado. Para a organização do código em si, veja
 ## Autenticação e identificação
 
 **Login só com Google**, para aluno e admin — não existe usuário/senha,
-tela de cadastro nem seed de admin. O front obtém um ID token do Google
-(Google Identity Services) e manda pra `POST /api/auth/google`; o backend
-valida o token contra `GOOGLE_CLIENT_ID` (só aceita e-mail verificado) e
+tela de cadastro nem seed de admin. O botão "Fazer login com o Google"
+leva a página ao Google, que devolve o login ao backend
+(`POST /api/auth/google/callback`); o backend valida o token contra
+`GOOGLE_CLIENT_ID` (só aceita e-mail verificado), confere que o login foi
+pedido **por aquele mesmo navegador** (uma tentativa de uso único que vale
+10 minutos — fora disso, "A tentativa de login expirou, tente de novo") e
 faz upsert do `User` pelo id da conta Google:
 
 - **Primeiro login** cria a conta com nome, e-mail e foto do Google.
@@ -100,11 +103,9 @@ fato, não é só limpar cookie no navegador.
   segundos o refresh anterior ainda é aceito. Um refresh já trocado
   apresentado depois disso é tratado como token copiado: a sessão daquele
   aparelho é encerrada (a pessoa entra de novo).
-- **Login que volta em outro navegador:** se o Google devolver o login num
-  navegador diferente do que pediu (suspeita no app instalado no iPhone),
-  esse navegador só mostra "Login confirmado, volte para o app", e o app
-  que pediu conclui o login sozinho ao voltar pra frente — por no máximo 2
-  minutos depois da confirmação, uma vez só.
+- **O login só conclui no navegador que o pediu.** Se o Google devolver o
+  login num navegador diferente (com outros cookies), ele é recusado como
+  tentativa expirada — não existe "concluir o login em outro aparelho".
 - **Validade do refresh por papel:** aluno **90 dias**, admin **30 dias**
   — contados da última renovação. Quem abre o app pelo menos uma vez
   nesse prazo nunca precisa logar de novo; o prazo menor do admin limita

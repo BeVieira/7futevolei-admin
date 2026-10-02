@@ -54,10 +54,10 @@ function refreshSession(): Promise<RefreshOutcome> {
 // anterior, então uma aba renovando logo depois da outra não perde a
 // sessão.
 //
-// `credentials: "include"` é obrigatório aqui: front (Vercel) e back
-// (Render) são origens diferentes, então o navegador só manda os cookies
-// de sessão (httpOnly) numa requisição cross-site se isso for pedido
-// explicitamente — por padrão ele omite.
+// `credentials: "include"` explícito: com o front chamando `/api` na
+// própria origem (proxy do Vite, rewrite da Vercel) o padrão do `fetch` já
+// mandaria os cookies, mas deixar explícito mantém a sessão funcionando se
+// um dia a API for chamada de outra origem.
 export async function apiFetch(
   url: string,
   init?: RequestInit,
