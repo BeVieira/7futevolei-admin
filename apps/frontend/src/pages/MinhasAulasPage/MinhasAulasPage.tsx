@@ -1,6 +1,6 @@
 import { FormEvent, useState } from "react";
 import { MyEnrollmentCard } from "./components/MyEnrollmentCard";
-import { Button, Card, Tabs } from "@components";
+import { Button, Card, PushNotificationsControl, Tabs } from "@components";
 import {
   MyEnrollmentSummary,
   enrollmentService,
@@ -46,15 +46,13 @@ export function MinhasAulasPage() {
     error,
   } = useGetMyEnrollments(myName ?? "");
 
-  const filteredEntries = entries.filter((entry) =>
-    matchesFilter(entry, filter),
-  );
+  const filteredEntries = entries.filter(entry => matchesFilter(entry, filter));
 
-  const tabs = FILTER_TABS.map((tab) => ({
+  const tabs = FILTER_TABS.map(tab => ({
     ...tab,
     showIndicator:
       (tab.key === "PENDING" || tab.key === "REJECTED") &&
-      entries.some((entry) => matchesFilter(entry, tab.key)),
+      entries.some(entry => matchesFilter(entry, tab.key)),
   }));
 
   function handleConfirmName(e: FormEvent) {
@@ -79,7 +77,7 @@ export function MinhasAulasPage() {
             autoFocus
             required
             value={nameInput}
-            onChange={(e) => setNameInput(e.target.value)}
+            onChange={e => setNameInput(e.target.value)}
             placeholder="Seu nome"
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-base"
           />
@@ -104,6 +102,10 @@ export function MinhasAulasPage() {
         </button>
       </div>
 
+      <Card>
+        <PushNotificationsControl studentName={myName} />
+      </Card>
+
       <Tabs options={tabs} active={filter} onChange={setFilter} />
 
       {isLoading && <p className="text-slate-500">Carregando...</p>}
@@ -121,7 +123,7 @@ export function MinhasAulasPage() {
         )}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {filteredEntries.map((entry) => (
+        {filteredEntries.map(entry => (
           <MyEnrollmentCard
             key={entry.enrollment.id}
             entry={entry}

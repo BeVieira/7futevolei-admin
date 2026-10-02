@@ -3,6 +3,7 @@ export enum DomainQueryKey {
   ClassDetail = "class",
   MyEnrollments = "myEnrollments",
   Me = "me",
+  PushStatus = "pushStatus",
 }
 
 export const queryKeys = {
@@ -18,6 +19,9 @@ export const queryKeys = {
     byMonth: (month: string) =>
       [DomainQueryKey.Classes, "month", month] as const,
     nextAvailableDate: [DomainQueryKey.Classes, "nextAvailableDate"] as const,
+  },
+  push: {
+    status: [DomainQueryKey.PushStatus] as const,
   },
   enrollments: {
     myEnrollments: (studentName: string) =>

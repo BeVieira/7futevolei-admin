@@ -83,7 +83,7 @@ export function MyEnrollmentCard({ entry, studentName }: Props) {
           <input
             type="file"
             accept="image/*,application/pdf"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            onChange={e => setFile(e.target.files?.[0] ?? null)}
             className="w-full text-sm text-slate-600"
           />
           {submitMutation.isError && (

@@ -8,6 +8,7 @@ import { swaggerSpec } from "./lib/swagger";
 import { authRouter } from "./routes/auth.routes";
 import { classSessionRouter } from "./routes/class-session.routes";
 import { enrollmentRouter } from "./routes/enrollment.routes";
+import { pushRouter } from "./routes/push.routes";
 
 const app = express();
 const port = process.env.PORT ?? 3333;
@@ -17,7 +18,7 @@ const port = process.env.PORT ?? 3333;
 // pra origem pública do front (ou lista separada por vírgula).
 const corsOrigins = (process.env.CORS_ORIGIN ?? "")
   .split(",")
-  .map((origin) => origin.trim())
+  .map(origin => origin.trim())
   .filter(Boolean);
 
 app.use(
@@ -40,6 +41,7 @@ app.get("/health", (_req, res) => {
 app.use("/api/auth", authRouter);
 app.use("/api/class-sessions", classSessionRouter);
 app.use("/api/enrollments", enrollmentRouter);
+app.use("/api/push", pushRouter);
 
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 

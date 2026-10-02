@@ -83,9 +83,9 @@ export function AdminClassSessionCard({ sessionId }: Props) {
   }
 
   const sideCapacity = aulaService.getSideCapacity(detail.capacity);
-  const leftCount = detail.confirmed.filter((e) => e.side === "LEFT").length;
-  const rightCount = detail.confirmed.filter((e) => e.side === "RIGHT").length;
-  const totalEnrolled = detail.confirmedCount+detail.waitlistCount;
+  const leftCount = detail.confirmed.filter(e => e.side === "LEFT").length;
+  const rightCount = detail.confirmed.filter(e => e.side === "RIGHT").length;
+  const totalEnrolled = detail.confirmedCount + detail.waitlistCount;
 
   return (
     <ClassSessionCard
@@ -100,7 +100,7 @@ export function AdminClassSessionCard({ sessionId }: Props) {
       {editing ? (
         <div className="flex flex-col gap-2">
           <div className="flex flex-wrap gap-3">
-            {CLASS_LEVELS.map((option) => (
+            {CLASS_LEVELS.map(option => (
               <label
                 key={option}
                 className="flex items-center gap-1.5 text-sm text-slate-700"
@@ -120,7 +120,7 @@ export function AdminClassSessionCard({ sessionId }: Props) {
             type="number"
             min={1}
             value={capacity}
-            onChange={(e) => setCapacity(Number(e.target.value))}
+            onChange={e => setCapacity(Number(e.target.value))}
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
           />
           <div>
@@ -133,14 +133,14 @@ export function AdminClassSessionCard({ sessionId }: Props) {
             <select
               id={`lockAt-${sessionId}`}
               value={lockAt}
-              onChange={(e) => setLockAt(e.target.value)}
+              onChange={e => setLockAt(e.target.value)}
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
             >
               <option value="">Não trancar</option>
               {lockAt && !buildLockTimeOptions().includes(lockAt) && (
                 <option value={lockAt}>{lockAt}</option>
               )}
-              {buildLockTimeOptions().map((time) => (
+              {buildLockTimeOptions().map(time => (
                 <option key={time} value={time}>
                   {time}
                 </option>
@@ -213,7 +213,7 @@ export function AdminClassSessionCard({ sessionId }: Props) {
           </p>
         )}
         <ul className="flex flex-col gap-1">
-          {detail.confirmed.map((enrollment) => (
+          {detail.confirmed.map(enrollment => (
             <li
               key={enrollment.id}
               className="flex items-center justify-between text-sm text-slate-700"
@@ -243,7 +243,7 @@ export function AdminClassSessionCard({ sessionId }: Props) {
             Lista de espera
           </p>
           <ul className="flex flex-col gap-1">
-            {detail.waitlist.map((enrollment) => (
+            {detail.waitlist.map(enrollment => (
               <li
                 key={enrollment.id}
                 className="flex items-center justify-between text-sm text-slate-700"
@@ -274,7 +274,7 @@ export function AdminClassSessionCard({ sessionId }: Props) {
             autoFocus
             required
             value={studentName}
-            onChange={(e) => setStudentName(e.target.value)}
+            onChange={e => setStudentName(e.target.value)}
             placeholder="Nome do aluno"
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
           />

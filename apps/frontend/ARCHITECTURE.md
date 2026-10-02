@@ -238,7 +238,7 @@ cada domínio, a porta de entrada pra quem está fora de `domain/`:
 
 ```
 src/domain/
-  index.ts            # barrel raiz: export * de aula/enrollment/receipt — importe por aqui de fora de domain/
+  index.ts            # barrel raiz: export * de aula/enrollment/receipt/push — importe por aqui de fora de domain/
   queryKeys.ts        # enum + builders de queryKey, compartilhado entre domínios, não entra no barrel raiz
 
   aula/
@@ -643,3 +643,35 @@ const enrollMutation = useEnrollStudent(session.id);
    `domain/aula/useCases`, etc.). Uma leitura pura (item 3) é chamada via
    o objeto `aulaService`/`enrollmentService`, também importado do
    `index.ts` raiz do domínio.
+
+# PWA e service worker (`src/sw.ts`)
+
+O app é instalável (manifest gerado pelo `vite-plugin-pwa` em
+`vite.config.ts`, ícones em `public/`) e tem um service worker escrito à
+mão, `src/sw.ts`, **só para notificações push**:
+
+- **Sem cache e sem handler de `fetch`.** O site sempre carrega da rede,
+  igual a antes do PWA — não existe "versão velha presa no cache" para
+  depurar. Se um dia entrar modo offline, isso é uma decisão nova, não um
+  ajuste no sw.ts atual.
+- **O `sw.ts` não importa nada de `src/`.** Ele roda num contexto separado
+  (sem DOM, sem React, sem aliases); o shape do payload (`PushPayload`) é
+  repetido lá de propósito e precisa bater com o `PushPayload` do backend
+  (`apps/backend/src/lib/push-service.ts`).
+- **No `pnpm dev` o service worker também roda** (`devOptions.enabled`),
+  gerado em `dev-dist/` (ignorado no git e no lint).
+
+## Domínio `push`: o `service.ts` fala com o navegador, não só com a API
+
+Diferente dos outros domínios, boa parte do `push/service.ts` não espelha
+o `api.ts`: ele lê permissão (`Notification.permission`), inscrição
+(`pushManager`) e se o app está instalado (`display-mode: standalone`).
+Por isso o "status" (`useGetPushStatus`) é uma query de estado **local do
+aparelho**, não do servidor — continua sob `queryKeys`, e as mutações de
+ativar/desativar invalidam essa chave como qualquer outra.
+
+Push só existe em contexto seguro (HTTPS ou `localhost`) — por IP da rede
+local o aparelho cai em `unsupported`. Para testar no celular, use o túnel
+HTTPS (`cloudflared tunnel --url http://localhost:5173`; o domínio já está
+liberado em `server.allowedHosts`). No iPhone o push só aparece com o app
+adicionado à tela de início (status `needs-install` antes disso).

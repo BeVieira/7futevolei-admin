@@ -23,6 +23,7 @@ src/
     prisma.ts                 # instância única do PrismaClient
     asyncHandler.ts           # adapta handler async pro Express
     swagger.ts                # schemas OpenAPI compartilhados
+    push-service.ts           # inscrições e envio de Web Push (VAPID)
   index.ts         # monta o Express app, CORS, /health, /docs, error handler
 ```
 
@@ -200,3 +201,17 @@ Cada rota tem um bloco `/** @openapi ... */` acima do registro
 `Enrollment`, `BulkCreateInput`, etc.). Doc disponível em `/docs` (Swagger
 UI) com o servidor rodando. Toda rota nova precisa do bloco correspondente
 — é a única documentação de contrato de API que existe no projeto.
+
+## Funcionalidade que depende de variável de ambiente: 503, não crash
+
+Push (`lib/push-service.ts`) precisa das chaves `VAPID_*`. Sem elas o
+servidor **sobe normalmente** e só as rotas que dependem disso respondem
+`503` (via `PushNotConfiguredError`, tratado no controller como as outras
+classes de erro). Assim um ambiente sem a configuração — um dev novo, um
+preview — não quebra o resto da API. Siga o mesmo padrão para qualquer
+integração externa opcional: checa a configuração uma vez no carregamento
+do módulo, lança um erro próprio na hora do uso.
+
+`sendPushNotification(payload, where)` é o ponto único de envio: recebe um
+filtro do Prisma para escolher os aparelhos e já apaga as inscrições que o
+serviço de push responde como expiradas (404/410).

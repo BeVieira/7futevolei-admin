@@ -46,7 +46,7 @@ export function AdminPage() {
   const createDayMutation = useCreateClassesForDay();
 
   function toggleSlot(slotKey: string) {
-    setCollapsedSlots((prev) => {
+    setCollapsedSlots(prev => {
       const next = new Set(prev);
       if (next.has(slotKey)) {
         next.delete(slotKey);
@@ -58,7 +58,7 @@ export function AdminPage() {
   }
 
   function updateBlockStartTime(index: number, value: string) {
-    setBlocks((prev) =>
+    setBlocks(prev =>
       prev.map((block, i) =>
         i === index ? { ...block, startTime: value } : block,
       ),
@@ -67,7 +67,7 @@ export function AdminPage() {
 
   function updateBlockCourts(index: number, count: number) {
     const safeCount = aulaService.clampCourtsCount(count);
-    setBlocks((prev) =>
+    setBlocks(prev =>
       prev.map((block, i) => {
         if (i !== index) return block;
         const levels = [...block.levels];
@@ -85,7 +85,7 @@ export function AdminPage() {
     courtIndex: number,
     level: ClassLevel,
   ) {
-    setBlocks((prev) =>
+    setBlocks(prev =>
       prev.map((block, i) => {
         if (i !== blockIndex) return block;
         const levels = [...block.levels];
@@ -96,11 +96,11 @@ export function AdminPage() {
   }
 
   function addBlock() {
-    setBlocks((prev) => [...prev, aulaService.buildDefaultTimeSlot()]);
+    setBlocks(prev => [...prev, aulaService.buildDefaultTimeSlot()]);
   }
 
   function removeBlock(index: number) {
-    setBlocks((prev) => prev.filter((_, i) => i !== index));
+    setBlocks(prev => prev.filter((_, i) => i !== index));
   }
 
   function handleCreateDay(e: FormEvent) {
@@ -134,7 +134,7 @@ export function AdminPage() {
       {calendarOpen && date && (
         <CalendarModal
           selectedDate={date}
-          onSelect={(selected) => {
+          onSelect={selected => {
             setManualDate(selected);
             setCalendarOpen(false);
           }}
@@ -146,7 +146,7 @@ export function AdminPage() {
         <CollapsibleSectionHeader
           label="Criar dia de aulas"
           collapsed={formCollapsed}
-          onToggle={() => setFormCollapsed((v) => !v)}
+          onToggle={() => setFormCollapsed(v => !v)}
         />
         {!formCollapsed && (
           <form onSubmit={handleCreateDay} className="mt-4 flex flex-col gap-4">
@@ -165,11 +165,11 @@ export function AdminPage() {
               <select
                 id="admin-lock-at"
                 value={lockAt}
-                onChange={(e) => setLockAt(e.target.value)}
+                onChange={e => setLockAt(e.target.value)}
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-base"
               >
                 <option value="">Não trancar</option>
-                {buildLockTimeOptions().map((time) => (
+                {buildLockTimeOptions().map(time => (
                   <option key={time} value={time}>
                     {time}
                   </option>
@@ -177,9 +177,9 @@ export function AdminPage() {
               </select>
               <p className="mt-1 text-xs text-slate-400">
                 A lista tranca no dia anterior ({formatPreviousDayLabel(date)}
-                ), no horário escolhido. Após isso, quem já estiver inscrito
-                não poderá mais cancelar. Vale para todas as turmas criadas
-                neste lote.
+                ), no horário escolhido. Após isso, quem já estiver inscrito não
+                poderá mais cancelar. Vale para todas as turmas criadas neste
+                lote.
               </p>
             </div>
 
@@ -190,10 +190,10 @@ export function AdminPage() {
                   index={index}
                   startTime={block.startTime}
                   levels={block.levels}
-                  onStartTimeChange={(value) =>
+                  onStartTimeChange={value =>
                     updateBlockStartTime(index, value)
                   }
-                  onCourtsChange={(count) => updateBlockCourts(index, count)}
+                  onCourtsChange={count => updateBlockCourts(index, count)}
                   onLevelChange={(courtIndex, level) =>
                     updateBlockLevel(index, courtIndex, level)
                   }
@@ -246,7 +246,7 @@ export function AdminPage() {
               />
               {!isCollapsed && (
                 <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-4">
-                  {slotSessions.map((session) => (
+                  {slotSessions.map(session => (
                     <AdminClassSessionCard
                       key={session.id}
                       sessionId={session.id}

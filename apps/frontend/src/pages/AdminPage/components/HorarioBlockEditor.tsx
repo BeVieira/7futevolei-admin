@@ -63,7 +63,7 @@ export function HorarioBlockEditor({
           type="time"
           required
           value={startTime}
-          onChange={(e) => onStartTimeChange(e.target.value)}
+          onChange={e => onStartTimeChange(e.target.value)}
           className="w-full rounded-lg border border-slate-300 px-3 py-2 text-base"
         />
         <span className="whitespace-nowrap text-sm text-slate-400">
@@ -84,7 +84,7 @@ export function HorarioBlockEditor({
           min={1}
           max={4}
           value={courtsText}
-          onChange={(e) => handleCourtsChange(e.target.value)}
+          onChange={e => handleCourtsChange(e.target.value)}
           onBlur={handleCourtsBlur}
           className="w-full rounded-lg border border-slate-300 px-3 py-2 text-base"
         />
@@ -97,7 +97,7 @@ export function HorarioBlockEditor({
               Quadra {courtIndex + 1}
             </p>
             <div className="flex flex-wrap gap-3">
-              {CLASS_LEVELS.map((option) => (
+              {CLASS_LEVELS.map(option => (
                 <label
                   key={option}
                   className="flex items-center gap-1.5 text-sm text-slate-700"

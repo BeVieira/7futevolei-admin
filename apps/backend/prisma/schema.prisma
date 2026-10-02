@@ -71,3 +71,18 @@ model Receipt {
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 }
+
+// Um registro por aparelho/navegador que ativou notificações. `studentName`
+// amarra o aparelho ao aluno do mesmo jeito que "Minhas Aulas" (nome digitado,
+// sem login) — é por ele que notificações direcionadas vão achar o aparelho.
+model PushSubscription {
+  id          Int      @id @default(autoincrement())
+  endpoint    String   @unique
+  p256dh      String
+  auth        String
+  studentName String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([studentName])
+}
