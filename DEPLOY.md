@@ -83,17 +83,27 @@ especificamente no Safari mobile. Ver "O que mudou no código" mais abaixo.
    ADMIN_EMAILS=<e-mails Google dos admins, separados por vírgula>
    TRUST_PROXY_HOPS=4
    ```
-   `TRUST_PROXY_HOPS=4` é a estimativa pra cadeia rewrite da Vercel (1) →
-   proxies do Render (~3, segundo a comunidade do Render). **Confira**
-   depois do deploy: com o valor certo, o rate limit de login é por
-   aluno/rede; com valor baixo demais, todo mundo divide o mesmo contador
-   (o login começa a responder "Muitas tentativas" pra turma inteira).
+   `TRUST_PROXY_HOPS=4` é uma **estimativa**, não um valor verificado:
+   rewrite da Vercel (1) + proxies do Render (~3, segundo relatos na
+   comunidade do Render). Com o valor certo, o rate limit de login é por
+   aluno/rede; baixo demais, todo mundo divide o mesmo contador (o login
+   começa a responder "Muitas tentativas" pra turma inteira); alto demais,
+   o cliente consegue forjar o próprio IP no `X-Forwarded-For`. **Como
+   confirmar:** suba uma vez com um `console.log(req.ip, req.ips)`
+   temporário numa rota (ex: `/health`), acesse pelo app (pela Vercel) de
+   uma rede cujo IP público você saiba (ex: o que https://ifconfig.me
+   mostra) e ajuste o número até `req.ip` ser esse IP; depois remova o log.
+   Atenção: quem chama o `*.onrender.com` direto, sem passar pela Vercel,
+   tem um salto a menos — com `4`, o IP que o Express enxerga passa a ser
+   um valor que o próprio cliente pode escolher, o que **contorna o rate
+   limit**. O limite protege o uso normal pelo app, não um ataque direto
+   ao Render.
 5. **Create Web Service**. O primeiro deploy builda a imagem e sobe o
    container, que já roda `prisma migrate deploy` sozinho (está no
    `Dockerfile`). Não há seed: o admin entra com Google, com o e-mail em
    `ADMIN_EMAILS`. Acompanhe o log até `Backend rodando em http://...`.
 6. Anote a URL pública gerada, tipo `https://7futevolei-backend.onrender.com`
-   — é o `VITE_API_URL` do Passo 3.
+   — é o destino do rewrite em `apps/frontend/vercel.json` (Passo 3).
 
 ## Passo 3 — Vercel (frontend)
 
@@ -165,7 +175,8 @@ especificamente no Safari mobile. Ver "O que mudou no código" mais abaixo.
 
 | Variável (Vercel, frontend) | Valor |
 |---|---|
-| `VITE_API_URL` | `https://<backend>.onrender.com/api` (Passo 2.6) |
+| `VITE_API_URL` | `/api` — relativo; o rewrite do `vercel.json` manda pro Render. Não use a URL absoluta do Render: os cookies de sessão precisam ser da origem da Vercel, e o callback do login com Google é sempre `<origem do front>/api/auth/google/callback`, independente desta variável |
+| `VITE_GOOGLE_CLIENT_ID` | o mesmo `GOOGLE_CLIENT_ID` do backend |
 
 ---
 

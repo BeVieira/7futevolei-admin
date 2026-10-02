@@ -26,6 +26,7 @@ src/
     swagger.ts                # schemas OpenAPI compartilhados
     push-service.ts           # inscrições e envio de Web Push (VAPID)
     google-auth.ts            # valida o ID token do Google (login)
+    login-nonce.ts            # tentativas de login do fluxo de redirect (nonce + resgate)
     auth-service.ts           # upsert do User, emissão/renovação/revogação da sessão
     requireAuth.ts            # middlewares requireAuth / requireAdmin
   types/
@@ -130,8 +131,9 @@ derruba o computador.
   aceito por 10s (`REFRESH_REUSE_GRACE_MS`) e recebe o par vigente
   **reassinado** (mesmos `jti`, sem rotacionar de novo) — cobre duas abas
   renovando juntas e o PWA do iOS que perdeu a resposta da renovação ao ir
-  pro segundo plano. Fora disso, `InvalidSessionError` (401 + limpa os
-  cookies). O **papel é recalculado** de `ADMIN_EMAILS` a cada renovação
+  pro segundo plano. Qualquer outro refresh não vigente (o anterior fora
+  da janela, ou um mais velho) é tratado como **reuso de token** e apaga a
+  sessão inteira — `InvalidSessionError` (401 + limpa os cookies). O **papel é recalculado** de `ADMIN_EMAILS` a cada renovação
   (e gravado no `User` se mudou), nunca copiado do token antigo.
 - **Validade do refresh por papel** (`REFRESH_TTL_MS_BY_ROLE`): aluno 90
   dias, admin 30. O cookie acompanha (`SessionTokens.refreshMaxAgeMs`).
@@ -141,22 +143,55 @@ derruba o computador.
 - O `jti` fica puro no banco, sem hash: sozinho ele não vira token — falta
   a assinatura com `JWT_SECRET`, que não está no banco.
 
-### Login com Google: JSON e callback de redirect
+### Login com Google: JSON, e o fluxo de redirect com nonce
 
-Duas portas pro mesmo `startSessionFromGoogle` (`auth.controller.ts`):
+`POST /api/auth/google` (JSON `{ credential }`) fica pra quem obtiver o ID
+token por conta própria (Swagger, popup). O front usa o **fluxo de
+redirect** do Google Identity Services (motivo em
+`apps/frontend/ARCHITECTURE.md`), em três rotas, com a regra em
+`lib/login-nonce.ts`:
 
-- `POST /api/auth/google` — JSON `{ credential }`, responde JSON. Fica pra
-  quem obtiver o ID token por conta própria (ex: Swagger, popup).
-- `POST /api/auth/google/callback` — o `login_uri` do fluxo de redirect
-  do Google Identity Services, que é o que o front usa (motivo em
-  `apps/frontend/ARCHITECTURE.md`). Recebe um **formulário**
-  (`express.urlencoded` só nessa rota), exige o double-submit
-  `g_csrf_token` (cookie == campo do corpo) e responde sempre com **303**
-  pra `/login?status=ok` ou `/login?erro=<código>` — caminho relativo, pra
-  o navegador resolver na origem do front (em produção a requisição chega
-  pelo rewrite da Vercel).
+1. `POST /google/nonce` — cria uma tentativa (`LoginNonce`, 10 min): um
+   **segredo** aleatório vai pro cookie `login_nonce` (httpOnly,
+   `SameSite=None; Secure`, path `/api/auth/google`) e volta no JSON; o
+   **nonce** (SHA-256 do segredo) é o que o front passa pro Google, que o
+   embute no ID token. Só o hash sai do aparelho.
+2. `POST /google/callback` — o `login_uri`. Recebe um **formulário**
+   (`express.urlencoded` só nessa rota), valida o ID token e exige que o
+   `nonce` dele seja uma tentativa nossa, pendente e não vencida.
+   - Cookie `login_nonce` presente e com hash igual ao nonce → mesmo
+     navegador que pediu: consome a tentativa, abre a sessão, 303 pra
+     `/login?status=ok`.
+   - Sem o cookie → o Google voltou num navegador com outro pote de
+     cookies: **não** abre sessão ali; marca a tentativa como confirmada
+     pro usuário por 2 minutos e responde 303 pra
+     `/login?status=confirmado`.
+3. `POST /google/claim { secret }` — quem tem o segredo (o app que pediu,
+   que o guardou) resgata a tentativa confirmada: uso único (a linha é
+   apagada no mesmo passo), só dentro dos 2 min, só depois de o callback
+   ter validado o ID token. Os cookies de sessão vão pro pote de quem
+   chamou. 409 = ainda não confirmado (o app tenta de novo); 401 =
+   inexistente/vencido/usado.
+
+Por que o cookie é `SameSite=None`: o POST do Google pro callback é uma
+navegação cross-site, e um cookie `Lax` não vai nela (a exceção "Lax+POST"
+de 2 minutos é só do Chrome e só pra cookie sem `SameSite` declarado). Por
+isso também o double-submit `g_csrf_token` do próprio Google não é usado
+— é um cookie gravado pelo script do Google sem `SameSite=None`.
+
+O que protege contra login forjado (outro site postando um ID token do
+atacante pro nosso callback): o nonce do token do atacante não tem o
+segredo da vítima — ou é uma tentativa que não existe, ou o callback não
+acha o cookie da vítima e só deixa a tentativa do **atacante** confirmada
+pra resgate, que a vítima nunca pede. Riscos aceitos no resgate: durante 2
+minutos o segredo vale uma sessão, então ele nunca sai do aparelho (só o
+hash vai pro Google e fica em histórico/log de URL), é de uso único e tem
+256 bits. Não dá pra amarrar o resgate ao "mesmo aparelho" por IP ou
+cookie — o caso que ele cobre é justamente o de outro pote de cookies, e
+IP de celular muda.
 
 Os erros de login (`InvalidGoogleCredentialError` → 401,
+`InvalidLoginNonceError` → 401 / `?erro=tentativa-expirada`,
 `GoogleLoginNotConfiguredError` → 503, `P2002` de e-mail já usado por
 outra conta Google → 409) passam por `toLoginFailure`, que devolve status
 **e** código, pra cada porta responder do seu jeito.
@@ -167,7 +202,15 @@ Os rate limits (login, push) contam por `req.ip`. Atrás de proxy, o Express
 só lê o IP real do `X-Forwarded-For` se souber quantos saltos confiar:
 `TRUST_PROXY_HOPS` (env, padrão 0) vira `app.set("trust proxy", N)` em
 `src/index.ts`. Valor errado pra menos = todo mundo com o IP do proxy
-(limite global); pra mais = cliente forja o IP no header.
+(limite global); pra mais = cliente forja o IP no header. Como conferir em
+produção está no `DEPLOY.md`.
+
+### Busca de usuários: SQL cru com escape de LIKE
+
+`GET /api/users` usa `$queryRaw` com `ILIKE ... ESCAPE '!'` e escapa `%`,
+`_` e `!` do termo antes (`escapeLikePattern`), em vez do `contains` do
+Prisma — assim o que o admin digita é buscado literalmente sem depender de
+como o Prisma trata curingas no termo.
 
 ### Visão pública × visão do admin no detalhe da turma
 

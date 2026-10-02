@@ -97,7 +97,14 @@ fato, não é só limpar cookie no navegador.
   valer) e estende a validade do refresh. Duas renovações quase
   simultâneas da mesma sessão (duas abas, ou o app do iPhone voltando do
   segundo plano no meio de uma renovação) não derrubam a sessão: por 10
-  segundos o refresh anterior ainda é aceito.
+  segundos o refresh anterior ainda é aceito. Um refresh já trocado
+  apresentado depois disso é tratado como token copiado: a sessão daquele
+  aparelho é encerrada (a pessoa entra de novo).
+- **Login que volta em outro navegador:** se o Google devolver o login num
+  navegador diferente do que pediu (suspeita no app instalado no iPhone),
+  esse navegador só mostra "Login confirmado, volte para o app", e o app
+  que pediu conclui o login sozinho ao voltar pra frente — por no máximo 2
+  minutos depois da confirmação, uma vez só.
 - **Validade do refresh por papel:** aluno **90 dias**, admin **30 dias**
   — contados da última renovação. Quem abre o app pelo menos uma vez
   nesse prazo nunca precisa logar de novo; o prazo menor do admin limita

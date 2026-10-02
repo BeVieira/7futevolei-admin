@@ -21,6 +21,14 @@ export type GoogleProfile = {
   photoUrl: string | null;
 };
 
+// O ID token validado: o perfil, mais o `nonce` que o front pediu pro
+// Google embutir (fluxo de redirect — ver login-nonce.ts). `null` quando o
+// token veio sem nonce (ex: POST /auth/google em JSON).
+export type VerifiedGoogleCredential = {
+  profile: GoogleProfile;
+  nonce: string | null;
+};
+
 const clientId = process.env.GOOGLE_CLIENT_ID ?? "";
 const client = clientId ? new OAuth2Client(clientId) : null;
 
@@ -30,7 +38,7 @@ const client = clientId ? new OAuth2Client(clientId) : null;
 // e-mail verificado, já que o e-mail decide quem é admin.
 export async function verifyGoogleCredential(
   credential: string,
-): Promise<GoogleProfile> {
+): Promise<VerifiedGoogleCredential> {
   if (!client) throw new GoogleLoginNotConfiguredError();
 
   let payload;
@@ -51,11 +59,14 @@ export async function verifyGoogleCredential(
   const email = payload.email.toLowerCase();
 
   return {
-    googleId: payload.sub,
-    email,
-    // Conta Google sem nome público: usa a parte antes do @ até o usuário
-    // editar no perfil.
-    name: (payload.name?.trim() || email.split("@")[0]).slice(0, 100),
-    photoUrl: payload.picture ?? null,
+    profile: {
+      googleId: payload.sub,
+      email,
+      // Conta Google sem nome público: usa a parte antes do @ até o usuário
+      // editar no perfil.
+      name: (payload.name?.trim() || email.split("@")[0]).slice(0, 100),
+      photoUrl: payload.picture ?? null,
+    },
+    nonce: payload.nonce ?? null,
   };
 }

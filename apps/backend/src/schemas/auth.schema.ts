@@ -5,8 +5,12 @@ export const googleLoginSchema = z.object({
 });
 
 // Corpo (form-urlencoded) que o Google posta no `login_uri` no fluxo de
-// redirect. Outros campos que ele manda (`select_by`, ...) são ignorados.
+// redirect. Outros campos que ele manda (`g_csrf_token`, `select_by`, ...)
+// são ignorados — a proteção do callback é o `nonce` (ver login-nonce.ts).
 export const googleRedirectLoginSchema = z.object({
   credential: z.string().min(1),
-  g_csrf_token: z.string().min(1),
+});
+
+export const claimGoogleLoginSchema = z.object({
+  secret: z.string().min(1).max(200),
 });

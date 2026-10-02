@@ -3,6 +3,8 @@ import rateLimit from "express-rate-limit";
 import { asyncHandler } from "../lib/asyncHandler";
 import { requireAuth } from "../lib/requireAuth";
 import {
+  claimGoogleLogin,
+  createGoogleLoginNonce,
   loginWithGoogle,
   loginWithGoogleRedirect,
   logout,
@@ -21,6 +23,18 @@ export const authRouter = Router();
 const loginRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Muitas tentativas de login. Tente novamente mais tarde." },
+});
+
+// Passos auxiliares do fluxo de redirect (pedir nonce, resgatar login): a
+// tela de login pede um nonce ao abrir e de tempos em tempos, e o app pode
+// tentar o resgate várias vezes enquanto espera — limite mais largo que o
+// do login em si.
+const loginStepRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 300,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Muitas tentativas de login. Tente novamente mais tarde." },
@@ -62,15 +76,48 @@ authRouter.post("/google", loginRateLimit, asyncHandler(loginWithGoogle));
 
 /**
  * @openapi
+ * /api/auth/google/nonce:
+ *   post:
+ *     summary: Começa uma tentativa de login com Google no fluxo de redirect
+ *     description: >
+ *       Grava o segredo da tentativa no cookie httpOnly `login_nonce`
+ *       (SameSite=None; Secure; 10 min) e devolve o segredo e o `nonce`
+ *       (hash do segredo) que o front passa pro Google.
+ *     tags: [Auth]
+ *     responses:
+ *       200:
+ *         description: Tentativa criada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 nonce:
+ *                   type: string
+ *                 secret:
+ *                   type: string
+ *               required: [nonce, secret]
+ */
+authRouter.post(
+  "/google/nonce",
+  loginStepRateLimit,
+  asyncHandler(createGoogleLoginNonce),
+);
+
+/**
+ * @openapi
  * /api/auth/google/callback:
  *   post:
  *     summary: Callback do login com Google no fluxo de redirect (login_uri do Google Identity Services)
  *     description: >
  *       Chamado pelo navegador num POST de formulário vindo do Google, não
- *       pelo front via fetch. Confere o double-submit `g_csrf_token` (cookie
- *       igual ao campo), valida o ID token e inicia a sessão como
- *       /api/auth/google. Sempre responde com redirect 303 pra
- *       `/login?status=ok` ou `/login?erro=<credencial|csrf|configuracao|email-em-uso>`.
+ *       pelo front via fetch. Valida o ID token e exige que o `nonce` dele
+ *       seja uma tentativa pendente criada por /google/nonce. Com o cookie
+ *       `login_nonce` batendo, inicia a sessão ali (`/login?status=ok`); sem
+ *       ele, deixa o login confirmado por 2 min pra resgate em
+ *       /google/claim (`/login?status=confirmado`). Erros:
+ *       `/login?erro=<credencial|tentativa-expirada|configuracao|email-em-uso>`.
+ *       Sempre responde com redirect 303.
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -81,9 +128,7 @@ authRouter.post("/google", loginRateLimit, asyncHandler(loginWithGoogle));
  *             properties:
  *               credential:
  *                 type: string
- *               g_csrf_token:
- *                 type: string
- *             required: [credential, g_csrf_token]
+ *             required: [credential]
  *     responses:
  *       303:
  *         description: Redirect de volta pro front (/login), com o resultado na query string
@@ -95,6 +140,46 @@ authRouter.post(
   loginRateLimit,
   express.urlencoded({ extended: false }),
   asyncHandler(loginWithGoogleRedirect),
+);
+
+/**
+ * @openapi
+ * /api/auth/google/claim:
+ *   post:
+ *     summary: Resgata um login com Google confirmado em outro navegador
+ *     description: >
+ *       Quem tem o segredo da tentativa (devolvido por /google/nonce) recebe
+ *       os cookies de sessão, se o callback já validou o ID token há menos
+ *       de 2 minutos. Uso único.
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               secret:
+ *                 type: string
+ *             required: [secret]
+ *     responses:
+ *       200:
+ *         description: Sessão iniciada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/UserProfile"
+ *       400:
+ *         description: Payload inválido
+ *       401:
+ *         description: Tentativa inexistente, vencida ou já usada
+ *       409:
+ *         description: O Google ainda não devolveu o login dessa tentativa
+ */
+authRouter.post(
+  "/google/claim",
+  loginStepRateLimit,
+  asyncHandler(claimGoogleLogin),
 );
 
 /**
