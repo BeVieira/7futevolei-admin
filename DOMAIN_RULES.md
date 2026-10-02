@@ -231,7 +231,9 @@ avisa** nesta versão — pergunta em aberto com o usuário se deve avisar.
   aulas de semanas atrás).
 - A inscrição é dada como lembrada **mesmo se o aluno não tiver nenhum
   aparelho com notificação ativa** naquele momento — o lembrete é do fim
-  da aula, não fica guardado pra quando ele ativar.
+  da aula, não fica guardado pra quando ele ativar. Se o envio falhar por
+  instabilidade do serviço de push, o lembrete é tentado de novo no
+  próximo disparo (ainda dentro das 24h).
 - **Produção:** um cron externo (cron-job.org) chama
   `POST /api/jobs/receipt-reminders` às **7:05, 8:05, 9:05 e 10:05**
   (America/Sao_Paulo) — as aulas são das 7h às 10h, então cada disparo

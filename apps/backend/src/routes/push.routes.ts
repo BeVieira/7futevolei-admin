@@ -11,9 +11,19 @@ import {
 export const pushRouter = Router();
 
 // Mesmo exigindo login, qualquer conta Google entra — sem limite, um loop
-// encheria a tabela de endpoints falsos. O mesmo limite vale pro
-// unsubscribe, que é público (ver abaixo).
-const pushRateLimit = rateLimit({
+// encheria a tabela de endpoints falsos.
+const subscribeRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Muitas tentativas. Tente novamente mais tarde." },
+});
+
+// Limite próprio (não divide o contador com o subscribe): o unsubscribe é
+// público, e um aparelho que acabou de ativar várias vezes ainda precisa
+// conseguir sair no logout.
+const unsubscribeRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 30,
   standardHeaders: true,
@@ -75,14 +85,16 @@ pushRouter.get("/public-key", getPublicKey);
  *       204:
  *         description: Inscrição salva
  *       400:
- *         description: Payload inválido
+ *         description: Payload inválido (inclui endpoint fora dos serviços de push conhecidos)
+ *       409:
+ *         description: Endpoint já inscrito com outras chaves (p256dh/auth) — o navegador deve criar uma inscrição nova
  *       401:
  *         description: Não autenticado
  */
 pushRouter.post(
   "/subscribe",
   requireAuth,
-  pushRateLimit,
+  subscribeRateLimit,
   asyncHandler(subscribe),
 );
 
@@ -114,4 +126,8 @@ pushRouter.post(
  *       400:
  *         description: Payload inválido
  */
-pushRouter.post("/unsubscribe", pushRateLimit, asyncHandler(unsubscribe));
+pushRouter.post(
+  "/unsubscribe",
+  unsubscribeRateLimit,
+  asyncHandler(unsubscribe),
+);

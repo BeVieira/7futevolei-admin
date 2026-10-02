@@ -1,4 +1,4 @@
-import webpush, { WebPushError } from "web-push";
+import webpush, { RequestOptions, WebPushError } from "web-push";
 import { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 
@@ -9,12 +9,30 @@ export class PushNotConfiguredError extends Error {
   }
 }
 
+export class PushSubscriptionConflictError extends Error {
+  constructor(
+    message = "Este aparelho já está inscrito com outras chaves. Ative as notificações de novo.",
+  ) {
+    super(message);
+    this.name = "PushSubscriptionConflictError";
+  }
+}
+
 export type PushPayload = {
   title: string;
   body: string;
   // Rota do front aberta ao tocar na notificação (ex: "/minhas-aulas").
   url?: string;
 };
+
+// Entrega no serviço de push: por quanto tempo segurar a mensagem se o
+// aparelho estiver offline (`TTL`, em segundos), prioridade (`urgency`) e
+// `topic` — mensagens pendentes com o mesmo topic são substituídas pela
+// mais nova (ex: "promovido" seguido de "removido" entrega só o último).
+export type PushDeliveryOptions = Pick<
+  RequestOptions,
+  "TTL" | "urgency" | "topic"
+>;
 
 type SubscriptionInput = {
   endpoint: string;
@@ -39,24 +57,40 @@ export function getVapidPublicKey(): string {
   return publicKey;
 }
 
-// Upsert por endpoint: o mesmo aparelho reativando atualiza o registro em
-// vez de duplicar, e passa a pertencer ao usuário logado que ativou (outra
-// pessoa logando no mesmo aparelho assume as notificações dele).
-export function saveSubscription(
+// Um registro por endpoint. O mesmo navegador reativando (ou outra pessoa
+// logando no mesmo aparelho) reatribui o aparelho ao usuário logado — mas
+// só se `p256dh`/`auth` baterem com os gravados. `auth` é um segredo que só
+// o navegador inscrito tem; sem essa conferência, quem descobrisse o
+// endpoint de outra pessoa poderia "sequestrar" o aparelho dela pra própria
+// conta. Chaves diferentes no mesmo endpoint não acontecem num navegador
+// normal (re-inscrever gera endpoint novo), então são recusadas sem mexer
+// no registro: o front desfaz a inscrição local e cria uma nova.
+export async function saveSubscription(
   subscription: SubscriptionInput,
   userId: number,
 ) {
-  const data = {
-    p256dh: subscription.keys.p256dh,
-    auth: subscription.keys.auth,
-    userId,
-  };
-
-  return prisma.pushSubscription.upsert({
-    where: { endpoint: subscription.endpoint },
-    create: { endpoint: subscription.endpoint, ...data },
-    update: data,
+  const { endpoint, keys } = subscription;
+  const existing = await prisma.pushSubscription.findUnique({
+    where: { endpoint },
   });
+
+  if (!existing) {
+    await prisma.pushSubscription.create({
+      data: { endpoint, p256dh: keys.p256dh, auth: keys.auth, userId },
+    });
+    return;
+  }
+
+  if (existing.p256dh !== keys.p256dh || existing.auth !== keys.auth) {
+    throw new PushSubscriptionConflictError();
+  }
+
+  if (existing.userId !== userId) {
+    await prisma.pushSubscription.update({
+      where: { endpoint },
+      data: { userId },
+    });
+  }
 }
 
 export async function removeSubscription(endpoint: string) {
@@ -71,6 +105,7 @@ export async function removeSubscription(endpoint: string) {
 export async function sendPushNotification(
   payload: PushPayload,
   where: Prisma.PushSubscriptionWhereInput = {},
+  options: PushDeliveryOptions = {},
 ) {
   if (!isConfigured) throw new PushNotConfiguredError();
 
@@ -85,6 +120,7 @@ export async function sendPushNotification(
           keys: { p256dh: sub.p256dh, auth: sub.auth },
         },
         body,
+        options,
       ),
     ),
   );

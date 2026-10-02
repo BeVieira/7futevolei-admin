@@ -344,16 +344,17 @@ sai de dentro do `prisma.$transaction`:
 - push é rede externa lenta, e segurar uma transação `Serializable` aberta
   esperando o serviço de push aumenta a chance de conflito (`P2034`).
 
-Por isso a transação só **devolve quem foi afetado** (`promotedUserIds`,
+Por isso a transação só **devolve quem foi afetado** (`promoted` — pares
+`{ enrollmentId, userId }`,
 a inscrição removida, os `userId` da turma excluída — lidos antes do
 `delete`) e a função exportada dispara o aviso depois que o
 `withSerializableRetry` retorna:
 
 ```ts
-const { classSession, counters, promotedUserIds } =
+const { classSession, counters, promoted } =
   await withSerializableRetry(() => prisma.$transaction(async tx => { ... }));
 
-void notifyWaitlistPromotion(classSession, promotedUserIds);
+void notifyWaitlistPromotion(classSession, promoted);
 return counters;
 ```
 
@@ -404,9 +405,25 @@ do módulo, lança um erro próprio na hora do uso.
 As rotas de job (`/api/jobs/*`, ver abaixo) seguem a mesma ideia com
 `CRON_SECRET`: sem ele respondem `503` em vez de ficarem abertas.
 
-`sendPushNotification(payload, where)` é o ponto único de envio: recebe um
-filtro do Prisma para escolher os aparelhos e já apaga as inscrições que o
-serviço de push responde como expiradas (404/410).
+`sendPushNotification(payload, where, options)` é o ponto único de envio:
+recebe um filtro do Prisma para escolher os aparelhos (um aluno:
+`{ userId }`), opções de entrega (`TTL`, `urgency`, `topic`) e já apaga as
+inscrições que o serviço de push responde como expiradas (404/410). Os
+avisos de inscrição usam `topic` = `enrollment-<id>` (o serviço de push
+substitui uma mensagem pendente da mesma inscrição pela mais nova), TTL até
+o fim da aula e `urgency: "high"`; o lembrete de comprovante, TTL de 24h.
+
+Duas proteções na inscrição do aparelho (`POST /push/subscribe`):
+
+- **Allowlist de endpoint (anti-SSRF):** o servidor faz POST no
+  `endpoint` a cada envio, então `subscribeSchema` só aceita `https:` (sem
+  porta) nos hosts dos serviços de push dos navegadores (FCM, Apple,
+  Mozilla, WNS). Um host novo de navegador entra nessa lista.
+- **Sem sequestro de aparelho:** `saveSubscription` só reatribui um
+  endpoint já gravado a outro usuário se `p256dh`/`auth` baterem — `auth`
+  é um segredo que só o navegador inscrito tem. Chaves diferentes no mesmo
+  endpoint → `PushSubscriptionConflictError` (409), sem mexer no registro;
+  o front então desfaz a inscrição local e cria uma nova.
 
 ## Jobs: rota idempotente chamada de fora, não agendador interno
 
@@ -425,7 +442,11 @@ disparo fica configurado num lugar visível, fora do código.
   `updateMany` condicionado a `receiptReminderSentAt: null` **antes** de
   enviar o push e só envia se `count === 1` — duas execuções sobrepostas
   (cron atrasado + intervalo local, retry do cron) nunca avisam o mesmo
-  aluno duas vezes. Rodar a rota de novo é sempre seguro.
+  aluno duas vezes. Rodar a rota de novo é sempre seguro. Se o envio
+  falhar por erro transitório sem alcançar nenhum aparelho (serviço de
+  push fora, erro de rede), a marcação é desfeita pra próxima execução
+  tentar de novo; aparelho expirado (404/410) ou nenhum aparelho não
+  desfaz.
 - **Janela limitada:** só entram aulas que terminaram nas últimas 24h
   (`REMINDER_WINDOW_HOURS`), pra uma primeira execução (ou o job voltando
   depois de dias desligado) não cobrar aulas antigas.

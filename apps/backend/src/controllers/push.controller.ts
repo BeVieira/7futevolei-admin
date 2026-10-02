@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import {
   PushNotConfiguredError,
+  PushSubscriptionConflictError,
   getVapidPublicKey,
   removeSubscription,
   saveSubscription,
@@ -31,8 +32,16 @@ export async function subscribe(req: Request, res: Response) {
     return;
   }
 
-  await saveSubscription(result.data.subscription, res.locals.user.id);
-  res.status(204).send();
+  try {
+    await saveSubscription(result.data.subscription, res.locals.user.id);
+    res.status(204).send();
+  } catch (error) {
+    if (error instanceof PushSubscriptionConflictError) {
+      res.status(409).json({ error: error.message });
+      return;
+    }
+    throw error;
+  }
 }
 
 export async function unsubscribe(req: Request, res: Response) {

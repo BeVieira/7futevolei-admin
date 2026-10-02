@@ -1,6 +1,9 @@
 import { prisma } from "./prisma";
 import { computeClassSessionEnd } from "./class-session-lock";
-import { receiptReminderPayload } from "./enrollment-notifications";
+import {
+  receiptReminderDelivery,
+  receiptReminderPayload,
+} from "./enrollment-notifications";
 import {
   PushNotConfiguredError,
   isPushConfigured,
@@ -17,7 +20,8 @@ const MS_PER_HOUR = 60 * 60 * 1000;
 const MS_PER_DAY = 24 * MS_PER_HOUR;
 
 export type ReceiptReminderResult = {
-  // Inscrições marcadas como lembradas nesta execução.
+  // Inscrições marcadas como lembradas nesta execução (as que falharam por
+  // erro transitório são desmarcadas e ficam de fora).
   reminded: number;
   // Aparelhos que receberam o push (um aluno pode ter vários, ou nenhum).
   devicesNotified: number;
@@ -88,18 +92,32 @@ export async function sendReceiptReminders(
     });
     if (count === 0 || enrollment.userId === null) continue;
 
-    reminded++;
+    let delivered: { sent: number; failed: number } | null = null;
     try {
-      const { sent } = await sendPushNotification(
+      delivered = await sendPushNotification(
         receiptReminderPayload(enrollment.classSession),
         { userId: enrollment.userId },
+        receiptReminderDelivery(enrollment.id),
       );
-      devicesNotified += sent;
     } catch (error) {
-      // Best-effort: uma falha não impede os demais lembretes; a inscrição
-      // continua marcada (não insiste no mesmo aluno a cada execução).
       console.error("Falha ao enviar lembrete de comprovante:", error);
     }
+
+    // Falha transitória (serviço de push fora, erro de rede/banco) sem
+    // nenhum aparelho alcançado: desfaz a marcação pra próxima execução
+    // tentar de novo (dentro da janela). Aparelho expirado (404/410) não
+    // conta como falha — ali não há o que tentar, e sem aparelho nenhum o
+    // lembrete fica marcado de propósito (ver comentário da função).
+    if (delivered === null || (delivered.sent === 0 && delivered.failed > 0)) {
+      await prisma.enrollment.updateMany({
+        where: { id: enrollment.id, receiptReminderSentAt: now },
+        data: { receiptReminderSentAt: null },
+      });
+      continue;
+    }
+
+    reminded++;
+    devicesNotified += delivered.sent;
   }
 
   return { reminded, devicesNotified };

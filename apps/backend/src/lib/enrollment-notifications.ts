@@ -1,5 +1,9 @@
-import { hasClassSessionEnded } from "./class-session-lock";
 import {
+  computeClassSessionEnd,
+  hasClassSessionEnded,
+} from "./class-session-lock";
+import {
+  PushDeliveryOptions,
   PushNotConfiguredError,
   PushPayload,
   sendPushNotification,
@@ -18,6 +22,15 @@ type ClassSessionInfo = {
   classLevel: string;
 };
 
+// Quem recebe: o usuário dono de uma inscrição. O id da inscrição vira o
+// `topic` do push.
+export type EnrollmentRecipient = { enrollmentId: number; userId: number };
+
+const REMINDER_TTL_SECONDS = 24 * 60 * 60;
+// Piso do TTL: o serviço de push trata TTL 0 como "entrega agora ou
+// descarta", o que perderia o aviso de um celular momentaneamente offline.
+const MIN_TTL_SECONDS = 60;
+
 const WEEKDAYS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
 
 // "Iniciante de qui, 03/10, às 07:00". `date` é meia-noite UTC do dia no
@@ -29,16 +42,42 @@ function describeClassSession(classSession: ClassSessionInfo): string {
   return `${classSession.classLevel} de ${WEEKDAYS[date.getUTCDay()]}, ${day}/${month}, às ${classSession.startTime}`;
 }
 
-async function notifyUsers(userIds: number[], payload: PushPayload) {
-  const uniqueIds = [...new Set(userIds)];
-  if (uniqueIds.length === 0) return;
+// Um aviso por inscrição, com `topic` próprio (até 32 caracteres base64url:
+// "enrollment-" + id cabe com folga): se o aparelho estiver offline e
+// chegarem dois avisos da mesma inscrição, o serviço de push entrega só o
+// mais recente.
+function enrollmentTopic(enrollmentId: number): string {
+  return `enrollment-${enrollmentId}`;
+}
 
-  try {
-    await sendPushNotification(payload, { userId: { in: uniqueIds } });
-  } catch (error) {
-    if (error instanceof PushNotConfiguredError) return;
-    console.error("Falha ao enviar notificação de inscrição:", error);
-  }
+// Aviso de mudança na inscrição só vale até a aula terminar — depois disso
+// não adianta entregar (o TTL faz o serviço de push descartar sozinho).
+function untilClassEnds(classSession: ClassSessionInfo): PushDeliveryOptions {
+  const secondsLeft = Math.floor(
+    (computeClassSessionEnd(classSession).getTime() - Date.now()) / 1000,
+  );
+  return { TTL: Math.max(secondsLeft, MIN_TTL_SECONDS), urgency: "high" };
+}
+
+async function notifyRecipients(
+  recipients: EnrollmentRecipient[],
+  payload: PushPayload,
+  options: PushDeliveryOptions,
+) {
+  await Promise.all(
+    recipients.map(async ({ enrollmentId, userId }) => {
+      try {
+        await sendPushNotification(
+          payload,
+          { userId },
+          { ...options, topic: enrollmentTopic(enrollmentId) },
+        );
+      } catch (error) {
+        if (error instanceof PushNotConfiguredError) return;
+        console.error("Falha ao enviar notificação de inscrição:", error);
+      }
+    }),
+  );
 }
 
 // Aviso sobre aula que já terminou (ex: admin limpando turma antiga) não
@@ -49,41 +88,65 @@ function isStillRelevant(classSession: ClassSessionInfo): boolean {
 
 export async function notifyWaitlistPromotion(
   classSession: ClassSessionInfo,
-  userIds: number[],
+  recipients: EnrollmentRecipient[],
 ) {
-  if (!isStillRelevant(classSession)) return;
+  if (recipients.length === 0 || !isStillRelevant(classSession)) return;
 
-  await notifyUsers(userIds, {
-    title: "Você saiu da lista de espera!",
-    body: `Abriu uma vaga e sua inscrição na aula ${describeClassSession(classSession)} está confirmada.`,
-    url: "/minhas-aulas",
-  });
+  await notifyRecipients(
+    recipients,
+    {
+      title: "Você saiu da lista de espera!",
+      body: `Abriu uma vaga e sua inscrição na aula ${describeClassSession(classSession)} está confirmada.`,
+      url: "/minhas-aulas",
+    },
+    untilClassEnds(classSession),
+  );
 }
 
 export async function notifyEnrollmentRemoved(
   classSession: ClassSessionInfo,
-  userId: number,
+  recipient: EnrollmentRecipient,
 ) {
   if (!isStillRelevant(classSession)) return;
 
-  await notifyUsers([userId], {
-    title: "Inscrição removida",
-    body: `Sua inscrição na aula ${describeClassSession(classSession)} foi removida pelo professor.`,
-    url: "/",
-  });
+  await notifyRecipients(
+    [recipient],
+    {
+      title: "Inscrição removida",
+      body: `Sua inscrição na aula ${describeClassSession(classSession)} foi removida pelo professor.`,
+      url: "/",
+    },
+    untilClassEnds(classSession),
+  );
 }
 
 export async function notifyClassSessionDeleted(
   classSession: ClassSessionInfo,
-  userIds: number[],
+  recipients: EnrollmentRecipient[],
 ) {
-  if (!isStillRelevant(classSession)) return;
+  if (recipients.length === 0 || !isStillRelevant(classSession)) return;
 
-  await notifyUsers(userIds, {
-    title: "Aula cancelada",
-    body: `A aula ${describeClassSession(classSession)} foi cancelada e sua inscrição foi removida.`,
-    url: "/",
-  });
+  await notifyRecipients(
+    recipients,
+    {
+      title: "Aula cancelada",
+      body: `A aula ${describeClassSession(classSession)} foi cancelada e sua inscrição foi removida.`,
+      url: "/",
+    },
+    untilClassEnds(classSession),
+  );
+}
+
+// Cobrança continua valendo depois da aula: segura por 24h se o aparelho
+// estiver offline, sem pressa de acordar o celular.
+export function receiptReminderDelivery(
+  enrollmentId: number,
+): PushDeliveryOptions {
+  return {
+    TTL: REMINDER_TTL_SECONDS,
+    urgency: "normal",
+    topic: enrollmentTopic(enrollmentId),
+  };
 }
 
 export function receiptReminderPayload(
