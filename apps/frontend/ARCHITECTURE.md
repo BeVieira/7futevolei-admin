@@ -818,9 +818,12 @@ aparelho**, não do servidor — continua sob `queryKeys`, e as mutações de
 ativar/desativar invalidam essa chave como qualquer outra.
 
 Push só existe em contexto seguro (HTTPS ou `localhost`) — por IP da rede
-local o aparelho cai em `unsupported`. Para testar no celular, use o túnel
-HTTPS (`cloudflared tunnel --url http://localhost:5173`; o domínio já está
-liberado em `server.allowedHosts`). No iPhone o push só aparece com o app
+local o aparelho cai em `unsupported`. Para testar no celular, use um túnel
+HTTPS — de preferência o Tailscale Funnel (`tailscale funnel --bg 5173`), que
+tem endereço fixo (`https://<máquina>.<rede>.ts.net`) e por isso pode ficar
+cadastrado no Google Console e no app instalado; o túnel rápido do Cloudflare
+(`cloudflared tunnel --url http://localhost:5173`) muda de endereço a cada
+execução. Os dois domínios já estão liberados em `server.allowedHosts`. No iPhone o push só aparece com o app
 adicionado à tela de início (status `needs-install` antes disso).
 
 ### O dono da inscrição é a sessão, não o front

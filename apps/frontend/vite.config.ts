@@ -62,10 +62,11 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173,
-    // Libera o túnel HTTPS do Cloudflare (`cloudflared tunnel --url
-    // http://localhost:5173`) pra testar PWA/push no celular contra o
-    // ambiente local — por IP da rede o navegador não libera push.
-    allowedHosts: [".trycloudflare.com"],
+    // Libera os túneis HTTPS pra testar login/PWA/push no celular contra o
+    // ambiente local — por IP da rede o navegador não libera push:
+    // Tailscale Funnel (endereço fixo, `tailscale funnel 5173`) e o túnel
+    // rápido do Cloudflare (`cloudflared tunnel --url http://localhost:5173`).
+    allowedHosts: [".ts.net", ".trycloudflare.com"],
     proxy: {
       "/api": {
         target: "http://backend:3333",
