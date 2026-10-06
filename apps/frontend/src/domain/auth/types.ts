@@ -1,3 +1,5 @@
+import { Side } from "@domain/enrollment/types";
+
 export type UserRole = "STUDENT" | "ADMIN";
 
 // Usuário da sessão atual, como devolvido por /auth/me.
@@ -7,6 +9,9 @@ export type Me = {
   email: string;
   photoUrl: string | null;
   role: UserRole;
+  // Lado em que o usuário é inscrito em toda turma (escolhido uma vez no
+  // perfil); `null` = ainda não escolheu e precisa passar pelo /perfil.
+  preferredSide: Side | null;
 };
 
 // Começo de uma tentativa de login com Google (POST /auth/google/nonce).

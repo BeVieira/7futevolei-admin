@@ -33,12 +33,19 @@ export function LoginPage() {
 
   // `takeLoginReturnPath` lê e apaga — o ref impede uma segunda leitura
   // (StrictMode roda o efeito duas vezes em dev) de achar o storage vazio e
-  // mandar pra "/" por cima do destino certo.
+  // mandar pra "/" por cima do destino certo. Quem ainda não escolheu o
+  // lado preferido passa antes pelo /perfil, que oferece seguir pro destino
+  // depois (`from`).
   const redirectedRef = useRef(false);
   useEffect(() => {
     if (me && !redirectedRef.current) {
       redirectedRef.current = true;
-      navigate(authService.takeLoginReturnPath(), { replace: true });
+      const returnPath = authService.takeLoginReturnPath();
+      if (me.preferredSide) {
+        navigate(returnPath, { replace: true });
+      } else {
+        navigate("/perfil", { replace: true, state: { from: returnPath } });
+      }
     }
   }, [me, navigate]);
 

@@ -1,5 +1,6 @@
 import { API_BASE_URL, apiFetch, handleResponse } from "@utils";
 import { Me } from "@domain/auth/types";
+import { Side } from "@domain/enrollment/types";
 import { UserSearchResult } from "./types";
 
 const BASE_URL = `${API_BASE_URL}/users`;
@@ -18,4 +19,12 @@ function updateMyName(name: string): Promise<Me> {
   }).then(res => handleResponse(res));
 }
 
-export const userApi = { searchUsers, updateMyName };
+function updateMyPreferredSide(preferredSide: Side): Promise<Me> {
+  return apiFetch(`${BASE_URL}/me`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ preferredSide }),
+  }).then(res => handleResponse(res));
+}
+
+export const userApi = { searchUsers, updateMyName, updateMyPreferredSide };

@@ -1,3 +1,4 @@
+import { Side } from "@domain/enrollment/types";
 import { userApi } from "./api";
 
 const MAX_NAME_LENGTH = 100;
@@ -8,6 +9,10 @@ function searchUsers(search: string) {
 
 function updateMyName(name: string) {
   return userApi.updateMyName(name);
+}
+
+function updateMyPreferredSide(preferredSide: Side) {
+  return userApi.updateMyPreferredSide(preferredSide);
 }
 
 // Mesma regra do backend (1–100 caracteres, sem espaços nas pontas), pra a
@@ -25,6 +30,7 @@ function initialOf(name: string): string {
 export const userService = {
   searchUsers,
   updateMyName,
+  updateMyPreferredSide,
   isValidName,
   initialOf,
   MAX_NAME_LENGTH,

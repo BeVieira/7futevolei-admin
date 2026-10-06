@@ -1,7 +1,22 @@
 import { FormEvent, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Avatar, Button, Card, PushNotificationsControl } from "@components";
-import { Me, useGetMe, useLogout, useUpdateMyName, userService } from "@domain";
+import {
+  Me,
+  Side,
+  enrollmentService,
+  useGetMe,
+  useLogout,
+  useUpdateMyName,
+  useUpdateMyPreferredSide,
+  userService,
+} from "@domain";
+
+const SIDES: Side[] = ["LEFT", "RIGHT"];
+
+// Quem chega aqui sem lado preferido (vindo do login ou de "Quero
+// participar") traz o destino original em `from`.
+type LocationState = { from?: string } | null;
 
 // Rota protegida por `RequireAuth`: aqui sempre há usuário logado.
 export function PerfilPage() {
@@ -12,9 +27,12 @@ export function PerfilPage() {
 
 function Perfil({ me }: { me: Me }) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = (location.state as LocationState)?.from;
   const [name, setName] = useState(me.name);
   const [saved, setSaved] = useState(false);
   const updateNameMutation = useUpdateMyName();
+  const updateSideMutation = useUpdateMyPreferredSide();
   const logoutMutation = useLogout();
 
   const nameChanged = name.trim() !== me.name;
@@ -46,6 +64,45 @@ function Perfil({ me }: { me: Me }) {
           className="h-20 w-20 text-2xl"
         />
         <p className="text-sm text-slate-500">{me.email}</p>
+      </Card>
+
+      <Card className="flex flex-col gap-2">
+        <p className="text-sm font-medium text-slate-600">Seu lado na quadra</p>
+        <p className="text-xs text-slate-500">
+          {me.preferredSide
+            ? "Você é inscrito sempre neste lado. Se marcou errado, é só trocar."
+            : "Escolha uma vez: todas as suas inscrições vão ser neste lado."}
+        </p>
+        <div className="flex gap-2">
+          {SIDES.map(side => (
+            <Button
+              key={side}
+              type="button"
+              variant={me.preferredSide === side ? "primary" : "outline"}
+              aria-pressed={me.preferredSide === side}
+              disabled={updateSideMutation.isPending}
+              onClick={() => {
+                if (me.preferredSide !== side) updateSideMutation.mutate(side);
+              }}
+              className="flex-1"
+            >
+              {enrollmentService.sideLabel(side)}
+            </Button>
+          ))}
+        </div>
+        {updateSideMutation.isError && (
+          <p className="text-sm text-red-600">
+            {updateSideMutation.error.message}
+          </p>
+        )}
+        {from && me.preferredSide && (
+          <Button
+            type="button"
+            onClick={() => navigate(from, { replace: true })}
+          >
+            Continuar
+          </Button>
+        )}
       </Card>
 
       <Card>

@@ -6,20 +6,16 @@ import {
   Side,
 } from "./types";
 
-function enrollMeInClass(classId: number, side: Side) {
-  return enrollmentApi.enrollMeInClass(classId, side);
+function enrollMeInClass(classId: number) {
+  return enrollmentApi.enrollMeInClass(classId);
 }
 
 function cancelMyEnrollmentInClass(classId: number) {
   return enrollmentApi.cancelMyEnrollmentInClass(classId);
 }
 
-function adminEnrollInClass(
-  classId: number,
-  enrollee: AdminEnrollee,
-  side: Side,
-) {
-  return enrollmentApi.adminEnrollInClass(classId, enrollee, side);
+function adminEnrollInClass(classId: number, enrollee: AdminEnrollee) {
+  return enrollmentApi.adminEnrollInClass(classId, enrollee);
 }
 
 function removeEnrollment(classId: number, enrollmentId: number) {

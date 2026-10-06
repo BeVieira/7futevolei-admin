@@ -4,6 +4,7 @@ import {
   AdminEnrollee,
   Side,
   UserSearchResult,
+  enrollmentService,
   useAdminEnrollStudent,
   useSearchUsers,
 } from "@domain";
@@ -22,8 +23,9 @@ type Mode = "user" | "guest";
 // busca por tecla.
 const SEARCH_DEBOUNCE_MS = 300;
 
-// Admin inscrevendo alguém: um usuário cadastrado (busca por nome/e-mail) ou
-// um convidado só pelo nome, para quem não tem conta.
+// Admin inscrevendo alguém: um usuário cadastrado (busca por nome/e-mail),
+// que entra no lado do perfil dele, ou um convidado só pelo nome, para quem
+// não tem conta — só aí o admin escolhe o lado.
 export function AdminEnrollForm({
   sessionId,
   sideCapacity,
@@ -58,15 +60,17 @@ export function AdminEnrollForm({
 
   const enrollee: AdminEnrollee | null =
     mode === "user"
-      ? selectedUser && { userId: selectedUser.id }
-      : guestName.trim()
-        ? { guestName: guestName.trim() }
+      ? selectedUser?.preferredSide
+        ? { userId: selectedUser.id }
+        : null
+      : guestName.trim() && side
+        ? { guestName: guestName.trim(), side }
         : null;
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!enrollee || !side) return;
-    enrollMutation.mutate({ enrollee, side }, { onSuccess: onClose });
+    if (!enrollee) return;
+    enrollMutation.mutate(enrollee, { onSuccess: onClose });
   }
 
   return (
@@ -101,7 +105,22 @@ export function AdminEnrollForm({
                 photoUrl={selectedUser.photoUrl}
                 className="h-6 w-6 text-xs"
               />
-              <span className="truncate">{selectedUser.name}</span>
+              <span className="flex min-w-0 flex-col">
+                <span className="truncate">{selectedUser.name}</span>
+                {selectedUser.preferredSide ? (
+                  <span className="text-xs text-slate-500">
+                    Lado{" "}
+                    {enrollmentService
+                      .sideLabel(selectedUser.preferredSide)
+                      .toLowerCase()}
+                  </span>
+                ) : (
+                  <span className="text-xs text-red-600">
+                    Ainda não escolheu o lado no perfil — peça pra escolher
+                    antes de inscrever.
+                  </span>
+                )}
+              </span>
             </span>
             <button
               type="button"
@@ -173,42 +192,41 @@ export function AdminEnrollForm({
         />
       )}
 
-      <div className="flex flex-wrap gap-4">
-        <label className="flex items-center gap-1.5 text-sm text-slate-700">
-          <input
-            type="radio"
-            name={`add-side-${sessionId}`}
-            value="LEFT"
-            required
-            checked={side === "LEFT"}
-            onChange={() => setSide("LEFT")}
-          />
-          Esquerda ({leftCount}/{sideCapacity}
-          {leftCount >= sideCapacity ? " — lista de espera" : ""})
-        </label>
-        <label className="flex items-center gap-1.5 text-sm text-slate-700">
-          <input
-            type="radio"
-            name={`add-side-${sessionId}`}
-            value="RIGHT"
-            required
-            checked={side === "RIGHT"}
-            onChange={() => setSide("RIGHT")}
-          />
-          Direita ({rightCount}/{sideCapacity}
-          {rightCount >= sideCapacity ? " — lista de espera" : ""})
-        </label>
-      </div>
+      {mode === "guest" && (
+        <div className="flex flex-wrap gap-4">
+          <label className="flex items-center gap-1.5 text-sm text-slate-700">
+            <input
+              type="radio"
+              name={`add-side-${sessionId}`}
+              value="LEFT"
+              required
+              checked={side === "LEFT"}
+              onChange={() => setSide("LEFT")}
+            />
+            Esquerda ({leftCount}/{sideCapacity}
+            {leftCount >= sideCapacity ? " — lista de espera" : ""})
+          </label>
+          <label className="flex items-center gap-1.5 text-sm text-slate-700">
+            <input
+              type="radio"
+              name={`add-side-${sessionId}`}
+              value="RIGHT"
+              required
+              checked={side === "RIGHT"}
+              onChange={() => setSide("RIGHT")}
+            />
+            Direita ({rightCount}/{sideCapacity}
+            {rightCount >= sideCapacity ? " — lista de espera" : ""})
+          </label>
+        </div>
+      )}
 
       {enrollMutation.isError && (
         <p className="text-xs text-red-600">{enrollMutation.error.message}</p>
       )}
 
       <div className="flex gap-2">
-        <Button
-          type="submit"
-          disabled={!enrollee || !side || enrollMutation.isPending}
-        >
+        <Button type="submit" disabled={!enrollee || enrollMutation.isPending}>
           Inscrever
         </Button>
         <Button

@@ -18,8 +18,10 @@ export type AdminEnrollmentSummary = EnrollmentSummary & {
   receipt: ReceiptSummary | null;
 };
 
-// Quem o admin está inscrevendo: um usuário cadastrado ou um convidado.
-export type AdminEnrollee = { userId: number } | { guestName: string };
+// Quem o admin está inscrevendo: um usuário cadastrado (entra no lado do
+// perfil dele) ou um convidado, com o lado escolhido na hora.
+export type AdminEnrollee =
+  { userId: number } | { guestName: string; side: Side };
 
 export type MyEnrollmentSummary = {
   enrollment: {

@@ -9,8 +9,8 @@ import {
   ClassSessionSummary,
   Me,
   MyEnrollmentSummary,
-  Side,
   aulaService,
+  enrollmentService,
   useCancelMyEnrollment,
   useEnrollStudent,
   useGetClassById,
@@ -30,16 +30,20 @@ export function StudentClassSessionCard({ session, me, myEnrollment }: Props) {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [side, setSide] = useState<Side | "">("");
   const [waitlistOpen, setWaitlistOpen] = useState(false);
   const [acceptsLockCommitment, setAcceptsLockCommitment] = useState(false);
   // Convite de notificações: só no card da inscrição que acabou de dar certo.
   const [showPushInvite, setShowPushInvite] = useState(false);
 
-  const isFull = aulaService.isClassFull(session);
   const sideCapacity = aulaService.getSideCapacity(session.capacity);
-  const leftCount = session.confirmedLeft.length;
-  const rightCount = session.confirmedRight.length;
+  // O usuário sempre entra no lado do perfil — é a lotação desse lado que
+  // decide se a inscrição vira lista de espera.
+  const mySide = me?.preferredSide ?? null;
+  const mySideFull =
+    mySide !== null &&
+    (mySide === "LEFT"
+      ? session.confirmedLeft.length
+      : session.confirmedRight.length) >= sideCapacity;
   const leftSlots = Array.from(
     { length: sideCapacity },
     (_, i) => session.confirmedLeft[i] ?? null,
@@ -57,30 +61,42 @@ export function StudentClassSessionCard({ session, me, myEnrollment }: Props) {
     { enabled: waitlistOpen },
   );
 
-  // Sem login, quem quer participar vai pro login e volta pra esta tela.
-  function openFormOrLogin() {
-    if (!me) {
-      navigate("/login", {
-        state: { from: location.pathname + location.search },
-      });
-      return;
-    }
-    setCollapsed(false);
-    setShowForm(true);
-  }
-
-  function handleEnroll(e: FormEvent) {
-    e.preventDefault();
-    if (!side) return;
-    if (session.isLocked && !acceptsLockCommitment) return;
-    enrollMutation.mutate(side, {
+  function enroll() {
+    enrollMutation.mutate(undefined, {
       onSuccess: () => {
         setShowPushInvite(true);
         setShowForm(false);
-        setSide("");
         setAcceptsLockCommitment(false);
       },
     });
+  }
+
+  // Sem login, quem quer participar vai pro login e volta pra esta tela;
+  // sem lado no perfil, vai escolher o lado e volta. Com tudo certo, a
+  // inscrição é direta — o formulário só aparece com a lista trancada, pra
+  // aceitar o compromisso.
+  function participate() {
+    const here = { from: location.pathname + location.search };
+    if (!me) {
+      navigate("/login", { state: here });
+      return;
+    }
+    if (!me.preferredSide) {
+      navigate("/perfil", { state: here });
+      return;
+    }
+    if (session.isLocked) {
+      setCollapsed(false);
+      setShowForm(true);
+      return;
+    }
+    enroll();
+  }
+
+  function handleConfirmLocked(e: FormEvent) {
+    e.preventDefault();
+    if (!acceptsLockCommitment) return;
+    enroll();
   }
 
   function handleCancel() {
@@ -91,7 +107,7 @@ export function StudentClassSessionCard({ session, me, myEnrollment }: Props) {
 
   function handleJoinWaitlist() {
     setWaitlistOpen(false);
-    openFormOrLogin();
+    participate();
   }
 
   const submitting = enrollMutation.isPending || cancelMutation.isPending;
@@ -160,68 +176,33 @@ export function StudentClassSessionCard({ session, me, myEnrollment }: Props) {
               </Button>
             )}
           </div>
-        ) : showForm && me ? (
-          <form onSubmit={handleEnroll} className="flex flex-col gap-2">
+        ) : showForm && me && mySide ? (
+          <form onSubmit={handleConfirmLocked} className="flex flex-col gap-2">
             <p className="text-sm text-slate-600">
-              Inscrevendo <span className="font-medium">{me.name}</span>
+              Inscrevendo <span className="font-medium">{me.name}</span> no lado{" "}
+              {enrollmentService.sideLabel(mySide).toLowerCase()}
+              {mySideFull ? " (lista de espera)" : ""}
             </p>
-            <div>
-              <p className="mb-1 text-sm font-medium text-slate-600">
-                Lado da quadra
+            <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800">
+              <p className="mb-2 font-medium">
+                A lista dessa aula já está trancada. Ao se inscrever agora você
+                não poderá mais cancelar e se compromete a participar, mediante
+                pagamento, mesmo em caso de ausência.
               </p>
-              <div className="flex flex-wrap gap-4">
-                <label className="flex items-center gap-1.5 text-sm text-slate-700">
-                  <input
-                    type="radio"
-                    name={`side-${session.id}`}
-                    value="LEFT"
-                    required
-                    checked={side === "LEFT"}
-                    onChange={() => setSide("LEFT")}
-                  />
-                  Esquerda ({leftCount}/{sideCapacity}
-                  {leftCount >= sideCapacity ? " — lista de espera" : ""})
-                </label>
-                <label className="flex items-center gap-1.5 text-sm text-slate-700">
-                  <input
-                    type="radio"
-                    name={`side-${session.id}`}
-                    value="RIGHT"
-                    required
-                    checked={side === "RIGHT"}
-                    onChange={() => setSide("RIGHT")}
-                  />
-                  Direita ({rightCount}/{sideCapacity}
-                  {rightCount >= sideCapacity ? " — lista de espera" : ""})
-                </label>
-              </div>
+              <label className="flex items-center gap-1.5">
+                <input
+                  type="checkbox"
+                  required
+                  checked={acceptsLockCommitment}
+                  onChange={e => setAcceptsLockCommitment(e.target.checked)}
+                />
+                Estou ciente e concordo
+              </label>
             </div>
-            {session.isLocked && (
-              <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800">
-                <p className="mb-2 font-medium">
-                  A lista dessa aula já está trancada. Ao se inscrever agora
-                  você não poderá mais cancelar e se compromete a participar,
-                  mediante pagamento, mesmo em caso de ausência.
-                </p>
-                <label className="flex items-center gap-1.5">
-                  <input
-                    type="checkbox"
-                    required
-                    checked={acceptsLockCommitment}
-                    onChange={e => setAcceptsLockCommitment(e.target.checked)}
-                  />
-                  Estou ciente e concordo
-                </label>
-              </div>
-            )}
             <div className="flex gap-2">
               <Button
                 type="submit"
-                disabled={
-                  submitting ||
-                  !side ||
-                  (session.isLocked && !acceptsLockCommitment)
-                }
+                disabled={submitting || !acceptsLockCommitment}
               >
                 Confirmar
               </Button>
@@ -238,13 +219,24 @@ export function StudentClassSessionCard({ session, me, myEnrollment }: Props) {
             </div>
           </form>
         ) : (
-          <Button onClick={openFormOrLogin}>
-            {me
-              ? isFull
-                ? "Entrar na lista de espera"
-                : "Quero participar"
-              : "Entrar para participar"}
-          </Button>
+          <div className="flex flex-col gap-1">
+            <Button onClick={participate} disabled={submitting}>
+              {!me
+                ? "Entrar para participar"
+                : !mySide
+                  ? "Escolher meu lado para participar"
+                  : mySideFull
+                    ? "Entrar na lista de espera"
+                    : "Quero participar"}
+            </Button>
+            {mySide && (
+              <p className="text-xs text-slate-500">
+                Você entra no lado{" "}
+                {enrollmentService.sideLabel(mySide).toLowerCase()} — dá pra
+                trocar no perfil.
+              </p>
+            )}
+          </div>
         )}
       </ClassSessionCard>
     </>

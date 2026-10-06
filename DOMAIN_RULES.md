@@ -124,9 +124,17 @@ A capacidade de uma turma é dividida ao meio entre os dois lados da quadra:
 entram em lista de espera) **independentemente** — uma turma com 4 vagas
 confirmadas de um lado e 2 de espera do outro é um estado normal.
 
-Ao se inscrever, o aluno escolhe um lado; se esse lado já tem
-`capacidadePorLado` confirmados, a inscrição nasce `WAITLISTED` nesse
-lado, não `CONFIRMED`.
+O lado é um dado do **usuário**, não de cada inscrição: o usuário escolhe uma
+vez no /perfil (`User.preferredSide`) e toda inscrição dele — feita por ele
+ou pelo admin — entra nesse lado. Quem ainda não escolheu não pode ser
+inscrito (`409`): o login e o "Quero participar" mandam para o /perfil
+primeiro. O lado pode ser trocado no perfil (para quem marcou errado), mas
+não volta a ficar vazio, e a troca vale só para as próximas inscrições — as
+já feitas continuam no lado em que foram feitas. Só o **convidado** (sem
+conta) tem o lado escolhido na hora, pelo admin.
+
+Se o lado já tem `capacidadePorLado` confirmados, a inscrição nasce
+`WAITLISTED` nesse lado, não `CONFIRMED`.
 
 ## Promoção da lista de espera (FIFO por lado)
 

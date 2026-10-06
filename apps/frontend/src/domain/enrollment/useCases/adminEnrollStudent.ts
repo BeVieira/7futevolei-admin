@@ -1,16 +1,12 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { enrollmentService } from "@domain/enrollment/service";
-import { AdminEnrollee, Side } from "@domain/enrollment/types";
+import { AdminEnrollee } from "@domain/enrollment/types";
 import { queryKeys } from "@domain/queryKeys";
 import { toActionError } from "@utils";
 
-async function adminEnrollStudent(
-  classId: number,
-  enrollee: AdminEnrollee,
-  side: Side,
-) {
+async function adminEnrollStudent(classId: number, enrollee: AdminEnrollee) {
   try {
-    await enrollmentService.adminEnrollInClass(classId, enrollee, side);
+    await enrollmentService.adminEnrollInClass(classId, enrollee);
   } catch (err) {
     throw toActionError(err, "Erro ao inscrever aluno");
   }
@@ -20,8 +16,8 @@ async function adminEnrollStudent(
 export function useAdminEnrollStudent(classId: number) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (vars: { enrollee: AdminEnrollee; side: Side }) =>
-      adminEnrollStudent(classId, vars.enrollee, vars.side),
+    mutationFn: (enrollee: AdminEnrollee) =>
+      adminEnrollStudent(classId, enrollee),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.classes.all });
       queryClient.invalidateQueries({
