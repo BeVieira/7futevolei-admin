@@ -42,12 +42,14 @@ function describeClassSession(classSession: ClassSessionInfo): string {
   return `${classSession.classLevel} de ${WEEKDAYS[date.getUTCDay()]}, ${day}/${month}, às ${classSession.startTime}`;
 }
 
-// Um aviso por inscrição, com `topic` próprio (até 32 caracteres base64url:
-// "enrollment-" + id cabe com folga): se o aparelho estiver offline e
-// chegarem dois avisos da mesma inscrição, o serviço de push entrega só o
-// mais recente.
+// Um aviso por inscrição, com `topic` próprio: se o aparelho estiver offline
+// e chegarem dois avisos da mesma inscrição, o serviço de push entrega só o
+// mais recente. O topic precisa ser base64url *decodificável* (até 32
+// caracteres): a Apple recusa com `BadWebPushTopic` um texto cru como
+// "enrollment-14", cujo comprimento (13, ≡ 1 mod 4) não é base64 válido.
+// Por isso codificamos; com id de até 10 dígitos dá no máximo 28 caracteres.
 function enrollmentTopic(enrollmentId: number): string {
-  return `enrollment-${enrollmentId}`;
+  return Buffer.from(`enrollment-${enrollmentId}`).toString("base64url");
 }
 
 // Aviso de mudança na inscrição só vale até a aula terminar — depois disso
