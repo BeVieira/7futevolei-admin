@@ -59,6 +59,10 @@ model Enrollment {
   user                  User?            @relation(fields: [userId], references: [id], onDelete: Restrict)
   userId                Int?
   guestName             String?
+  // Convidado que se inscreveu sozinho (sem conta): sha256 do código secreto
+  // que ficou no aparelho dele e permite cancelar. Nulo para usuário e para
+  // convidado inscrito pelo admin.
+  guestCancelTokenHash  String?          @unique
   side                  Side
   status                EnrollmentStatus @default(CONFIRMED)
   receiptReminderSentAt DateTime?

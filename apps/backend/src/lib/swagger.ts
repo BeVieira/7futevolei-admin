@@ -228,6 +228,31 @@ const options: swaggerJsdoc.Options = {
             guestName: { type: "string", example: "Maria Silva" },
           },
         },
+        GuestEnrollInput: {
+          type: "object",
+          required: ["guestName", "side"],
+          properties: {
+            guestName: { type: "string", example: "Maria Silva" },
+            side: { type: "string", enum: ["LEFT", "RIGHT"] },
+          },
+        },
+        GuestEnrollment: {
+          type: "object",
+          properties: {
+            cancelToken: { type: "string" },
+            classSessionId: { type: "integer", example: 1 },
+            enrollment: {
+              type: "object",
+              properties: {
+                id: { type: "integer", example: 1 },
+                studentName: { type: "string", example: "Maria Silva" },
+                side: { type: "string", enum: ["LEFT", "RIGHT"] },
+                status: { type: "string", enum: ["CONFIRMED", "WAITLISTED"] },
+                createdAt: { type: "string", format: "date-time" },
+              },
+            },
+          },
+        },
         UserProfile: {
           type: "object",
           properties: {

@@ -1,12 +1,15 @@
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
 import { asyncHandler } from "../lib/asyncHandler";
 import { requireAdmin, requireAuth } from "../lib/requireAuth";
 import { uploadReceiptFile } from "../lib/upload";
 import {
   adminCreateEnrollment,
+  cancelGuestEnrollment,
   cancelMyEnrollment,
   createClassSessionsBulk,
   createEnrollment,
+  createGuestEnrollment,
   deleteClassSession,
   getClassSessionAdminDetail,
   getClassSessionById,
@@ -22,6 +25,18 @@ import {
 } from "../controllers/receipt.controller";
 
 export const classSessionRouter = Router();
+
+// Inscrição e cancelamento de convidado são públicos (sem conta) — sem
+// limite, um loop enchia as turmas de nomes falsos. Folgado de propósito: o
+// limite é por IP e a turma inteira pode estar no mesmo Wi-Fi da arena.
+// Depende do `trust proxy` certo em src/index.ts.
+const guestEnrollmentRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Muitas tentativas. Tente novamente mais tarde." },
+});
 
 /**
  * @openapi
@@ -451,6 +466,96 @@ classSessionRouter.post(
   "/:id/enrollments/admin",
   requireAdmin,
   asyncHandler(adminCreateEnrollment),
+);
+
+/**
+ * @openapi
+ * /api/class-sessions/{id}/enrollments/guest:
+ *   post:
+ *     summary: Convidado sem conta se inscreve na turma só com nome e lado
+ *     description: Público. A resposta traz `cancelToken`, que só aparece aqui — o aparelho guarda pra consultar e cancelar a inscrição depois.
+ *     tags: [ClassSessions]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: "#/components/schemas/GuestEnrollInput"
+ *     responses:
+ *       201:
+ *         description: Inscrição criada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 enrollment:
+ *                   $ref: "#/components/schemas/Enrollment"
+ *                 confirmedCount:
+ *                   type: integer
+ *                 waitlistCount:
+ *                   type: integer
+ *                 capacity:
+ *                   type: integer
+ *                 cancelToken:
+ *                   type: string
+ *       400:
+ *         description: Payload inválido
+ *       404:
+ *         description: Turma não encontrada
+ *       429:
+ *         description: Muitas tentativas deste IP
+ */
+classSessionRouter.post(
+  "/:id/enrollments/guest",
+  guestEnrollmentRateLimit,
+  asyncHandler(createGuestEnrollment),
+);
+
+/**
+ * @openapi
+ * /api/class-sessions/{id}/enrollments/guest/cancel:
+ *   post:
+ *     summary: Convidado sem conta cancela a própria inscrição com o código de cancelamento
+ *     tags: [ClassSessions]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [cancelToken]
+ *             properties:
+ *               cancelToken:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Contadores atualizados após o cancelamento
+ *       400:
+ *         description: Payload inválido
+ *       404:
+ *         description: Turma não encontrada, ou nenhuma inscrição dela com esse código
+ *       409:
+ *         description: Lista trancada — não é mais possível cancelar
+ *       429:
+ *         description: Muitas tentativas deste IP
+ */
+classSessionRouter.post(
+  "/:id/enrollments/guest/cancel",
+  guestEnrollmentRateLimit,
+  asyncHandler(cancelGuestEnrollment),
 );
 
 /**

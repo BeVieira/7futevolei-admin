@@ -8,20 +8,25 @@ import {
 } from "../lib/class-session-lock";
 import {
   AlreadyEnrolledError,
+  CancelingEnrollee,
   ClassSessionLockedError,
   Enrollee,
   EnrollmentNotFoundError,
   PreferredSideMissingError,
   UserNotFoundError,
   cancelEnrollment,
+  createGuestCancelToken,
   deleteClassSessionAndNotify,
   enrollStudent,
+  hashGuestCancelToken,
   removeEnrollmentById,
   updateClassSessionWithRebalance,
 } from "../lib/enrollment-service";
 import {
   adminEnrollSchema,
   bulkCreateSchema,
+  guestCancelSchema,
+  guestEnrollSchema,
   updateClassSessionSchema,
 } from "../schemas/class-session.schema";
 
@@ -389,10 +394,13 @@ export async function deleteClassSession(req: Request, res: Response) {
   }
 }
 
+// `extra` entra junto no corpo da resposta (ex: o código de cancelamento do
+// convidado que se inscreveu sozinho).
 async function respondWithEnrollment(
   res: Response,
   classSessionId: number,
   enrollee: Enrollee,
+  extra: Record<string, unknown> = {},
 ) {
   try {
     const { enrollment, ...counters } = await enrollStudent(
@@ -417,6 +425,7 @@ async function respondWithEnrollment(
         createdAt: enrollment.createdAt,
       },
       ...counters,
+      ...extra,
     });
   } catch (error) {
     if (error instanceof AlreadyEnrolledError) {
@@ -473,6 +482,33 @@ export async function adminCreateEnrollment(req: Request, res: Response) {
   await respondWithEnrollment(res, id, result.data);
 }
 
+// Convidado se inscrevendo sozinho, sem conta: nome e lado no payload. A
+// resposta traz o código de cancelamento (só aparece aqui — o banco guarda o
+// hash), que o aparelho guarda pra mostrar a vaga e cancelar depois.
+export async function createGuestEnrollment(req: Request, res: Response) {
+  const id = parseId(req.params.id);
+
+  if (id === null) {
+    res.status(404).json({ error: "Class session not found" });
+    return;
+  }
+
+  const result = guestEnrollSchema.safeParse(req.body);
+
+  if (!result.success) {
+    res.status(400).json({ error: result.error.flatten() });
+    return;
+  }
+
+  const { token, hash } = createGuestCancelToken();
+  await respondWithEnrollment(
+    res,
+    id,
+    { ...result.data, guestCancelTokenHash: hash },
+    { cancelToken: token },
+  );
+}
+
 export async function removeEnrollment(req: Request, res: Response) {
   const id = parseId(req.params.id);
   const enrollmentId = parseId(req.params.enrollmentId);
@@ -509,8 +545,39 @@ export async function cancelMyEnrollment(req: Request, res: Response) {
     return;
   }
 
+  await respondWithCancel(res, id, { userId: res.locals.user.id });
+}
+
+// Convidado cancelando a própria inscrição com o código que ficou no
+// aparelho. Código errado ou de outra turma responde 404, igual a "não
+// inscrito".
+export async function cancelGuestEnrollment(req: Request, res: Response) {
+  const id = parseId(req.params.id);
+
+  if (id === null) {
+    res.status(404).json({ error: "Class session not found" });
+    return;
+  }
+
+  const result = guestCancelSchema.safeParse(req.body);
+
+  if (!result.success) {
+    res.status(400).json({ error: result.error.flatten() });
+    return;
+  }
+
+  await respondWithCancel(res, id, {
+    guestCancelTokenHash: hashGuestCancelToken(result.data.cancelToken),
+  });
+}
+
+async function respondWithCancel(
+  res: Response,
+  classSessionId: number,
+  canceling: CancelingEnrollee,
+) {
   try {
-    const counters = await cancelEnrollment(id, res.locals.user.id);
+    const counters = await cancelEnrollment(classSessionId, canceling);
     res.json(counters);
   } catch (error) {
     if (error instanceof EnrollmentNotFoundError) {

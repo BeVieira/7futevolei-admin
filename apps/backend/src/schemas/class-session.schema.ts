@@ -55,3 +55,24 @@ export const adminEnrollSchema = z.union([
     })
     .strict(),
 ]);
+
+// Convidado se inscrevendo sozinho, sem conta: nome digitado e o lado.
+export const guestEnrollSchema = z
+  .object({
+    side: sideSchema,
+    guestName: z.string().trim().min(1).max(100),
+  })
+  .strict();
+
+// Código de cancelamento devolvido na inscrição do convidado.
+const guestCancelTokenSchema = z.string().min(1).max(100);
+
+export const guestCancelSchema = z.object({
+  cancelToken: guestCancelTokenSchema,
+});
+
+// O aparelho pergunta pelas inscrições cujos códigos guardou; o limite só
+// segura um payload absurdo (o front guarda bem menos que isso).
+export const guestLookupSchema = z.object({
+  cancelTokens: z.array(guestCancelTokenSchema).max(100),
+});

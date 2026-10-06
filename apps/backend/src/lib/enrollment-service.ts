@@ -1,3 +1,4 @@
+import { createHash, randomBytes } from "crypto";
 import { Prisma, Side } from "@prisma/client";
 import { prisma } from "./prisma";
 import { isClassSessionLocked } from "./class-session-lock";
@@ -206,11 +207,27 @@ async function deleteAndPromoteNext(
 }
 
 // Quem está sendo inscrito: um usuário logado (o próprio aluno, ou alguém
-// que o admin escolheu) ou um convidado só pelo nome (só o admin inscreve
-// convidado). Nunca os dois — o CHECK da migration também garante isso.
-// O lado de usuário cadastrado é o `preferredSide` do perfil (escolhido uma
-// vez); só o convidado, que não tem perfil, traz o lado junto.
-export type Enrollee = { userId: number } | { guestName: string; side: Side };
+// que o admin escolheu) ou um convidado só pelo nome (inscrito pelo admin,
+// ou se inscrevendo sozinho, sem conta). Nunca os dois — o CHECK da
+// migration também garante isso. O lado de usuário cadastrado é o
+// `preferredSide` do perfil (escolhido uma vez); só o convidado, que não tem
+// perfil, traz o lado junto. `guestCancelTokenHash` só vem na inscrição que
+// o próprio convidado fez — é o que deixa ele cancelar depois.
+export type Enrollee =
+  | { userId: number }
+  | { guestName: string; side: Side; guestCancelTokenHash?: string };
+
+// Código secreto que o convidado sem conta guarda no aparelho pra cancelar a
+// própria inscrição. Só o hash vai pro banco: quem lê o banco não consegue
+// cancelar a vaga de ninguém.
+export function createGuestCancelToken(): { token: string; hash: string } {
+  const token = randomBytes(32).toString("base64url");
+  return { token, hash: hashGuestCancelToken(token) };
+}
+
+export function hashGuestCancelToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
 
 export async function enrollStudent(classSessionId: number, enrollee: Enrollee) {
   try {
@@ -241,7 +258,9 @@ function enrollStudentInTransaction(
         });
 
         let side: Side;
-        let who: { userId: number } | { guestName: string };
+        let who:
+          | { userId: number }
+          | { guestName: string; guestCancelTokenHash?: string };
         if ("userId" in enrollee) {
           const user = await tx.user.findUnique({
             where: { id: enrollee.userId },
@@ -263,7 +282,10 @@ function enrollStudentInTransaction(
           }
         } else {
           side = enrollee.side;
-          who = { guestName: enrollee.guestName };
+          who = {
+            guestName: enrollee.guestName,
+            guestCancelTokenHash: enrollee.guestCancelTokenHash,
+          };
         }
 
         const confirmedSideCount = await tx.enrollment.count({
@@ -292,9 +314,18 @@ function enrollStudentInTransaction(
   );
 }
 
-// Auto-cancelamento do aluno logado: acha a inscrição dele pela sessão, não
-// por nome. Convidado não cancela sozinho (não tem login).
-export async function cancelEnrollment(classSessionId: number, userId: number) {
+// Auto-cancelamento: do aluno logado (acha a inscrição pela sessão, não por
+// nome) ou do convidado que se inscreveu sozinho (pelo hash do código que
+// ficou no aparelho dele). Convidado inscrito pelo admin não tem código —
+// só o admin remove.
+export type CancelingEnrollee =
+  | { userId: number }
+  | { guestCancelTokenHash: string };
+
+export async function cancelEnrollment(
+  classSessionId: number,
+  canceling: CancelingEnrollee,
+) {
   const { classSession, counters, promoted } = await withSerializableRetry(() =>
     prisma.$transaction(
       async tx => {
@@ -307,7 +338,7 @@ export async function cancelEnrollment(classSessionId: number, userId: number) {
         }
 
         const enrollment = await tx.enrollment.findFirst({
-          where: { classSessionId, userId },
+          where: { classSessionId, ...canceling },
         });
 
         if (!enrollment) {
