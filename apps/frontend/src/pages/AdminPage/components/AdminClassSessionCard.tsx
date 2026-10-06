@@ -98,6 +98,8 @@ export function AdminClassSessionCard({ sessionId }: Props) {
           </div>
           <input
             type="number"
+            inputMode="numeric"
+            pattern="[0-9]*"
             min={1}
             value={capacity}
             onChange={e => setCapacity(Number(e.target.value))}

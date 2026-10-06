@@ -81,6 +81,10 @@ export function HorarioBlockEditor({
         <input
           id={`courts-${index}`}
           type="number"
+          // Teclado só de números no celular (`pattern` é o que faz o iOS
+          // abrir o teclado numérico; `inputMode`, o Android).
+          inputMode="numeric"
+          pattern="[0-9]*"
           min={1}
           max={4}
           value={courtsText}
