@@ -11,6 +11,7 @@ import {
   ClassSessionLockedError,
   Enrollee,
   EnrollmentNotFoundError,
+  PreferredSideMissingError,
   UserNotFoundError,
   cancelEnrollment,
   deleteClassSessionAndNotify,
@@ -21,7 +22,6 @@ import {
 import {
   adminEnrollSchema,
   bulkCreateSchema,
-  enrollSchema,
   updateClassSessionSchema,
 } from "../schemas/class-session.schema";
 
@@ -393,13 +393,11 @@ async function respondWithEnrollment(
   res: Response,
   classSessionId: number,
   enrollee: Enrollee,
-  side: "LEFT" | "RIGHT",
 ) {
   try {
     const { enrollment, ...counters } = await enrollStudent(
       classSessionId,
       enrollee,
-      side,
     );
     const user = enrollment.userId
       ? await prisma.user.findUnique({
@@ -422,6 +420,10 @@ async function respondWithEnrollment(
     });
   } catch (error) {
     if (error instanceof AlreadyEnrolledError) {
+      res.status(409).json({ error: error.message });
+      return;
+    }
+    if (error instanceof PreferredSideMissingError) {
       res.status(409).json({ error: error.message });
       return;
     }
@@ -449,19 +451,7 @@ export async function createEnrollment(req: Request, res: Response) {
     return;
   }
 
-  const result = enrollSchema.safeParse(req.body);
-
-  if (!result.success) {
-    res.status(400).json({ error: result.error.flatten() });
-    return;
-  }
-
-  await respondWithEnrollment(
-    res,
-    id,
-    { userId: res.locals.user.id },
-    result.data.side,
-  );
+  await respondWithEnrollment(res, id, { userId: res.locals.user.id });
 }
 
 // Admin inscrevendo um usuário cadastrado ou um convidado só pelo nome.
@@ -480,8 +470,7 @@ export async function adminCreateEnrollment(req: Request, res: Response) {
     return;
   }
 
-  const { side, ...enrollee } = result.data;
-  await respondWithEnrollment(res, id, enrollee, side);
+  await respondWithEnrollment(res, id, result.data);
 }
 
 export async function removeEnrollment(req: Request, res: Response) {

@@ -32,6 +32,17 @@ export class AlreadyEnrolledError extends Error {
   }
 }
 
+// Usuário cadastrado se inscreve sempre no lado do perfil; sem ele não dá
+// pra escolher o lado da inscrição.
+export class PreferredSideMissingError extends Error {
+  constructor(
+    message = "Escolha seu lado preferido no perfil antes de se inscrever",
+  ) {
+    super(message);
+    this.name = "PreferredSideMissingError";
+  }
+}
+
 export class UserNotFoundError extends Error {
   constructor(message = "User not found") {
     super(message);
@@ -197,15 +208,13 @@ async function deleteAndPromoteNext(
 // Quem está sendo inscrito: um usuário logado (o próprio aluno, ou alguém
 // que o admin escolheu) ou um convidado só pelo nome (só o admin inscreve
 // convidado). Nunca os dois — o CHECK da migration também garante isso.
-export type Enrollee = { userId: number } | { guestName: string };
+// O lado de usuário cadastrado é o `preferredSide` do perfil (escolhido uma
+// vez); só o convidado, que não tem perfil, traz o lado junto.
+export type Enrollee = { userId: number } | { guestName: string; side: Side };
 
-export async function enrollStudent(
-  classSessionId: number,
-  enrollee: Enrollee,
-  side: Side,
-) {
+export async function enrollStudent(classSessionId: number, enrollee: Enrollee) {
   try {
-    return await enrollStudentInTransaction(classSessionId, enrollee, side);
+    return await enrollStudentInTransaction(classSessionId, enrollee);
   } catch (error) {
     // Clique duplo / duas abas: as duas tentativas passam pela checagem de
     // `existing` antes de qualquer uma commitar, e a segunda bate no índice
@@ -223,7 +232,6 @@ export async function enrollStudent(
 function enrollStudentInTransaction(
   classSessionId: number,
   enrollee: Enrollee,
-  side: Side,
 ) {
   return withSerializableRetry(() =>
     prisma.$transaction(
@@ -232,6 +240,8 @@ function enrollStudentInTransaction(
           where: { id: classSessionId },
         });
 
+        let side: Side;
+        let who: { userId: number } | { guestName: string };
         if ("userId" in enrollee) {
           const user = await tx.user.findUnique({
             where: { id: enrollee.userId },
@@ -239,6 +249,11 @@ function enrollStudentInTransaction(
           if (!user) {
             throw new UserNotFoundError();
           }
+          if (!user.preferredSide) {
+            throw new PreferredSideMissingError();
+          }
+          side = user.preferredSide;
+          who = { userId: user.id };
 
           const existing = await tx.enrollment.findFirst({
             where: { classSessionId, userId: enrollee.userId },
@@ -246,6 +261,9 @@ function enrollStudentInTransaction(
           if (existing) {
             throw new AlreadyEnrolledError();
           }
+        } else {
+          side = enrollee.side;
+          who = { guestName: enrollee.guestName };
         }
 
         const confirmedSideCount = await tx.enrollment.count({
@@ -258,7 +276,7 @@ function enrollStudentInTransaction(
             : "WAITLISTED";
 
         const enrollment = await tx.enrollment.create({
-          data: { classSessionId, ...enrollee, side, status },
+          data: { classSessionId, ...who, side, status },
         });
 
         const counters = await getCounters(

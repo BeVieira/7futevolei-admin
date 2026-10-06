@@ -42,7 +42,7 @@ userRouter.get("/", requireAdmin, asyncHandler(searchUsers));
  * @openapi
  * /api/users/me:
  *   patch:
- *     summary: Atualiza o nome exibido do usuário logado
+ *     summary: Atualiza o nome exibido e/ou o lado preferido do usuário logado
  *     tags: [Users]
  *     security:
  *       - cookieAuth: []
@@ -60,7 +60,7 @@ userRouter.get("/", requireAdmin, asyncHandler(searchUsers));
  *             schema:
  *               $ref: "#/components/schemas/UserProfile"
  *       400:
- *         description: Nome vazio ou com mais de 100 caracteres
+ *         description: Nenhum campo enviado, nome vazio/com mais de 100 caracteres ou lado inválido
  *       401:
  *         description: Não autenticado
  */

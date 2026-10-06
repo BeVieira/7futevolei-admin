@@ -83,6 +83,9 @@ model User {
   name              String
   photoUrl          String?
   role              UserRole           @default(STUDENT)
+  // Lado da quadra que o aluno costuma escolher: só pré-seleciona o
+  // formulário de inscrição, cada inscrição continua com o próprio `side`.
+  preferredSide     Side?
   sessions          Session[]
   enrollments       Enrollment[]
   pushSubscriptions PushSubscription[]

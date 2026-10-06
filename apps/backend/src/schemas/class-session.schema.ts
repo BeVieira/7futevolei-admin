@@ -34,19 +34,17 @@ export const updateClassSessionSchema = z
 
 const sideSchema = z.enum(["LEFT", "RIGHT"]);
 
-// Aluno se inscrevendo: quem é vem da sessão, o payload só escolhe o lado.
-export const enrollSchema = z.object({
-  side: sideSchema,
-});
+// Aluno se inscrevendo não manda corpo: quem é vem da sessão e o lado vem
+// do perfil (`User.preferredSide`).
 
-// Admin inscrevendo: um usuário cadastrado (`userId`) ou um convidado só
-// pelo nome (`guestName`) — exatamente um dos dois. `.strict()` faz o
+// Admin inscrevendo: um usuário cadastrado (`userId`, entra no lado do
+// perfil dele) ou um convidado só pelo nome (`guestName`, com o lado
+// escolhido na hora) — exatamente um dos dois. `.strict()` faz o
 // payload com os dois campos falhar nos dois ramos (sem ele, o primeiro
 // ramo aceitaria e descartaria o `guestName` em silêncio).
 export const adminEnrollSchema = z.union([
   z
     .object({
-      side: sideSchema,
       userId: z.number().int().positive(),
     })
     .strict(),

@@ -15,11 +15,10 @@ async function main() {
   const names = ["Ana", "Bruno", "Carla"];
 
   for (const name of names) {
-    const result = await enrollStudent(
-      classSession.id,
-      { guestName: name },
-      "LEFT",
-    );
+    const result = await enrollStudent(classSession.id, {
+      guestName: name,
+      side: "LEFT",
+    });
     console.log(`${name}: ${result.enrollment.status}`);
   }
 

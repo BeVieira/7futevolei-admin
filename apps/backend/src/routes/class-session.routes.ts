@@ -360,7 +360,8 @@ classSessionRouter.delete(
  * @openapi
  * /api/class-sessions/{id}/enrollments:
  *   post:
- *     summary: Inscreve o usuário logado na turma (confirmado ou lista de espera)
+ *     summary: Inscreve o usuário logado na turma (confirmado ou lista de espera), no lado preferido do perfil
+ *     description: Sem corpo — quem é vem da sessão e o lado vem de `preferredSide` do perfil.
  *     tags: [ClassSessions]
  *     security:
  *       - cookieAuth: []
@@ -370,12 +371,6 @@ classSessionRouter.delete(
  *         required: true
  *         schema:
  *           type: integer
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: "#/components/schemas/EnrollInput"
  *     responses:
  *       201:
  *         description: Inscrição criada
@@ -392,14 +387,12 @@ classSessionRouter.delete(
  *                   type: integer
  *                 capacity:
  *                   type: integer
- *       400:
- *         description: Payload inválido
  *       401:
  *         description: Não autenticado
  *       404:
  *         description: Turma não encontrada
  *       409:
- *         description: Usuário já inscrito nesta turma
+ *         description: Usuário já inscrito nesta turma, ou sem lado preferido no perfil
  */
 classSessionRouter.post(
   "/:id/enrollments",
@@ -452,7 +445,7 @@ classSessionRouter.post(
  *       404:
  *         description: Turma ou usuário não encontrado
  *       409:
- *         description: Usuário já inscrito nesta turma
+ *         description: Usuário já inscrito nesta turma, ou usuário sem lado preferido no perfil
  */
 classSessionRouter.post(
   "/:id/enrollments/admin",

@@ -213,33 +213,20 @@ const options: swaggerJsdoc.Options = {
           },
           required: ["date", "timeSlots"],
         },
-        EnrollInput: {
-          type: "object",
-          description:
-            "Quem se inscreve é o usuário logado — o payload só escolhe o lado.",
-          properties: {
-            side: {
-              type: "string",
-              enum: ["LEFT", "RIGHT"],
-              description: "Lado da quadra (esquerda ou direita).",
-            },
-          },
-          required: ["side"],
-        },
         AdminEnrollInput: {
           type: "object",
           description:
-            "Exatamente um entre userId (usuário cadastrado) e guestName (convidado só pelo nome).",
+            "Exatamente um entre userId (usuário cadastrado, entra no lado preferido do perfil) e guestName (convidado só pelo nome, com side obrigatório).",
           properties: {
             side: {
               type: "string",
               enum: ["LEFT", "RIGHT"],
-              description: "Lado da quadra (esquerda ou direita).",
+              description:
+                "Lado da quadra — só com guestName (e obrigatório nesse caso).",
             },
             userId: { type: "integer", example: 1 },
             guestName: { type: "string", example: "Maria Silva" },
           },
-          required: ["side"],
         },
         UserProfile: {
           type: "object",
@@ -253,8 +240,15 @@ const options: swaggerJsdoc.Options = {
               description: "URL da foto do Google, atualizada a cada login.",
             },
             role: { type: "string", enum: ["STUDENT", "ADMIN"] },
+            preferredSide: {
+              type: "string",
+              enum: ["LEFT", "RIGHT"],
+              nullable: true,
+              description:
+                "Lado da quadra em que o usuário é inscrito; null = ainda não escolheu (não pode se inscrever).",
+            },
           },
-          required: ["id", "name", "email", "photoUrl", "role"],
+          required: ["id", "name", "email", "photoUrl", "role", "preferredSide"],
         },
         UserSearchResult: {
           type: "object",
@@ -263,8 +257,13 @@ const options: swaggerJsdoc.Options = {
             name: { type: "string", example: "Maria Silva" },
             email: { type: "string", example: "maria@gmail.com" },
             photoUrl: { type: "string", nullable: true },
+            preferredSide: {
+              type: "string",
+              enum: ["LEFT", "RIGHT"],
+              nullable: true,
+            },
           },
-          required: ["id", "name", "email", "photoUrl"],
+          required: ["id", "name", "email", "photoUrl", "preferredSide"],
         },
         UpdateMyProfileInput: {
           type: "object",
@@ -276,8 +275,14 @@ const options: swaggerJsdoc.Options = {
               example: "Maria Silva",
               description: "Espaços nas pontas são removidos.",
             },
+            preferredSide: {
+              type: "string",
+              enum: ["LEFT", "RIGHT"],
+              description:
+                "Lado da quadra em que o usuário é inscrito. Uma vez escolhido, só troca.",
+            },
           },
-          required: ["name"],
+          description: "Mande ao menos um dos campos.",
         },
       },
     },

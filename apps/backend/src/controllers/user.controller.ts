@@ -11,6 +11,7 @@ type UserSearchRow = {
   name: string;
   email: string;
   photoUrl: string | null;
+  preferredSide: "LEFT" | "RIGHT" | null;
 };
 
 // `%` e `_` são curingas no LIKE do Postgres. Escapados aqui (com `!` como
@@ -39,7 +40,7 @@ export async function searchUsers(req: Request, res: Response) {
   const pattern = search ? `%${escapeLikePattern(search)}%` : null;
 
   const users = await prisma.$queryRaw<UserSearchRow[]>`
-    SELECT "id", "name", "email", "photoUrl"
+    SELECT "id", "name", "email", "photoUrl", "preferredSide"
     FROM "User"
     WHERE ${pattern}::text IS NULL
        OR "name" ILIKE ${pattern} ESCAPE '!'
@@ -51,8 +52,10 @@ export async function searchUsers(req: Request, res: Response) {
   res.json(users);
 }
 
-// O próprio usuário editando o nome exibido. Como as listas fazem join com
-// `User.name`, a troca aparece em todas as turmas, inclusive as passadas.
+// O próprio usuário editando o perfil: nome exibido e/ou lado preferido
+// (o lado em que ele é inscrito em toda turma).
+// Como as listas fazem join com `User.name`, a troca de nome aparece em
+// todas as turmas, inclusive as passadas.
 export async function updateMyProfile(req: Request, res: Response) {
   const result = updateMyProfileSchema.safeParse(req.body);
 
@@ -63,7 +66,10 @@ export async function updateMyProfile(req: Request, res: Response) {
 
   const user = await prisma.user.update({
     where: { id: res.locals.user.id },
-    data: { name: result.data.name },
+    data: {
+      name: result.data.name,
+      preferredSide: result.data.preferredSide,
+    },
   });
 
   res.json(toUserProfile(user));

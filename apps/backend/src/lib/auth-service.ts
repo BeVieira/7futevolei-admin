@@ -96,7 +96,7 @@ export type SessionTokens = {
 // PATCH /users/me.
 export type UserProfile = Pick<
   User,
-  "id" | "name" | "email" | "photoUrl" | "role"
+  "id" | "name" | "email" | "photoUrl" | "role" | "preferredSide"
 >;
 
 export function toUserProfile(user: User): UserProfile {
@@ -106,6 +106,7 @@ export function toUserProfile(user: User): UserProfile {
     email: user.email,
     photoUrl: user.photoUrl,
     role: user.role,
+    preferredSide: user.preferredSide,
   };
 }
 
