@@ -45,8 +45,8 @@ commit.
 - **Lembrete de cobrança via job idempotente**, não agendador interno:
   rota `POST /api/jobs/receipt-reminders` protegida por `CRON_SECRET`
   (header), marca `Enrollment.receiptReminderSentAt` pra nunca avisar duas
-  vezes. Produção: cron externo (cron-job.org) às **7:05, 8:05, 9:05 e
-  10:05** (America/Sao_Paulo) — as aulas são das 7h às 10h. Local: o
+  vezes. Produção: cron externo (cron-job.org) às **7:30, 8:30, 9:30 e
+  10:30** (America/Sao_Paulo) — as aulas são das 7h às 10h. Local: o
   próprio backend roda a mesma checagem a cada minuto se
   `RECEIPT_REMINDER_INTERVAL_MS` estiver definido (desligado por padrão).
 - **Fora desta rodada:** comprovante avaliado, aviso de novo comprovante pro

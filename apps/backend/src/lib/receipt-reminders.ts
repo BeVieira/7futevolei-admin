@@ -10,8 +10,8 @@ import {
   sendPushNotification,
 } from "./push-service";
 
-// Só lembra de aula que terminou nas últimas 24h. Cobre o cron das 7:05 a
-// 10:05 (e uma aula que termine depois do último disparo é pega na manhã
+// Só lembra de aula que terminou nas últimas 24h. Cobre o cron das 7:30 a
+// 10:30 (e uma aula que termine depois do último disparo é pega na manhã
 // seguinte), mas nunca dispara cobrança de aula de semanas atrás — ex: no
 // primeiro deploy, ou com o job desligado por um tempo.
 const REMINDER_WINDOW_HOURS = 24;

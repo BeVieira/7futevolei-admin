@@ -266,10 +266,10 @@ inscrição/remoção — o aviso é "melhor esforço".
   instabilidade do serviço de push, o lembrete é tentado de novo no
   próximo disparo (ainda dentro das 24h).
 - **Produção:** um cron externo (cron-job.org) chama
-  `POST /api/jobs/receipt-reminders` às **7:05, 8:05, 9:05 e 10:05**
+  `POST /api/jobs/receipt-reminders` às **7:30, 8:30, 9:30 e 10:30**
   (America/Sao_Paulo) — as aulas são das 7h às 10h, então cada disparo
   pega as aulas que acabaram de terminar. Uma aula que termine depois do
-  último disparo do dia é lembrada no das 7:05 seguinte (ainda dentro das
+  último disparo do dia é lembrada no das 7:30 seguinte (ainda dentro das
   24h). Chamar a rota de novo nunca repete aviso.
 - **Dev local:** o próprio backend roda a mesma checagem a cada
   `RECEIPT_REMINDER_INTERVAL_MS`, se definido (desligado por padrão).

@@ -11,7 +11,7 @@ export const jobRouter = Router();
  *   post:
  *     summary: Envia o lembrete de comprovante das aulas que acabaram de terminar
  *     description: |
- *       Chamado por cron externo (cron-job.org, 7:05/8:05/9:05/10:05 em
+ *       Chamado por cron externo (cron-job.org, 7:30/8:30/9:30/10:30 em
  *       America/Sao_Paulo). Avisa por push cada inscrito confirmado, com
  *       conta, sem comprovante, cuja aula terminou nas últimas 24h. Idempotente:
  *       cada inscrição é lembrada no máximo uma vez (`receiptReminderSentAt`),
