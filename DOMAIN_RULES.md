@@ -14,8 +14,8 @@ onde/como está implementado. Para a organização do código em si, veja
   foto do Google e papel (`STUDENT` ou `ADMIN`). Ver "Autenticação e
   identificação".
 - **`Enrollment`** (inscrição): de um **usuário** (`userId`) **ou** de um
-  **convidado** inscrito pelo admin só pelo nome (`guestName`) — sempre
-  exatamente um dos dois. Mais um lado da quadra (`LEFT`/`RIGHT`) e um
+  **convidado** só pelo nome (`guestName`) — inscrito pelo admin ou se
+  inscrevendo sozinho, sem conta — sempre exatamente um dos dois. Mais um lado da quadra (`LEFT`/`RIGHT`) e um
   status (`CONFIRMED` ou `WAITLISTED`). Um usuário tem no máximo uma
   inscrição por turma (uma segunda tentativa responde `409`); convidados
   não têm essa trava (dois "João" convidados podem coexistir).
@@ -51,25 +51,47 @@ faz upsert do `User` pelo id da conta Google:
 
 - **Público (sem login):** ver datas, turmas, vagas, nomes dos inscritos e
   a lista de espera — só os nomes: a visão pública não diz quem é
-  convidado nem mostra comprovantes.
+  convidado nem mostra comprovantes. E **se inscrever como convidado**, só
+  com nome e lado (ver "Convidado sem conta" abaixo).
 - **Qualquer usuário logado:** se inscrever, cancelar a própria inscrição,
   ver "minhas aulas" e enviar comprovante — sempre **da própria conta**: a
   identidade vem da sessão, nunca de um nome digitado. Comprovante só é
   aceito para inscrição do próprio usuário (de outro, ou de convidado,
-  responde `404`). Sem sessão, essas rotas respondem `401`; na tela, quem
-  não está logado vê "Entrar para participar", que leva ao login e volta
-  pra mesma tela depois. "Minhas aulas" e o perfil também mandam pro login
-  e voltam; as telas do admin, logado como aluno, voltam pra tela
-  inicial.
+  responde `404`). Sem sessão, essas rotas respondem `401`. "Minhas aulas"
+  e o perfil mandam pro login e voltam pra mesma tela depois; as telas do
+  admin, logado como aluno, voltam pra tela inicial.
 - **Só admin:** criar/editar/remover turma, remover inscrição, inscrever
   alguém (um usuário cadastrado, escolhido por busca de nome/e-mail, ou um
   convidado pelo nome), ver os comprovantes e quem é convidado nas turmas,
   e aprovar/negar comprovante. Sem sessão `401`; com sessão de aluno `403`.
 
-**Convidado:** inscrição feita pelo admin só com um nome, para quem não
-tem (ou não quer) conta. Ocupa vaga e entra na fila igual a qualquer
-inscrição, mas não recebe notificação, não cancela sozinho (só o admin
-remove) e não tem tela de comprovante.
+**Convidado:** inscrição só com um nome, para quem não tem (ou não quer)
+conta — feita pelo admin ou pela própria pessoa (abaixo). Ocupa vaga e
+entra na fila igual a qualquer inscrição, mas não recebe notificação e não
+tem tela de comprovante (o pagamento é tratado por fora com o professor).
+O admin remove qualquer convidado.
+
+**Convidado sem conta (auto-inscrição):** na tela pública, quem não está
+logado clica "Quero participar" e preenche **nome e lado** (o lado é
+escolhido a cada inscrição, já que não há perfil; o aparelho lembra o
+último nome/lado pra pré-preencher). "Entrar com o Google" aparece como
+alternativa, para quem quer avisos e comprovante. A inscrição segue as
+mesmas regras de vaga por lado, lista de espera e aviso de lista trancada.
+
+- **Cancelar só pelo mesmo aparelho:** a inscrição devolve um código
+  secreto, guardado no navegador (o banco guarda só o hash dele). Com o
+  código, o aparelho mostra "você está inscrito/na lista de espera" no card
+  da turma e oferece "Cancelar minha vaga" — respeitando a trava, como o
+  aluno logado. Outro aparelho, ou dados do navegador apagados, perde o
+  código: aí só o admin remove. Convidado inscrito pelo admin nunca tem
+  código.
+- **Sem trava de duplicidade:** como todo convidado, o mesmo nome pode se
+  inscrever mais de uma vez na turma. Quem se inscreveu sem conta e depois
+  loga continua vendo a vaga de convidado naquele aparelho (não vira
+  inscrição da conta).
+- **Limite por IP:** inscrição e cancelamento de convidado aceitam 60
+  tentativas por IP a cada 15 minutos (folgado: a turma pode estar toda no
+  Wi-Fi da arena), só pra segurar um loop enchendo turmas de nomes falsos.
 
 **Nome exibido = `User.name` atual** (join, não cópia): trocar o nome no
 perfil muda o nome em todas as listas, inclusive em turmas passadas.
@@ -127,11 +149,12 @@ confirmadas de um lado e 2 de espera do outro é um estado normal.
 O lado é um dado do **usuário**, não de cada inscrição: o usuário escolhe uma
 vez no /perfil (`User.preferredSide`) e toda inscrição dele — feita por ele
 ou pelo admin — entra nesse lado. Quem ainda não escolheu não pode ser
-inscrito (`409`): o login e o "Quero participar" mandam para o /perfil
-primeiro. O lado pode ser trocado no perfil (para quem marcou errado), mas
+inscrito (`409`): o login e o "Quero participar" (logado) mandam para o
+/perfil primeiro. O lado pode ser trocado no perfil (para quem marcou errado), mas
 não volta a ficar vazio, e a troca vale só para as próximas inscrições — as
 já feitas continuam no lado em que foram feitas. Só o **convidado** (sem
-conta) tem o lado escolhido na hora, pelo admin.
+conta) tem o lado escolhido na hora — pelo admin, ou por ele mesmo na
+auto-inscrição.
 
 Se o lado já tem `capacidadePorLado` confirmados, a inscrição nasce
 `WAITLISTED` nesse lado, não `CONFIRMED`.
@@ -165,8 +188,8 @@ O admin pode definir um horário de corte por turma (o mesmo horário se
 aplica a todas as turmas de uma criação em lote — "Criar dia de aulas").
 Depois desse horário:
 
-- **O aluno que já está inscrito não consegue mais cancelar a própria
-  vaga.** A tentativa de auto-cancelamento é rejeitada (API responde
+- **O aluno que já está inscrito (logado ou convidado sem conta) não
+  consegue mais cancelar a própria vaga.** A tentativa de auto-cancelamento é rejeitada (API responde
   `409`); a inscrição continua exatamente como estava.
 - **O admin continua podendo remover qualquer inscrição** (inclusive de
   convidado) e inscrever alguém (um usuário cadastrado ou um convidado

@@ -2,6 +2,7 @@ export enum DomainQueryKey {
   Classes = "classes",
   ClassDetail = "class",
   MyEnrollments = "myEnrollments",
+  GuestEnrollments = "guestEnrollments",
   Me = "me",
   GoogleSignIn = "googleSignIn",
   PushStatus = "pushStatus",
@@ -40,6 +41,9 @@ export const queryKeys = {
     // Inscrições do usuário logado — quem é vem da sessão, então a key não
     // leva parâmetro. O logout remove essa query.
     mine: [DomainQueryKey.MyEnrollments] as const,
+    // Inscrições sem conta feitas deste aparelho — quem é vem dos códigos
+    // guardados no navegador, então também não leva parâmetro.
+    guest: [DomainQueryKey.GuestEnrollments] as const,
   },
   users: {
     search: (search: string) => [DomainQueryKey.Users, search] as const,

@@ -261,9 +261,12 @@ src/domain/
     service.ts
     useCases/
       enrollStudent.ts        # useEnrollStudent (usuário logado)
+      enrollGuest.ts          # useEnrollGuest (sem conta: nome + lado)
       adminEnrollStudent.ts   # useAdminEnrollStudent (usuário cadastrado ou convidado)
       cancelMyEnrollment.ts   # useCancelMyEnrollment
+      cancelGuestEnrollment.ts # useCancelGuestEnrollment (código guardado no aparelho)
       getMyEnrollments.ts     # useGetMyEnrollments
+      getGuestEnrollments.ts  # useGetGuestEnrollments (inscrições sem conta deste aparelho)
       index.ts
     index.ts             # barrel do domínio: export * de types/api/service/useCases
 
@@ -691,8 +694,15 @@ carrega.
   via `enrollmentService.findMyEnrollmentInClass`. As mutations de
   inscrever/cancelar esperam essa query recarregar antes de terminar, pra o
   botão não piscar de volta.
-- **Deslogado tentando participar:** o botão vira "Entrar para participar"
-  e leva pro `/login` com `state.from` = tela atual.
+- **Deslogado tentando participar:** "Quero participar" abre o formulário
+  de convidado (nome + lado, pré-preenchidos com os da última vez), com
+  "Entrar com o Google" como alternativa (`/login` com `state.from` = tela
+  atual). O código de cancelamento que o backend devolve fica no
+  `localStorage` (`enrollmentService`, chave `guestEnrollmentTokens`); a
+  `PublicPage` busca as inscrições desses códigos (`useGetGuestEnrollments`,
+  uma query só pra tela toda, logado ou não) e passa a de cada card via
+  `enrollmentService.findGuestEnrollmentInClass`. Código que o backend não
+  devolve mais (admin removeu, turma excluída) é esquecido na consulta.
 - **Visão do admin:** as telas do admin usam `useGetClassAdminDetailById`
   (rota `/:id/admin`, com `userId` e comprovante — `GuestBadge` marca
   convidado); a pública usa `useGetClassById` (só nome e lado).

@@ -39,3 +39,20 @@ export type MyEnrollmentSummary = {
   };
   receipt: ReceiptSummary | null;
 };
+
+// Convidado sem conta se inscrevendo sozinho: nome digitado e lado.
+export type GuestEnrollee = { guestName: string; side: Side };
+
+// Inscrição de convidado feita deste aparelho, achada pelo código de
+// cancelamento guardado no navegador (ver `enrollmentService`).
+export type GuestEnrollmentSummary = {
+  cancelToken: string;
+  classSessionId: number;
+  enrollment: {
+    id: number;
+    studentName: string;
+    side: Side;
+    status: EnrollmentStatus;
+    createdAt: string;
+  };
+};

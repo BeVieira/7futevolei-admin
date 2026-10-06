@@ -5,6 +5,7 @@ import {
   aulaService,
   enrollmentService,
   useGetClassesByDate,
+  useGetGuestEnrollments,
   useGetMe,
   useGetMyEnrollments,
   useGetNextAvailableDate,
@@ -40,6 +41,9 @@ export function PublicPage() {
   const { data: myEnrollments = [] } = useGetMyEnrollments({
     enabled: Boolean(me),
   });
+  // Inscrições sem conta feitas deste aparelho (logado ou não — quem se
+  // inscreveu sem conta e depois logou continua vendo e cancelando a vaga).
+  const { data: guestEnrollments = [] } = useGetGuestEnrollments();
 
   const groups = useMemo(
     () => aulaService.groupClassesByTimeSlot(sessions),
@@ -119,6 +123,10 @@ export function PublicPage() {
                     me={me ?? null}
                     myEnrollment={enrollmentService.findMyEnrollmentInClass(
                       myEnrollments,
+                      session.id,
+                    )}
+                    guestEnrollment={enrollmentService.findGuestEnrollmentInClass(
+                      guestEnrollments,
                       session.id,
                     )}
                   />
