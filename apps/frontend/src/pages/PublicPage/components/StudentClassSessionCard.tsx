@@ -2,6 +2,7 @@ import { FormEvent, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { SideSlots } from "./SideSlots";
 import { PushNotificationsInvite } from "./PushNotificationsInvite";
+import { SignupInviteModal } from "./SignupInviteModal";
 import { WaitlistModal } from "./WaitlistModal";
 import { Button, ClassSessionCard } from "@components";
 import { PeopleIcon } from "@assets";
@@ -11,6 +12,7 @@ import {
   Me,
   MyEnrollmentSummary,
   Side,
+  authService,
   aulaService,
   enrollmentService,
   useCancelGuestEnrollment,
@@ -45,6 +47,11 @@ export function StudentClassSessionCard({
   const [acceptsLockCommitment, setAcceptsLockCommitment] = useState(false);
   // Convite de notificações: só no card da inscrição que acabou de dar certo.
   const [showPushInvite, setShowPushInvite] = useState(false);
+  // Convite pra criar conta depois da inscrição sem conta (no máximo um a
+  // cada 24h neste aparelho). Guarda se caiu na lista de espera.
+  const [signupInvite, setSignupInvite] = useState<{
+    waitlisted: boolean;
+  } | null>(null);
   // Inscrição sem conta: nome e lado digitados, pré-preenchidos com os da
   // última vez neste aparelho.
   const [guestName, setGuestName] = useState(
@@ -99,7 +106,7 @@ export function StudentClassSessionCard({
   // Logado sem lado no perfil, vai escolher o lado e volta. Logado com tudo
   // certo, a inscrição é direta — o formulário só aparece com a lista
   // trancada, pra aceitar o compromisso. Sem login, o formulário pede nome e
-  // lado (entrar com o Google fica como alternativa).
+  // lado (o convite pra criar conta vem depois, no `SignupInviteModal`).
   function participate() {
     if (me && !me.preferredSide) {
       navigate("/perfil", {
@@ -130,9 +137,15 @@ export function StudentClassSessionCard({
     }
     const name = guestName.trim();
     if (!name || !guestSide) return;
+    const waitlisted = isSideFull(guestSide);
     enrollGuestMutation.mutate(
       { guestName: name, side: guestSide },
-      { onSuccess: closeForm },
+      {
+        onSuccess: () => {
+          closeForm();
+          if (authService.takeSignupInvite()) setSignupInvite({ waitlisted });
+        },
+      },
     );
   }
 
@@ -185,6 +198,16 @@ export function StudentClassSessionCard({
           loading={waitlistLoading}
           onClose={() => setWaitlistOpen(false)}
           onJoinWaitlist={enrolled ? undefined : handleJoinWaitlist}
+        />
+      )}
+
+      {signupInvite && (
+        <SignupInviteModal
+          session={session}
+          guestName={guestName}
+          waitlisted={signupInvite.waitlisted}
+          onLogin={login}
+          onClose={() => setSignupInvite(null)}
         />
       )}
 
@@ -313,18 +336,6 @@ export function StudentClassSessionCard({
                 Cancelar
               </Button>
             </div>
-            {!me && (
-              <p className="text-xs text-slate-500">
-                Crie sua conta para receber notificações e enviar o comprovante.<br />
-                <button
-                  type="button"
-                  onClick={login}
-                  className="font-medium text-teal-500 underline"
-                >
-                  Entrar com o Google
-                </button>
-              </p>
-            )}
           </form>
         ) : (
           <div className="flex flex-col gap-1">

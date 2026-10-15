@@ -9,6 +9,12 @@ const GOOGLE_SCRIPT_URL = "https://accounts.google.com/gsi/client";
 // página nova.
 const RETURN_PATH_STORAGE_KEY = "7futevolei:login-return-path";
 
+// Convite "crie sua conta" mostrado ao convidado depois de se inscrever sem
+// conta: no máximo uma vez a cada 18h por aparelho. Cookie (e não
+// `localStorage`) porque o `max-age` já faz a flag vencer sozinha.
+const SIGNUP_INVITE_COOKIE = "7futevolei_signup_invite";
+const SIGNUP_INVITE_MAX_AGE_SECONDS = 18 * 60 * 60;
+
 // Só o pedaço da API do Google Identity Services que usamos — o script é
 // carregado em runtime, não vem de pacote com tipos.
 type GoogleIdentityServices = {
@@ -149,6 +155,18 @@ function takeLoginReturnPath(): string {
   }
 }
 
+// Lê e marca: diz se o convite pode aparecer agora e, se sim, já grava o
+// cookie — o próximo só depois de 24h, tenha ele aceitado ou fechado.
+function takeSignupInvite(): boolean {
+  const alreadyShown = document.cookie
+    .split("; ")
+    .some(cookie => cookie.startsWith(`${SIGNUP_INVITE_COOKIE}=`));
+  if (alreadyShown) return false;
+
+  document.cookie = `${SIGNUP_INVITE_COOKIE}=1; max-age=${SIGNUP_INVITE_MAX_AGE_SECONDS}; path=/; SameSite=Lax`;
+  return true;
+}
+
 // Códigos que o callback do backend devolve em `/login?erro=<código>`.
 function loginErrorMessage(code: string): string {
   switch (code) {
@@ -174,5 +192,6 @@ export const authService = {
   renderGoogleSignInButton,
   rememberLoginReturnPath,
   takeLoginReturnPath,
+  takeSignupInvite,
   loginErrorMessage,
 };

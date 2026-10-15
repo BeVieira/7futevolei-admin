@@ -11,8 +11,15 @@ export function toMonthInputValue(date: Date): string {
   return `${year}-${month}`;
 }
 
+// Aceita "YYYY-MM-DD" ou a data ISO completa que a API devolve
+// ("2026-10-15T00:00:00.000Z"): só o dia importa, lido no fuso local — sem
+// isso a meia-noite UTC viraria o dia anterior no Brasil.
+function parseDay(dateStr: string): Date {
+  return new Date(`${dateStr.slice(0, 10)}T00:00:00`);
+}
+
 export function formatDateLabel(dateStr: string): string {
-  const date = new Date(`${dateStr}T00:00:00`);
+  const date = parseDay(dateStr);
   const label = date.toLocaleDateString("pt-BR", {
     weekday: "long",
     day: "2-digit",
@@ -22,7 +29,7 @@ export function formatDateLabel(dateStr: string): string {
 }
 
 export function formatPreviousDayLabel(dateStr: string): string {
-  const date = new Date(`${dateStr}T00:00:00`);
+  const date = parseDay(dateStr);
   date.setDate(date.getDate() - 1);
   return formatDateLabel(toDateInputValue(date));
 }

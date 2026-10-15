@@ -18,7 +18,7 @@ export function Modal({ title, onClose, children }: Props) {
         aria-modal="true"
         aria-label={title}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-sm rounded-xl bg-card p-4 shadow-lg"
+        className="max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-xl bg-card p-4 shadow-lg"
       >
         <div className="mb-3 flex items-center justify-between gap-2">
           <h3 className="text-base font-semibold text-slate-800">{title}</h3>

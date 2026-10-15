@@ -1,3 +1,4 @@
+import { installService } from "@domain/install/service";
 import { pushApi } from "./api";
 import { PushStatus } from "./types";
 
@@ -12,21 +13,6 @@ function isSupported(): boolean {
   );
 }
 
-// iPadOS se identifica como Mac no user agent; o toque denuncia.
-function isIos(): boolean {
-  return (
-    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-    (navigator.userAgent.includes("Macintosh") && navigator.maxTouchPoints > 1)
-  );
-}
-
-function isInstalled(): boolean {
-  return (
-    window.matchMedia("(display-mode: standalone)").matches ||
-    (navigator as Navigator & { standalone?: boolean }).standalone === true
-  );
-}
-
 // `getRegistration` em vez de `serviceWorker.ready`: se o service worker
 // não registrou (ex: falha de rede no primeiro acesso), `ready` nunca
 // resolve e a tela ficaria presa em "carregando".
@@ -37,7 +23,9 @@ async function getCurrentSubscription(): Promise<PushSubscription | null> {
 
 async function getStatus(): Promise<PushStatus> {
   if (!isSupported()) {
-    return isIos() && !isInstalled() ? "needs-install" : "unsupported";
+    return installService.isIos() && !installService.isInstalled()
+      ? "needs-install"
+      : "unsupported";
   }
   if (Notification.permission === "denied") return "denied";
 

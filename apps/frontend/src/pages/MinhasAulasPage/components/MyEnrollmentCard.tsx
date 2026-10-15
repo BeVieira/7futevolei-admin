@@ -45,7 +45,7 @@ export function MyEnrollmentCard({ entry }: Props) {
         </span>
       </div>
       <p className="text-sm text-slate-600">
-        {formatDateLabel(classSession.date.slice(0, 10))} ·{" "}
+        {formatDateLabel(classSession.date)} ·{" "}
         {classSession.startTime}-{classSession.endTime} ·{" "}
         {enrollmentService.sideLabel(enrollment.side)}
       </p>

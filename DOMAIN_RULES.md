@@ -74,8 +74,9 @@ O admin remove qualquer convidado.
 **Convidado sem conta (auto-inscrição):** na tela pública, quem não está
 logado clica "Quero participar" e preenche **nome e lado** (o lado é
 escolhido a cada inscrição, já que não há perfil; o aparelho lembra o
-último nome/lado pra pré-preencher). "Entrar com o Google" aparece como
-alternativa, para quem quer avisos e comprovante. A inscrição segue as
+último nome/lado pra pré-preencher). O convite pra criar a conta vem
+depois da inscrição (ver "Convite para criar conta e instalar o app"). A
+inscrição segue as
 mesmas regras de vaga por lado, lista de espera e aviso de lista trancada.
 
 - **Cancelar só pelo mesmo aparelho:** a inscrição devolve um código
@@ -283,6 +284,28 @@ inscrição/remoção — o aviso é "melhor esforço".
   card da aula. Dispensável; não volta neste aparelho depois de dispensado
   ou ativado, e não aparece se o aparelho não suporta, bloqueou ou já
   ativou. No iPhone sem o app instalado, mostra como instalar.
+
+## Convite para criar conta e instalar o app
+
+Depois de uma **auto-inscrição de convidado** dar certo na tela pública,
+aparece um pop-up que confirma a vaga (ou a lista de espera) e convida a
+criar a conta com o Google (vai pro `/login` e volta pra mesma tela) e a
+instalar o app.
+
+- **No máximo uma vez a cada 24h por aparelho:** ao aparecer, grava um
+  cookie que vence em 24h — fechar ou aceitar dá no mesmo. Enquanto o
+  cookie vale, novas inscrições sem conta não mostram o pop-up.
+- **Só convidado sem conta:** inscrição logada não mostra, e o admin
+  inscrevendo um convidado (tela do admin) também não.
+- **Instalação conforme o aparelho:** com o app já aberto pelo ícone, a
+  parte de instalar some. No Chrome/Edge/Android que oferecem o pedido
+  nativo, um botão "Instalar o app" abre esse pedido; aceito, avisa que
+  pode vir uma verificação de segurança do Google e que o ícone fica na
+  tela de início. Senão, no iPhone e
+  no Android aparece o passo a passo em texto e um vídeo do sistema
+  (`public/tutoriais/instalar-iphone.mp4` e `instalar-android.mp4`); no
+  computador sem pedido nativo, nada. No iPhone, avisa que o app instalado
+  não compartilha o login com o Safari.
 
 ## Fora de escopo (por enquanto)
 

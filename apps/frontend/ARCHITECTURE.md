@@ -238,7 +238,7 @@ cada domínio, a porta de entrada pra quem está fora de `domain/`:
 
 ```
 src/domain/
-  index.ts            # barrel raiz: export * de auth/aula/enrollment/receipt/push/user — importe por aqui de fora de domain/
+  index.ts            # barrel raiz: export * de auth/aula/enrollment/receipt/install/push/user — importe por aqui de fora de domain/
   queryKeys.ts        # enum + builders de queryKey, compartilhado entre domínios, não entra no barrel raiz
 
   aula/
@@ -275,6 +275,12 @@ src/domain/
       getMe.ts               # useGetMe — `data: null` = deslogado
       loadGoogleSignIn.ts    # useLoadGoogleSignIn — script do Google
       logout.ts              # useLogout — desinscreve o push e sai
+                           # service: takeSignupInvite — cookie de 24h do convite "crie sua conta"
+
+  install/              # app na tela de início: sistema do aparelho, app instalado, pedido nativo
+    service.ts             # getPlatform/isIos/isInstalled (o push também usa), vídeo do tutorial
+    useCases/
+      promptInstall.ts       # usePromptInstall — pedido nativo do Chrome/Edge/Android
 
   user/                 # perfil do próprio usuário e busca de usuários (admin)
     useCases/
@@ -695,9 +701,9 @@ carrega.
   inscrever/cancelar esperam essa query recarregar antes de terminar, pra o
   botão não piscar de volta.
 - **Deslogado tentando participar:** "Quero participar" abre o formulário
-  de convidado (nome + lado, pré-preenchidos com os da última vez), com
-  "Entrar com o Google" como alternativa (`/login` com `state.from` = tela
-  atual). O código de cancelamento que o backend devolve fica no
+  de convidado (nome + lado, pré-preenchidos com os da última vez). Depois
+  da inscrição, o `SignupInviteModal` convida a criar a conta (`/login` com
+  `state.from` = tela atual) e instalar o app. O código de cancelamento que o backend devolve fica no
   `localStorage` (`enrollmentService`, chave `guestEnrollmentTokens`); a
   `PublicPage` busca as inscrições desses códigos (`useGetGuestEnrollments`,
   uma query só pra tela toda, logado ou não) e passa a de cada card via

@@ -1,3 +1,16 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* O Safari do iPhone dá zoom na tela ao focar um campo com fonte menor que
+   16px (os inputs usam `text-sm`). Em tela de toque os campos ficam com 16px;
+   o `!important` vence as classes `text-*` do Tailwind. Não bloqueia o zoom
+   de pinça (`maximum-scale=1` no viewport bloquearia, e prejudica quem
+   precisa ampliar). */
+@media (hover: none) and (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
