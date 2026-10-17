@@ -47,3 +47,10 @@ export type TimeSlotInput = {
   startTime: string;
   levels: ClassLevel[];
 };
+
+// Um disparo do aviso "turmas abertas" (push pra todos os aparelhos).
+export type ClassOpeningNotification = {
+  classDate: string; // YYYY-MM-DD — dia das turmas anunciadas
+  sentAt: string;
+  devicesNotified: number;
+};

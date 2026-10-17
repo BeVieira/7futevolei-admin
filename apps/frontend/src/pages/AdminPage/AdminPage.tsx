@@ -23,6 +23,7 @@ import {
 
 import { AdminClassSessionCard } from "./components/AdminClassSessionCard";
 import { HorarioBlockEditor } from "./components/HorarioBlockEditor";
+import { NotifyClassesOpenedButton } from "./components/NotifyClassesOpenedButton";
 
 export function AdminPage() {
   const { data: nextAvailableDate } = useGetNextAvailableDate();
@@ -222,7 +223,15 @@ export function AdminPage() {
       </Card>
 
       <div className="flex flex-col gap-6">
-        <h2 className="text-lg font-semibold text-slate-800">Turmas do dia</h2>
+        <div className="flex items-start justify-between gap-3">
+          <h2 className="text-lg font-semibold text-slate-800">
+            Turmas do dia
+          </h2>
+          <NotifyClassesOpenedButton
+            date={date}
+            disabled={isLoading || sessions.length === 0}
+          />
+        </div>
         {isLoading && <p className="text-slate-500">Carregando...</p>}
         {!isLoading && sessions.length === 0 && (
           <p className="text-slate-500">

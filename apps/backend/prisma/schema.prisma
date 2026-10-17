@@ -158,3 +158,16 @@ model PushSubscription {
 
   @@index([userId])
 }
+
+// Um registro por disparo do aviso "turmas abertas" (botão do admin, push
+// pra todos os aparelhos). Serve pra avisar o admin que já disparou hoje
+// antes de mandar de novo — ver lib/class-opening-notifications.ts.
+model ClassOpeningNotification {
+  id              Int      @id @default(autoincrement())
+  // Dia das turmas anunciadas (meia-noite UTC, como `ClassSession.date`).
+  classDate       DateTime
+  sentAt          DateTime @default(now())
+  devicesNotified Int      @default(0)
+
+  @@index([sentAt])
+}

@@ -23,10 +23,18 @@ import {
   updateClassSessionWithRebalance,
 } from "../lib/enrollment-service";
 import {
+  AlreadyNotifiedTodayError,
+  NoUpcomingClassSessionsError,
+  getLastOpeningNotificationToday,
+  notifyClassesOpened,
+} from "../lib/class-opening-notifications";
+import { PushNotConfiguredError } from "../lib/push-service";
+import {
   adminEnrollSchema,
   bulkCreateSchema,
   guestCancelSchema,
   guestEnrollSchema,
+  notifyClassesOpenedSchema,
   updateClassSessionSchema,
 } from "../schemas/class-session.schema";
 
@@ -593,6 +601,62 @@ async function respondWithCancel(
       error.code === "P2025"
     ) {
       res.status(404).json({ error: "Class session not found" });
+      return;
+    }
+    throw error;
+  }
+}
+
+function serializeOpeningNotification(notification: {
+  classDate: Date;
+  sentAt: Date;
+  devicesNotified: number;
+}) {
+  return {
+    classDate: notification.classDate.toISOString().slice(0, 10),
+    sentAt: notification.sentAt,
+    devicesNotified: notification.devicesNotified,
+  };
+}
+
+export async function getOpeningNotificationToday(
+  _req: Request,
+  res: Response,
+) {
+  const last = await getLastOpeningNotificationToday();
+  res.json({ lastSentToday: last ? serializeOpeningNotification(last) : null });
+}
+
+export async function notifyOpening(req: Request, res: Response) {
+  const result = notifyClassesOpenedSchema.safeParse(req.body);
+
+  if (!result.success) {
+    res.status(400).json({ error: result.error.flatten() });
+    return;
+  }
+
+  const { date, force } = result.data;
+
+  try {
+    const notification = await notifyClassesOpened(
+      new Date(`${date}T00:00:00.000Z`),
+      { force },
+    );
+    res.json(serializeOpeningNotification(notification));
+  } catch (error) {
+    if (error instanceof AlreadyNotifiedTodayError) {
+      res.status(409).json({
+        error: error.message,
+        lastSentToday: serializeOpeningNotification(error.lastNotification),
+      });
+      return;
+    }
+    if (error instanceof NoUpcomingClassSessionsError) {
+      res.status(422).json({ error: error.message });
+      return;
+    }
+    if (error instanceof PushNotConfiguredError) {
+      res.status(503).json({ error: error.message });
       return;
     }
     throw error;

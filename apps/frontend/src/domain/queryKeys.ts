@@ -31,6 +31,11 @@ export const queryKeys = {
     byMonth: (month: string) =>
       [DomainQueryKey.Classes, "month", month] as const,
     nextAvailableDate: [DomainQueryKey.Classes, "nextAvailableDate"] as const,
+    // Último aviso de "turmas abertas" disparado hoje (admin).
+    openingNotificationToday: [
+      DomainQueryKey.Classes,
+      "openingNotificationToday",
+    ] as const,
   },
   push: {
     status: [DomainQueryKey.PushStatus] as const,

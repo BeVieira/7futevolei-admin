@@ -252,6 +252,8 @@ src/domain/
       createClassesForDay.ts # useCreateClassesForDay
       updateClass.ts         # useUpdateClass
       deleteClass.ts         # useDeleteClass
+      getOpeningNotificationToday.ts # useGetOpeningNotificationToday (último aviso "turmas abertas" de hoje)
+      notifyClassesOpened.ts # useNotifyClassesOpened (admin: push "turmas abertas"; `force` = repetir no dia)
       index.ts               # barrel: reexporta só os hooks
     index.ts             # barrel do domínio: export * de types/api/service/useCases
 

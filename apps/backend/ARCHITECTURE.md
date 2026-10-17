@@ -27,6 +27,7 @@ src/
     swagger.ts                # schemas OpenAPI compartilhados
     push-service.ts           # inscrições e envio de Web Push (VAPID)
     enrollment-notifications.ts # textos + disparo best-effort dos avisos de inscrição
+    class-opening-notifications.ts # aviso "turmas abertas" (botão do admin, broadcast + registro anti-spam)
     google-auth.ts            # valida o ID token do Google (login)
     login-nonce.ts            # tentativas de login do fluxo de redirect (nonce)
     auth-service.ts           # upsert do User, emissão/renovação/revogação da sessão
@@ -414,6 +415,16 @@ inscrições que o serviço de push responde como expiradas (404/410). Os
 avisos de inscrição usam `topic` = `enrollment-<id>` (o serviço de push
 substitui uma mensagem pendente da mesma inscrição pela mais nova), TTL até
 o fim da aula e `urgency: "high"`; o lembrete de comprovante, TTL de 24h.
+
+O aviso de turmas abertas (`POST /api/class-sessions/opening-notification`,
+admin) é o único envio pra **todos** os aparelhos (`where` vazio) e o único
+com `await` no request — é uma ação explícita do admin, que espera ver
+quantos aparelhos receberam. Cada disparo grava um
+`ClassOpeningNotification`; sem `force: true`, a rota responde `409` (com
+`lastSentToday`) se já existe registro desde a meia-noite de Brasília. O
+front consulta `GET` da mesma rota pra abrir a confirmação antes, e o 409
+só cobre dois admins disparando ao mesmo tempo (sem lock: no pior caso,
+dois avisos saem juntos).
 
 Duas proteções na inscrição do aparelho (`POST /push/subscribe`):
 

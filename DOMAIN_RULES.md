@@ -247,6 +247,8 @@ recebe** — não tem conta nem aparelho.
 - **Lembrete de cobrança:** a aula terminou e o comprovante não foi
   enviado — avisa cada inscrito **confirmado** sem comprovante (ver
   abaixo). Abre "Minhas aulas".
+- **Turmas abertas:** disparado à mão pelo admin (ver abaixo) — avisa
+  **todos** os aparelhos com notificação ativa. Abre o início.
 
 Os quatro primeiros saem na hora da mudança e só se a aula ainda não
 terminou (mexer numa turma antiga não avisa ninguém). O texto sempre traz
@@ -274,6 +276,20 @@ inscrição/remoção — o aviso é "melhor esforço".
   24h). Chamar a rota de novo nunca repete aviso.
 - **Dev local:** o próprio backend roda a mesma checagem a cada
   `RECEIPT_REMINDER_INTERVAL_MS`, se definido (desligado por padrão).
+
+### Aviso de turmas abertas
+
+- Botão **"Notificar alunos"** ao lado de "Turmas do dia", na tela do
+  admin: anuncia as turmas da data selecionada ("As inscrições para as
+  aulas de qui, 17/10 estão abertas"). Desabilitado se a data não tem
+  turma; a API também recusa dia em que todas as turmas já terminaram.
+- **Anti-spam:** se já houve um aviso **hoje** (horário de Brasília, de
+  qualquer data anunciada), o botão abre um modal mostrando a hora e a
+  data do último aviso e só envia de novo com "Notificar novamente". Cada
+  disparo fica registrado (`ClassOpeningNotification`).
+- Vai pra todo aparelho com push ativo (não depende de inscrição). Fica
+  guardado até 12h se o celular estiver offline; dois avisos pendentes no
+  mesmo aparelho viram um só (o mais recente).
 
 ### Como o aluno ativa
 

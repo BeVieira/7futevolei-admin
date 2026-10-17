@@ -14,8 +14,10 @@ import {
   getClassSessionAdminDetail,
   getClassSessionById,
   getNextAvailableDate,
+  getOpeningNotificationToday,
   listClassDatesByMonth,
   listClassSessions,
+  notifyOpening,
   removeEnrollment,
   updateClassSession,
 } from "../controllers/class-session.controller";
@@ -194,6 +196,98 @@ classSessionRouter.get("/dates", asyncHandler(listClassDatesByMonth));
 classSessionRouter.get(
   "/next-available-date",
   asyncHandler(getNextAvailableDate),
+);
+
+/**
+ * @openapi
+ * components:
+ *   schemas:
+ *     ClassOpeningNotification:
+ *       type: object
+ *       properties:
+ *         classDate:
+ *           type: string
+ *           description: Dia das turmas anunciadas (YYYY-MM-DD)
+ *         sentAt:
+ *           type: string
+ *           format: date-time
+ *         devicesNotified:
+ *           type: integer
+ * /api/class-sessions/opening-notification:
+ *   get:
+ *     summary: Último aviso de "turmas abertas" disparado hoje (horário de Brasília)
+ *     tags: [ClassSessions]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Último disparo de hoje, ou null se ainda não houve
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 lastSentToday:
+ *                   nullable: true
+ *                   allOf:
+ *                     - $ref: "#/components/schemas/ClassOpeningNotification"
+ *       401:
+ *         description: Não autenticado
+ *       403:
+ *         description: Usuário logado não é admin
+ *   post:
+ *     summary: Avisa todos os aparelhos com push ativo que as turmas de um dia estão abertas
+ *     description: >
+ *       Sem `force`, recusa com 409 se já houve um aviso hoje (qualquer dia
+ *       anunciado) — o admin confirma e repete com `force: true`.
+ *     tags: [ClassSessions]
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [date]
+ *             properties:
+ *               date:
+ *                 type: string
+ *                 format: date
+ *                 example: "2026-10-18"
+ *               force:
+ *                 type: boolean
+ *                 default: false
+ *     responses:
+ *       200:
+ *         description: Aviso enviado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ClassOpeningNotification"
+ *       400:
+ *         description: Payload inválido
+ *       401:
+ *         description: Não autenticado
+ *       403:
+ *         description: Usuário logado não é admin
+ *       409:
+ *         description: Já houve aviso hoje e `force` não foi enviado (devolve `lastSentToday`)
+ *       422:
+ *         description: O dia não tem turma por acontecer
+ *       503:
+ *         description: Push não configurado no servidor (VAPID_* ausentes)
+ */
+classSessionRouter.get(
+  "/opening-notification",
+  requireAdmin,
+  asyncHandler(getOpeningNotificationToday),
+);
+
+classSessionRouter.post(
+  "/opening-notification",
+  requireAdmin,
+  asyncHandler(notifyOpening),
 );
 
 /**

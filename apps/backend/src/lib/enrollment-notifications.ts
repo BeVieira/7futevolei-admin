@@ -33,13 +33,17 @@ const MIN_TTL_SECONDS = 60;
 
 const WEEKDAYS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
 
-// "Iniciante de qui, 03/10, às 07:00". `date` é meia-noite UTC do dia no
-// Brasil, então os getters UTC já dão o dia certo.
-function describeClassSession(classSession: ClassSessionInfo): string {
-  const { date } = classSession;
+// "qui, 03/10". `date` é meia-noite UTC do dia no Brasil, então os getters
+// UTC já dão o dia certo.
+export function describeClassDay(date: Date): string {
   const day = String(date.getUTCDate()).padStart(2, "0");
   const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-  return `${classSession.classLevel} de ${WEEKDAYS[date.getUTCDay()]}, ${day}/${month}, às ${classSession.startTime}`;
+  return `${WEEKDAYS[date.getUTCDay()]}, ${day}/${month}`;
+}
+
+// "Iniciante de qui, 03/10, às 07:00".
+function describeClassSession(classSession: ClassSessionInfo): string {
+  return `${classSession.classLevel} de ${describeClassDay(classSession.date)}, às ${classSession.startTime}`;
 }
 
 // Um aviso por inscrição, com `topic` próprio: se o aparelho estiver offline

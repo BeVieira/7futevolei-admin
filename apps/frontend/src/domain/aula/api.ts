@@ -2,6 +2,7 @@ import { API_BASE_URL, apiFetch, handleResponse } from "@utils";
 import {
   AdminClassSessionDetail,
   ClassLevel,
+  ClassOpeningNotification,
   ClassSessionDetail,
   ClassSessionSummary,
   TimeSlotInput,
@@ -68,6 +69,25 @@ function deleteClass(id: number): Promise<void> {
   );
 }
 
+function getOpeningNotificationToday(): Promise<ClassOpeningNotification | null> {
+  return apiFetch(`${BASE_URL}/opening-notification`)
+    .then(res =>
+      handleResponse<{ lastSentToday: ClassOpeningNotification | null }>(res),
+    )
+    .then(body => body.lastSentToday);
+}
+
+function notifyClassesOpened(
+  date: string,
+  force: boolean,
+): Promise<ClassOpeningNotification> {
+  return apiFetch(`${BASE_URL}/opening-notification`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ date, force }),
+  }).then(res => handleResponse(res));
+}
+
 export const aulaApi = {
   getClassesByDate,
   getClassById,
@@ -77,4 +97,6 @@ export const aulaApi = {
   createClassesForDay,
   updateClass,
   deleteClass,
+  getOpeningNotificationToday,
+  notifyClassesOpened,
 };

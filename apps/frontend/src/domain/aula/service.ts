@@ -51,6 +51,14 @@ function deleteClass(id: number) {
   return aulaApi.deleteClass(id);
 }
 
+function getOpeningNotificationToday() {
+  return aulaApi.getOpeningNotificationToday();
+}
+
+function notifyClassesOpened(date: string, force: boolean) {
+  return aulaApi.notifyClassesOpened(date, force);
+}
+
 function buildDefaultTimeSlot(startTime = "06:00"): TimeSlotInput {
   return { startTime, levels: [...DEFAULT_LEVELS] };
 }
@@ -92,6 +100,8 @@ export const aulaService = {
   createClassesForDay,
   updateClass,
   deleteClass,
+  getOpeningNotificationToday,
+  notifyClassesOpened,
   buildDefaultTimeSlot,
   clampCourtsCount,
   nextCourtLevel,

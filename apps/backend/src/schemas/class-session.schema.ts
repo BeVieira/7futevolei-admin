@@ -76,3 +76,10 @@ export const guestCancelSchema = z.object({
 export const guestLookupSchema = z.object({
   cancelTokens: z.array(guestCancelTokenSchema).max(100),
 });
+
+// Admin disparando o aviso "turmas abertas" do dia `date`. `force` confirma
+// um segundo disparo no mesmo dia (sem ele, a API recusa com 409).
+export const notifyClassesOpenedSchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD format"),
+  force: z.boolean().default(false),
+});

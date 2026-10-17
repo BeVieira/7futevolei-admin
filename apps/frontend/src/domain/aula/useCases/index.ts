@@ -5,4 +5,6 @@ export { useGetClassById } from "./getClassById";
 export { useGetClassDatesByMonth } from "./getClassDatesByMonth";
 export { useGetClassesByDate } from "./getClassesByDate";
 export { useGetNextAvailableDate } from "./getNextAvailableDate";
+export { useGetOpeningNotificationToday } from "./getOpeningNotificationToday";
+export { useNotifyClassesOpened } from "./notifyClassesOpened";
 export { useUpdateClass } from "./updateClass";
