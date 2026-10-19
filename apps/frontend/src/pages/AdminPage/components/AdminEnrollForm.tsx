@@ -23,7 +23,7 @@ type Mode = "user" | "guest";
 // busca por tecla.
 const SEARCH_DEBOUNCE_MS = 300;
 
-// Admin inscrevendo alguém: um usuário cadastrado (busca por nome/e-mail),
+// Admin inscrevendo alguém: um usuário cadastrado (busca por nome ou e-mail completo),
 // que entra no lado do perfil dele, ou um convidado só pelo nome, para quem
 // não tem conta — só aí o admin escolhe o lado.
 export function AdminEnrollForm({
@@ -136,7 +136,7 @@ export function AdminEnrollForm({
               autoFocus
               value={searchInput}
               onChange={e => setSearchInput(e.target.value)}
-              placeholder="Buscar por nome ou e-mail"
+              placeholder="Buscar por nome ou e-mail completo"
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
             />
             {searchFailed && (
@@ -165,13 +165,8 @@ export function AdminEnrollForm({
                         photoUrl={user.photoUrl}
                         className="h-6 w-6 text-xs"
                       />
-                      <span className="flex min-w-0 flex-col">
-                        <span className="truncate text-slate-800">
-                          {user.name}
-                        </span>
-                        <span className="truncate text-xs text-slate-400">
-                          {user.email}
-                        </span>
+                      <span className="truncate text-slate-800">
+                        {user.name}
                       </span>
                     </button>
                   </li>

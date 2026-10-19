@@ -32,6 +32,10 @@ pedido **por aquele mesmo navegador** (uma tentativa de uso único que vale
 faz upsert do `User` pelo id da conta Google:
 
 - **Primeiro login** cria a conta com nome, e-mail e foto do Google.
+- **O e-mail não fica em texto no banco**: só um hash (pra comparar) e
+  uma cópia criptografada (pra mostrar no perfil do próprio usuário). A
+  busca do admin não mostra e-mail e acha por pedaço do nome ou pelo
+  e-mail **completo**, nunca por pedaço do e-mail.
 - **Logins seguintes** atualizam e-mail e foto (a foto é a URL do Google,
   não guardamos arquivo), mas **não** o nome — o nome é editável pelo
   próprio usuário e o que ele escolheu prevalece.

@@ -685,7 +685,8 @@ const enrollMutation = useEnrollStudent(session.id);
 **Quem é o usuário vem sempre da sessão**, nunca de um nome guardado no
 aparelho: não existe mais "Quem é você?" nem nome por turma no
 `localStorage`. `useGetMe()` é a fonte única — `data` é o `Me`
-(`{ id, name, email, photoUrl, role }`) ou `null` se ninguém está logado
+(`{ id, name, email, photoUrl, role }` — `email` pode vir `null`: o
+backend guarda criptografado e nem sempre consegue decifrar) ou `null` se ninguém está logado
 (o `authApi.getMe` converte o 401 final em `null`, então "deslogado" não é
 erro). Na abertura do app, o `apiFetch` tenta renovar a sessão pelo
 refresh token antes de devolver esse 401, então quem tem sessão válida não

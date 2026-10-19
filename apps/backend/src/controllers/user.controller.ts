@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
 import { toUserProfile } from "../lib/auth-service";
+import { hashEmail } from "../lib/email-crypto";
 import {
   searchUsersQuerySchema,
   updateMyProfileSchema,
@@ -9,7 +10,6 @@ import {
 type UserSearchRow = {
   id: number;
   name: string;
-  email: string;
   photoUrl: string | null;
   preferredSide: "LEFT" | "RIGHT" | null;
 };
@@ -23,9 +23,11 @@ function escapeLikePattern(value: string): string {
 }
 
 // Admin escolhendo um usuário cadastrado pra inscrever numa turma: busca
-// por pedaço do nome ou do e-mail, sem diferenciar maiúsculas. Até 20
-// resultados (`LIMIT` literal): a tela mostra uma lista curta pra escolher,
-// e quem não aparece é só digitar mais do nome/e-mail. SQL cru (em
+// por pedaço do nome, sem diferenciar maiúsculas, ou pelo e-mail **inteiro**
+// — o banco só tem o hash do e-mail (ver email-crypto.ts), então não dá pra
+// buscar pedaço dele. Até 20 resultados (`LIMIT` literal): a tela mostra
+// uma lista curta pra escolher, e quem não aparece é só digitar mais do
+// nome. SQL cru (em
 // vez do `contains` do Prisma) pra controlar o escape dos curingas do LIKE
 // explicitamente, sem depender de como o Prisma trata `%`/`_` no termo.
 export async function searchUsers(req: Request, res: Response) {
@@ -38,13 +40,14 @@ export async function searchUsers(req: Request, res: Response) {
 
   const search = result.data.search;
   const pattern = search ? `%${escapeLikePattern(search)}%` : null;
+  const emailHash = search?.includes("@") ? hashEmail(search) : null;
 
   const users = await prisma.$queryRaw<UserSearchRow[]>`
-    SELECT "id", "name", "email", "photoUrl", "preferredSide"
+    SELECT "id", "name", "photoUrl", "preferredSide"
     FROM "User"
     WHERE ${pattern}::text IS NULL
        OR "name" ILIKE ${pattern} ESCAPE '!'
-       OR "email" ILIKE ${pattern} ESCAPE '!'
+       OR "emailHash" = ${emailHash}
     ORDER BY "name" ASC
     LIMIT 20
   `;

@@ -6,7 +6,8 @@ export type UserRole = "STUDENT" | "ADMIN";
 export type Me = {
   id: number;
   name: string;
-  email: string;
+  // `null` se o backend não conseguiu decifrar o e-mail guardado.
+  email: string | null;
   photoUrl: string | null;
   role: UserRole;
   // Lado em que o usuário é inscrito em toda turma (escolhido uma vez no

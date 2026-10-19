@@ -30,7 +30,9 @@ Sistema de gestão de aulas extraordinárias de futevôlei: o admin cria o dia d
    start, então não precisa de nenhum passo manual pra ficar pronto pra
    usar. Não há seed nem senha de admin: o login é só com Google
    (`GOOGLE_CLIENT_ID`), e entra como admin quem tiver o e-mail em
-   `ADMIN_EMAILS` (ambos em `apps/backend/.env`).
+   `ADMIN_EMAILS` (ambos em `apps/backend/.env`). `EMAIL_HASH_KEY` e
+   `EMAIL_ENCRYPTION_KEY` (cada uma com `openssl rand -hex 32`) também são
+   obrigatórias: o e-mail só vai pro banco como hash + criptografado.
 
 3. Só quando você **mudar o schema do Prisma** (`apps/backend/prisma/schema.prisma`)
    é que precisa criar uma migration nova manualmente:

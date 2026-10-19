@@ -63,7 +63,7 @@ function Perfil({ me }: { me: Me }) {
           photoUrl={me.photoUrl}
           className="h-20 w-20 text-2xl"
         />
-        <p className="text-sm text-slate-500">{me.email}</p>
+        {me.email && <p className="text-sm text-slate-500">{me.email}</p>}
       </Card>
 
       <Card className="flex flex-col gap-2">

@@ -258,7 +258,13 @@ const options: swaggerJsdoc.Options = {
           properties: {
             id: { type: "integer", example: 1 },
             name: { type: "string", example: "Maria Silva" },
-            email: { type: "string", example: "maria@gmail.com" },
+            email: {
+              type: "string",
+              nullable: true,
+              example: "maria@gmail.com",
+              description:
+                "Decifrado do valor criptografado no banco; null se não foi possível.",
+            },
             photoUrl: {
               type: "string",
               nullable: true,
@@ -280,7 +286,6 @@ const options: swaggerJsdoc.Options = {
           properties: {
             id: { type: "integer", example: 1 },
             name: { type: "string", example: "Maria Silva" },
-            email: { type: "string", example: "maria@gmail.com" },
             photoUrl: { type: "string", nullable: true },
             preferredSide: {
               type: "string",
@@ -288,7 +293,7 @@ const options: swaggerJsdoc.Options = {
               nullable: true,
             },
           },
-          required: ["id", "name", "email", "photoUrl", "preferredSide"],
+          required: ["id", "name", "photoUrl", "preferredSide"],
         },
         UpdateMyProfileInput: {
           type: "object",

@@ -97,6 +97,14 @@ Três peças, cada uma num arquivo de `lib/`:
   `/auth/refresh`, `/auth/me` e `PATCH /users/me`
   devolvem). Detalhes da sessão em "Sessão: uma linha de `Session` por
   aparelho", abaixo.
+- **`email-crypto.ts`** — o banco nunca guarda o e-mail em texto, só:
+  `hashEmail` (HMAC-SHA256, `EMAIL_HASH_KEY`) em `User.emailHash` —
+  unicidade da conta Google, papel por `ADMIN_EMAILS` (hash contra hash) e
+  busca do admin por e-mail **inteiro** —; e `encryptEmail`/`decryptEmail`
+  (AES-256-GCM, `EMAIL_ENCRYPTION_KEY`) em `User.emailEncrypted`, só pra
+  devolver o e-mail no perfil (`toUserProfile`). Chaves obrigatórias, o
+  backend não sobe sem. Contas anteriores ao hash são
+  convertidas por `src/scripts/hash-user-emails.ts` (ver DEPLOY.md).
 - **`requireAuth.ts`** — os dois middlewares Express. Ambos leem o cookie
   `access_token`, verificam assinatura e conferem `isSessionActive` (o
   `jti` do token ainda é o vigente no banco), respondendo `401` se

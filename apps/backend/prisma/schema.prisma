@@ -83,7 +83,15 @@ model Enrollment {
 model User {
   id                Int                @id @default(autoincrement())
   googleId          String             @unique
-  email             String             @unique
+  // O e-mail em texto não fica no banco (ver lib/email-crypto.ts):
+  // `emailHash` (HMAC) é pra comparar/buscar, `emailEncrypted` (AES-GCM) é
+  // pra mostrar no perfil. Nulos só em conta antiga ainda não migrada.
+  emailHash         String?            @unique
+  emailEncrypted    String?
+  // Legado: e-mail em texto de contas criadas antes do hash. Ninguém grava
+  // mais; o script src/scripts/hash-user-emails.ts converte e apaga, e a
+  // coluna sai numa migration seguinte.
+  email             String?            @unique
   name              String
   photoUrl          String?
   role              UserRole           @default(STUDENT)

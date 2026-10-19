@@ -9,7 +9,7 @@ export const userRouter = Router();
  * @openapi
  * /api/users:
  *   get:
- *     summary: Busca usuários cadastrados por nome ou e-mail (admin escolhendo quem inscrever)
+ *     summary: Busca usuários cadastrados por nome ou e-mail exato (admin escolhendo quem inscrever)
  *     tags: [Users]
  *     security:
  *       - cookieAuth: []
@@ -19,7 +19,7 @@ export const userRouter = Router();
  *         required: false
  *         schema:
  *           type: string
- *         description: Pedaço do nome ou do e-mail (sem diferenciar maiúsculas). Vazio lista os primeiros em ordem alfabética.
+ *         description: Pedaço do nome ou o e-mail inteiro (sem diferenciar maiúsculas; o banco só guarda o hash do e-mail, então pedaço de e-mail não acha). Vazio lista os primeiros em ordem alfabética.
  *     responses:
  *       200:
  *         description: Até 20 usuários, em ordem alfabética

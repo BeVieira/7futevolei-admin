@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import { User, UserRole } from "@prisma/client";
 import { prisma } from "./prisma";
 import { GoogleProfile } from "./google-auth";
+import { decryptEmail, encryptEmail, hashEmail } from "./email-crypto";
 
 export class InvalidSessionError extends Error {
   constructor(message = "Sessão inválida ou expirada") {
@@ -42,13 +43,14 @@ const REFRESH_TTL_MS_BY_ROLE: Record<UserRole, number> = {
 // `refreshSession`).
 const REFRESH_REUSE_GRACE_MS = 10 * 1000;
 
-// Comparação sem diferenciar maiúsculas: o e-mail do Google já é salvo em
-// minúsculas (ver google-auth.ts).
-const ADMIN_EMAILS = new Set(
+// Guardado já como hash (ver email-crypto.ts): o banco só tem o hash do
+// e-mail, então é hash contra hash. `hashEmail` normaliza maiúsculas.
+const ADMIN_EMAIL_HASHES = new Set(
   (process.env.ADMIN_EMAILS ?? "")
     .split(",")
-    .map(email => email.trim().toLowerCase())
-    .filter(Boolean),
+    .map(email => email.trim())
+    .filter(Boolean)
+    .map(hashEmail),
 );
 
 export const ACCESS_COOKIE_NAME = "access_token";
@@ -93,7 +95,8 @@ export type SessionTokens = {
 };
 
 // Formato devolvido ao front por /auth/refresh, /auth/me e
-// PATCH /users/me.
+// PATCH /users/me. `email` é decifrado de `emailEncrypted`; `null` se não
+// der (conta antiga não migrada sem `email` legado, ou chave trocada).
 export type UserProfile = Pick<
   User,
   "id" | "name" | "email" | "photoUrl" | "role" | "preferredSide"
@@ -103,23 +106,33 @@ export function toUserProfile(user: User): UserProfile {
   return {
     id: user.id,
     name: user.name,
-    email: user.email,
+    // `?? user.email`: transição, sai junto com a coluna `email`.
+    email:
+      (user.emailEncrypted && decryptEmail(user.emailEncrypted)) ?? user.email,
     photoUrl: user.photoUrl,
     role: user.role,
     preferredSide: user.preferredSide,
   };
 }
 
-function roleForEmail(email: string): UserRole {
-  return ADMIN_EMAILS.has(email.toLowerCase()) ? "ADMIN" : "STUDENT";
+function roleForEmailHash(emailHash: string | null): UserRole {
+  return emailHash && ADMIN_EMAIL_HASHES.has(emailHash) ? "ADMIN" : "STUDENT";
+}
+
+// Transição: conta criada antes do hash e ainda não migrada pelo script
+// (src/scripts/hash-user-emails.ts) nem logada de novo só tem `email`.
+// Sai junto com a coluna `email` depois que o script rodar em produção.
+function emailHashOf(user: User): string | null {
+  return user.emailHash ?? (user.email ? hashEmail(user.email) : null);
 }
 
 // Mudança de papel é rara e sensível (quem vira admin passa a mexer em
-// turmas e comprovantes) — fica no log pra dar pra conferir depois.
-function logRoleChange(email: string, from: UserRole | null, to: UserRole) {
+// turmas e comprovantes) — fica no log pra dar pra conferir depois. Pelo
+// id e nome, nunca o e-mail: log também é armazenamento.
+function logRoleChange(user: User, from: UserRole | null, to: UserRole) {
   if (from === to) return;
   console.log(
-    `[auth] papel de ${email}: ${from ?? "(conta nova)"} → ${to} (ADMIN_EMAILS)`,
+    `[auth] papel do usuário #${user.id} (${user.name}): ${from ?? "(conta nova)"} → ${to} (ADMIN_EMAILS)`,
   );
 }
 
@@ -129,7 +142,9 @@ function logRoleChange(email: string, from: UserRole | null, to: UserRole) {
 // login (ou na próxima renovação, ver `refreshSession`). `name` nunca é
 // sobrescrito depois de criado: o usuário pode editá-lo no perfil.
 export async function upsertUserFromGoogle(profile: GoogleProfile) {
-  const role = roleForEmail(profile.email);
+  const emailHash = hashEmail(profile.email);
+  const emailEncrypted = encryptEmail(profile.email);
+  const role = roleForEmailHash(emailHash);
   const existing = await prisma.user.findUnique({
     where: { googleId: profile.googleId },
     select: { role: true },
@@ -139,16 +154,25 @@ export async function upsertUserFromGoogle(profile: GoogleProfile) {
     where: { googleId: profile.googleId },
     create: {
       googleId: profile.googleId,
-      email: profile.email,
+      emailHash,
+      emailEncrypted,
       name: profile.name,
       photoUrl: profile.photoUrl,
       role,
     },
-    update: { email: profile.email, photoUrl: profile.photoUrl, role },
+    // `email: null` apaga o e-mail em texto de conta antiga no primeiro
+    // login depois da troca pro hash.
+    update: {
+      emailHash,
+      emailEncrypted,
+      email: null,
+      photoUrl: profile.photoUrl,
+      role,
+    },
   });
 
   if (role === "ADMIN" || existing?.role === "ADMIN") {
-    logRoleChange(user.email, existing?.role ?? null, role);
+    logRoleChange(user, existing?.role ?? null, role);
   }
 
   return user;
@@ -347,10 +371,10 @@ async function revokeSession(sessionId: string): Promise<void> {
 }
 
 async function syncRole(user: User): Promise<User> {
-  const role = roleForEmail(user.email);
+  const role = roleForEmailHash(emailHashOf(user));
   if (role === user.role) return user;
 
-  logRoleChange(user.email, user.role, role);
+  logRoleChange(user, user.role, role);
   return prisma.user.update({ where: { id: user.id }, data: { role } });
 }
 

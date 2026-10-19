@@ -5,7 +5,6 @@ import { Side } from "@domain/enrollment/types";
 export type UserSearchResult = {
   id: number;
   name: string;
-  email: string;
   photoUrl: string | null;
   preferredSide: Side | null;
 };
