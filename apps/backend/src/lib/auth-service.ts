@@ -96,34 +96,25 @@ export type SessionTokens = {
 
 // Formato devolvido ao front por /auth/refresh, /auth/me e
 // PATCH /users/me. `email` é decifrado de `emailEncrypted`; `null` se não
-// der (conta antiga não migrada sem `email` legado, ou chave trocada).
+// der (chave trocada ou valor corrompido).
 export type UserProfile = Pick<
   User,
-  "id" | "name" | "email" | "photoUrl" | "role" | "preferredSide"
->;
+  "id" | "name" | "photoUrl" | "role" | "preferredSide"
+> & { email: string | null };
 
 export function toUserProfile(user: User): UserProfile {
   return {
     id: user.id,
     name: user.name,
-    // `?? user.email`: transição, sai junto com a coluna `email`.
-    email:
-      (user.emailEncrypted && decryptEmail(user.emailEncrypted)) ?? user.email,
+    email: decryptEmail(user.emailEncrypted),
     photoUrl: user.photoUrl,
     role: user.role,
     preferredSide: user.preferredSide,
   };
 }
 
-function roleForEmailHash(emailHash: string | null): UserRole {
-  return emailHash && ADMIN_EMAIL_HASHES.has(emailHash) ? "ADMIN" : "STUDENT";
-}
-
-// Transição: conta criada antes do hash e ainda não migrada pelo script
-// (src/scripts/hash-user-emails.ts) nem logada de novo só tem `email`.
-// Sai junto com a coluna `email` depois que o script rodar em produção.
-function emailHashOf(user: User): string | null {
-  return user.emailHash ?? (user.email ? hashEmail(user.email) : null);
+function roleForEmailHash(emailHash: string): UserRole {
+  return ADMIN_EMAIL_HASHES.has(emailHash) ? "ADMIN" : "STUDENT";
 }
 
 // Mudança de papel é rara e sensível (quem vira admin passa a mexer em
@@ -160,12 +151,9 @@ export async function upsertUserFromGoogle(profile: GoogleProfile) {
       photoUrl: profile.photoUrl,
       role,
     },
-    // `email: null` apaga o e-mail em texto de conta antiga no primeiro
-    // login depois da troca pro hash.
     update: {
       emailHash,
       emailEncrypted,
-      email: null,
       photoUrl: profile.photoUrl,
       role,
     },
@@ -371,7 +359,7 @@ async function revokeSession(sessionId: string): Promise<void> {
 }
 
 async function syncRole(user: User): Promise<User> {
-  const role = roleForEmailHash(emailHashOf(user));
+  const role = roleForEmailHash(user.emailHash);
   if (role === user.role) return user;
 
   logRoleChange(user, user.role, role);

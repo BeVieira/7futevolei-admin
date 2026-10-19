@@ -246,23 +246,11 @@ do Vite) quanto em produção (rewrite do `vercel.json`) — em ambos os casos
 O banco não guarda o e-mail em texto, só `User.emailHash` (HMAC-SHA256 com
 `EMAIL_HASH_KEY`, pra comparar) e `User.emailEncrypted` (AES-256-GCM com
 `EMAIL_ENCRYPTION_KEY`, pra mostrar no perfil) — ver
-`apps/backend/src/lib/email-crypto.ts`. Contas criadas
-antes disso são convertidas uma vez por ambiente:
+`apps/backend/src/lib/email-crypto.ts`. As duas chaves (`openssl rand -hex
+32` cada, valores diferentes) precisam estar no Render antes do deploy e
+guardadas num cofre: sem elas o backend não sobe, e trocar faz admin
+perder o papel e o perfil ficar sem e-mail até cada conta logar de novo.
 
-1. **Backup do banco** (Supabase → Database → Backups, ou `pg_dump`). A
-   conversão é irreversível: o e-mail em texto é apagado.
-2. Gerar as duas chaves (`openssl rand -hex 32` cada, valores
-   diferentes), guardar num cofre e setar `EMAIL_HASH_KEY` e
-   `EMAIL_ENCRYPTION_KEY` no Render **antes** do deploy — sem elas o
-   backend não sobe.
-3. Deploy. A migration `hash_user_email` só cria a coluna; quem logar a
-   partir daqui já é convertido no login.
-4. Converter o resto, da sua máquina, com as **mesmas** chaves e a
-   `DATABASE_URL` do Supabase (Session pooler):
-   ```
-   cd apps/backend
-   DATABASE_URL='<supabase>' EMAIL_HASH_KEY='<chave>' EMAIL_ENCRYPTION_KEY='<chave>' pnpm tsx src/scripts/hash-user-emails.ts --dry-run
-   DATABASE_URL='<supabase>' EMAIL_HASH_KEY='<chave>' EMAIL_ENCRYPTION_KEY='<chave>' pnpm tsx src/scripts/hash-user-emails.ts
-   ```
-   Termina com "Restando com e-mail em texto: 0".
-5. Depois disso, a coluna `email` pode sair numa migration seguinte.
+A conversão das contas antigas (script `hash-user-emails.ts`, removido
+depois de rodar em produção) está no histórico do git, no commit que
+criou a migration `hash_user_email`.

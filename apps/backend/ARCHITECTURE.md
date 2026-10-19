@@ -103,8 +103,7 @@ Três peças, cada uma num arquivo de `lib/`:
   busca do admin por e-mail **inteiro** —; e `encryptEmail`/`decryptEmail`
   (AES-256-GCM, `EMAIL_ENCRYPTION_KEY`) em `User.emailEncrypted`, só pra
   devolver o e-mail no perfil (`toUserProfile`). Chaves obrigatórias, o
-  backend não sobe sem. Contas anteriores ao hash são
-  convertidas por `src/scripts/hash-user-emails.ts` (ver DEPLOY.md).
+  backend não sobe sem.
 - **`requireAuth.ts`** — os dois middlewares Express. Ambos leem o cookie
   `access_token`, verificam assinatura e conferem `isSessionActive` (o
   `jti` do token ainda é o vigente no banco), respondendo `401` se
