@@ -65,24 +65,24 @@ export function CalendarModal({ selectedDate, onSelect, onClose }: Props) {
           type="button"
           onClick={goToPreviousMonth}
           aria-label="Mês anterior"
-          className="rounded-full p-1.5 hover:bg-background"
+          className="rounded-md p-2 hover:bg-raised"
         >
-          <ChevronIcon className="h-4 w-4 rotate-90 text-slate-500" />
+          <ChevronIcon className="h-4 w-4 rotate-90 text-muted" />
         </button>
-        <span className="text-sm font-semibold capitalize text-slate-800">
+        <span className="text-base font-semibold capitalize text-ink">
           {monthLabel}
         </span>
         <button
           type="button"
           onClick={goToNextMonth}
           aria-label="Próximo mês"
-          className="rounded-full p-1.5 hover:bg-background"
+          className="rounded-md p-2 hover:bg-raised"
         >
-          <ChevronIcon className="h-4 w-4 -rotate-90 text-slate-500" />
+          <ChevronIcon className="h-4 w-4 -rotate-90 text-muted" />
         </button>
       </div>
 
-      <div className="grid grid-cols-7 gap-1 text-center text-xs font-medium text-slate-400">
+      <div className="grid grid-cols-7 gap-1 text-center text-xs font-medium text-muted">
         {WEEKDAY_LABELS.map((label, i) => (
           <span key={i}>{label}</span>
         ))}
@@ -92,7 +92,7 @@ export function CalendarModal({ selectedDate, onSelect, onClose }: Props) {
         {weeks.flatMap((week, weekIndex) =>
           week.map((dateStr, dayIndex) => {
             if (!dateStr) {
-              return <div key={`${weekIndex}-${dayIndex}`} className="h-10" />;
+              return <div key={`${weekIndex}-${dayIndex}`} className="h-11" />;
             }
 
             const day = Number(dateStr.slice(-2));
@@ -105,12 +105,12 @@ export function CalendarModal({ selectedDate, onSelect, onClose }: Props) {
                 key={dateStr}
                 type="button"
                 onClick={() => onSelect(dateStr)}
-                className={`flex h-10 flex-col items-center justify-center gap-0.5 rounded-lg text-sm ${
+                className={`num flex h-11 flex-col items-center justify-center gap-0.5 rounded-md text-sm transition-colors ${
                   isSelected
                     ? "bg-accent font-semibold text-white"
                     : isToday
-                      ? "font-semibold text-accent"
-                      : "text-slate-700 hover:bg-background"
+                      ? "bg-accent-soft font-semibold text-accent-ink"
+                      : "text-ink hover:bg-raised"
                 }`}
               >
                 {day}
@@ -119,7 +119,7 @@ export function CalendarModal({ selectedDate, onSelect, onClose }: Props) {
                     hasClasses
                       ? isSelected
                         ? "bg-white"
-                        : "bg-accent"
+                        : "bg-accent-mark"
                       : "bg-transparent"
                   }`}
                 />

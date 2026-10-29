@@ -42,16 +42,16 @@ export function HorarioBlockEditor({
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-slate-200 p-3">
+    <div className="flex flex-col gap-4 rounded-md bg-background p-4">
       <div className="flex items-center justify-between">
-        <span className="text-sm font-semibold text-slate-600">
+        <span className="text-sm font-semibold text-ink">
           Horário {index + 1}
         </span>
         {canRemove && (
           <button
             type="button"
             onClick={onRemove}
-            className="text-xs font-medium text-red-600 underline"
+            className="text-action text-negative"
           >
             Remover horário
           </button>
@@ -64,16 +64,17 @@ export function HorarioBlockEditor({
           required
           value={startTime}
           onChange={e => onStartTimeChange(e.target.value)}
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-base"
+          aria-label="Início do horário"
+          className="field text-base"
         />
-        <span className="whitespace-nowrap text-sm text-slate-400">
+        <span className="num whitespace-nowrap text-sm text-muted">
           até {addOneHour(startTime)}
         </span>
       </div>
 
       <div>
         <label
-          className="mb-1 block text-sm font-medium text-slate-600"
+          className="mb-2 block text-sm font-medium text-ink"
           htmlFor={`courts-${index}`}
         >
           Quantidade de quadras
@@ -90,22 +91,19 @@ export function HorarioBlockEditor({
           value={courtsText}
           onChange={e => handleCourtsChange(e.target.value)}
           onBlur={handleCourtsBlur}
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-base"
+          className="field text-base"
         />
       </div>
 
       <div className="flex flex-col gap-3">
         {levels.map((level, courtIndex) => (
           <div key={courtIndex}>
-            <p className="mb-1 text-xs font-medium text-slate-500">
+            <p className="mb-2 text-sm font-medium text-ink">
               Quadra {courtIndex + 1}
             </p>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-2">
               {CLASS_LEVELS.map(option => (
-                <label
-                  key={option}
-                  className="flex items-center gap-1.5 text-sm text-slate-700"
-                >
+                <label key={option} className="option">
                   <input
                     type="radio"
                     name={`horario-${index}-quadra-${courtIndex}`}

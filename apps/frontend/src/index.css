@@ -2,6 +2,44 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  body {
+    @apply bg-background font-sans text-ink antialiased;
+  }
+
+  input[type="radio"],
+  input[type="checkbox"] {
+    @apply h-4 w-4 shrink-0 accent-accent;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-accent/40 ring-offset-1;
+  }
+}
+
+@layer components {
+  /* Campo de formulário: 40px, branco, borda de controle. */
+  .field {
+    @apply block min-h-[40px] w-full rounded-md border border-control bg-white px-3 py-2 text-sm text-ink placeholder:text-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20;
+  }
+
+  /* Opção (rádio) desenhada como bloco clicável: a borda e o fundo
+     mudam quando o rádio de dentro está marcado. */
+  .option {
+    @apply flex min-h-[40px] cursor-pointer items-center gap-2 rounded-md border border-control bg-white px-3 py-2 text-sm text-ink transition-colors has-[:checked]:border-accent has-[:checked]:bg-accent-soft has-[:checked]:text-accent-ink;
+  }
+
+  .text-action {
+    @apply text-sm font-medium underline decoration-1 underline-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+}
+
+@layer utilities {
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
 /* O Safari do iPhone dá zoom na tela ao focar um campo com fonte menor que
    16px (os inputs usam `text-sm`). Em tela de toque os campos ficam com 16px;
    o `!important` vence as classes `text-*` do Tailwind. Não bloqueia o zoom

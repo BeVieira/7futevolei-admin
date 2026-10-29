@@ -21,12 +21,12 @@ export function PushNotificationsInvite() {
   if (status !== "disabled" && status !== "needs-install") return null;
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-teal-200 bg-teal-50 p-3">
+    <div className="flex flex-col gap-2 rounded-md bg-accent-soft p-3">
       {status === "needs-install" ? (
         <PushInstallInstructions />
       ) : (
         <>
-          <p className="text-sm text-slate-700">
+          <p className="text-sm font-medium text-accent-ink">
             Quer ser avisado se sair da lista de espera ou na hora de enviar o
             comprovante?
           </p>
@@ -40,7 +40,7 @@ export function PushNotificationsInvite() {
         </>
       )}
       {enableMutation.error && (
-        <p className="text-xs text-red-600">{enableMutation.error.message}</p>
+        <p className="text-xs text-negative">{enableMutation.error.message}</p>
       )}
       <Button
         type="button"

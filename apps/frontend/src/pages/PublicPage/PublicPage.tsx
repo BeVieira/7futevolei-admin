@@ -1,6 +1,10 @@
 import { useMemo, useState } from "react";
 import { StudentClassSessionCard } from "./components/StudentClassSessionCard";
-import { Button, CalendarModal, CollapsibleSectionHeader } from "@components";
+import {
+  CalendarModal,
+  CollapsibleSectionHeader,
+  DatePickerButton,
+} from "@components";
 import {
   aulaService,
   enrollmentService,
@@ -10,7 +14,7 @@ import {
   useGetMyEnrollments,
   useGetNextAvailableDate,
 } from "@domain";
-import { formatDateLabel, pluralize } from "@utils";
+import { pluralize } from "@utils";
 
 export function PublicPage() {
   const { data: nextAvailableDate } = useGetNextAvailableDate();
@@ -63,20 +67,19 @@ export function PublicPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <p className="mb-1 text-sm font-medium text-slate-600">
-          Data das aulas
-        </p>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => setCalendarOpen(true)}
-          disabled={!date}
-          className="text-left"
-        >
-          {date ? formatDateLabel(date) : "Carregando..."}
-        </Button>
+    <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-bold tracking-tight text-ink sm:text-[32px]">
+            Aulas
+          </h1>
+          <p className="num text-sm text-muted">
+            {!isLoading && sessions.length > 0
+              ? `${pluralize(groups.length, "horário", "horários")} · ${pluralize(sessions.length, "turma", "turmas")}`
+              : "Escolha a data, a turma e o seu lado da quadra."}
+          </p>
+        </div>
+        <DatePickerButton date={date} onClick={() => setCalendarOpen(true)} />
       </div>
 
       {calendarOpen && date && (
@@ -90,10 +93,10 @@ export function PublicPage() {
         />
       )}
 
-      {isLoading && <p className="text-slate-500">Carregando...</p>}
-      {isError && <p className="text-red-600">{error?.message}</p>}
+      {isLoading && <p className="text-sm text-muted">Carregando...</p>}
+      {isError && <p className="text-sm text-negative">{error?.message}</p>}
       {!isLoading && !isError && sessions.length === 0 && (
-        <p className="text-slate-500">
+        <p className="rounded-lg border border-dashed border-control px-4 py-6 text-center text-sm text-muted">
           Ainda não há turmas cadastradas para esta data.
         </p>
       )}
@@ -115,7 +118,7 @@ export function PublicPage() {
               onToggle={() => toggleSlot(slotKey)}
             />
             {!isCollapsed && (
-              <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-4">
+              <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 {slotSessions.map(session => (
                   <StudentClassSessionCard
                     key={session.id}

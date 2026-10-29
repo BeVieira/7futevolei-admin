@@ -56,8 +56,8 @@ export function AdminClassSessionCard({ sessionId }: Props) {
 
   if (isLoading || !detail) {
     return (
-      <div className="rounded-xl border border-slate-200 bg-card p-4 shadow-sm">
-        <p className="text-sm text-slate-400">Carregando...</p>
+      <div className="rounded-lg border border-line bg-card p-4">
+        <p className="text-sm text-muted">Carregando...</p>
       </div>
     );
   }
@@ -70,21 +70,22 @@ export function AdminClassSessionCard({ sessionId }: Props) {
   return (
     <ClassSessionCard
       title={detail.classLevel}
+      occupancy={{ filled: detail.confirmedCount, total: detail.capacity }}
       headerRight={
-        <span className="flex items-center gap-1.5 text-sm text-slate-600">
+        <span className="num flex items-center gap-1.5 text-sm text-muted">
           <PeopleIcon className="h-4 w-4" />
-          {totalEnrolled}/{detail.capacity}
+          <span>
+            <span className="font-semibold text-ink">{totalEnrolled}</span>/
+            {detail.capacity}
+          </span>
         </span>
       }
     >
       {editing ? (
-        <div className="flex flex-col gap-2">
-          <div className="flex flex-wrap gap-3">
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap gap-2">
             {CLASS_LEVELS.map(option => (
-              <label
-                key={option}
-                className="flex items-center gap-1.5 text-sm text-slate-700"
-              >
+              <label key={option} className="option">
                 <input
                   type="radio"
                   name={`classLevel-${sessionId}`}
@@ -103,11 +104,12 @@ export function AdminClassSessionCard({ sessionId }: Props) {
             min={1}
             value={capacity}
             onChange={e => setCapacity(Number(e.target.value))}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            aria-label="Vagas"
+            className="field"
           />
           <div>
             <label
-              className="mb-1 block text-xs font-medium text-slate-500"
+              className="mb-2 block text-sm font-medium text-ink"
               htmlFor={`lockAt-${sessionId}`}
             >
               Trancar lista às (opcional)
@@ -116,7 +118,7 @@ export function AdminClassSessionCard({ sessionId }: Props) {
               id={`lockAt-${sessionId}`}
               value={lockAt}
               onChange={e => setLockAt(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              className="field"
             >
               <option value="">Não trancar</option>
               {lockAt && !buildLockTimeOptions().includes(lockAt) && (
@@ -128,7 +130,7 @@ export function AdminClassSessionCard({ sessionId }: Props) {
                 </option>
               ))}
             </select>
-            <p className="mt-1 text-xs text-slate-400">
+            <p className="mt-1.5 text-xs text-muted">
               Tranca no dia anterior (
               {formatPreviousDayLabel(detail.date.slice(0, 10))}).
             </p>
@@ -155,11 +157,11 @@ export function AdminClassSessionCard({ sessionId }: Props) {
           </div>
         </div>
       ) : (
-        <div className="flex justify-end gap-3">
+        <div className="flex justify-end gap-4">
           <button
             type="button"
             onClick={startEditing}
-            className="text-xs font-medium text-teal-500 underline"
+            className="text-action text-ink"
           >
             Editar
           </button>
@@ -167,7 +169,7 @@ export function AdminClassSessionCard({ sessionId }: Props) {
             type="button"
             onClick={() => deleteMutation.mutate()}
             disabled={busy}
-            className="text-xs font-medium text-red-600 underline"
+            className="text-action text-negative"
           >
             Remover
           </button>
@@ -176,7 +178,7 @@ export function AdminClassSessionCard({ sessionId }: Props) {
 
       {detail.lockAt && (
         <p
-          className={`text-xs font-medium ${detail.isLocked ? "text-red-600" : "text-slate-500"}`}
+          className={`num text-xs font-medium ${detail.isLocked ? "text-negative" : "text-muted"}`}
         >
           {detail.isLocked
             ? `Lista trancada desde as ${detail.lockAt} de ${formatPreviousDayLabel(detail.date.slice(0, 10))}`
@@ -184,28 +186,28 @@ export function AdminClassSessionCard({ sessionId }: Props) {
         </p>
       )}
 
-      {error && <p className="text-xs text-red-600">{error.message}</p>}
+      {error && <p className="text-sm text-negative">{error.message}</p>}
 
       <div>
         {detail.confirmed.length === 0 ? (
-          <p className="text-xs text-slate-400">Ninguém inscrito ainda.</p>
+          <p className="text-sm text-muted">Ninguém inscrito ainda.</p>
         ) : (
-          <p className="mb-1 text-xs font-semibold uppercase text-slate-400">
-            Confirmados
+          <p className="num mb-1 text-xs font-medium text-muted">
+            Confirmados · {detail.confirmed.length}
           </p>
         )}
-        <ul className="flex flex-col gap-1">
+        <ul className="flex flex-col divide-y divide-rule">
           {detail.confirmed.map(enrollment => (
             <li
               key={enrollment.id}
-              className="flex items-center justify-between text-sm text-slate-700"
+              className="flex min-h-[40px] items-center justify-between gap-2 py-1.5 text-sm"
             >
               <EnrollmentLabel enrollment={enrollment} />
               <button
                 type="button"
                 onClick={() => handleRemoveEnrollment(enrollment.id)}
                 disabled={busy}
-                className="text-xs font-medium text-red-600 underline"
+                className="text-action shrink-0 text-negative"
               >
                 Remover
               </button>
@@ -216,21 +218,21 @@ export function AdminClassSessionCard({ sessionId }: Props) {
 
       {detail.waitlist.length > 0 && (
         <div>
-          <p className="mb-1 text-xs font-semibold uppercase text-slate-400">
-            Lista de espera
+          <p className="num mb-1 text-xs font-medium text-muted">
+            Lista de espera · {detail.waitlist.length}
           </p>
-          <ul className="flex flex-col gap-1">
+          <ul className="flex flex-col divide-y divide-rule">
             {detail.waitlist.map(enrollment => (
               <li
                 key={enrollment.id}
-                className="flex items-center justify-between text-sm text-slate-700"
+                className="flex min-h-[40px] items-center justify-between gap-2 py-1.5 text-sm"
               >
                 <EnrollmentLabel enrollment={enrollment} />
                 <button
                   type="button"
                   onClick={() => handleRemoveEnrollment(enrollment.id)}
                   disabled={busy}
-                  className="text-xs font-medium text-red-600 underline"
+                  className="text-action shrink-0 text-negative"
                 >
                   Remover
                 </button>
@@ -264,11 +266,11 @@ function EnrollmentLabel({
   enrollment: AdminEnrollmentSummary;
 }) {
   return (
-    <span className="flex flex-wrap items-center gap-1">
-      {enrollment.studentName}
+    <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
+      <span className="font-medium text-ink">{enrollment.studentName}</span>
       {enrollmentService.isGuest(enrollment) && <GuestBadge />}
-      <span className="text-xs text-slate-400">
-        ({enrollmentService.sideLabel(enrollment.side)})
+      <span className="text-xs text-muted">
+        {enrollmentService.sideLabel(enrollment.side)}
       </span>
     </span>
   );

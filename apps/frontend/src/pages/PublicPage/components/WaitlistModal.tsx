@@ -16,29 +16,33 @@ export function WaitlistModal({
 }: Props) {
   return (
     <Modal title="Lista de espera" onClose={onClose}>
-      {loading && <p className="text-sm text-slate-400">Carregando...</p>}
+      {loading && <p className="text-sm text-muted">Carregando...</p>}
       {!loading && waitlist.length === 0 && (
-        <p className="text-sm text-slate-400">Ninguém na lista de espera.</p>
+        <p className="text-sm text-muted">Ninguém na lista de espera.</p>
       )}
       {!loading && waitlist.length > 0 && (
-        <ul className="flex flex-col gap-2">
-          {waitlist.map((enrollment) => (
+        // A ordem importa: é a ordem em que as vagas são oferecidas.
+        <ol className="flex flex-col divide-y divide-rule">
+          {waitlist.map((enrollment, position) => (
             <li
               key={enrollment.id}
-              className="flex items-center justify-between rounded-xl bg-background px-3 py-2 text-sm"
+              className="flex items-center gap-3 py-2.5 text-sm"
             >
-              <span className="font-medium text-slate-800">
+              <span className="num w-5 text-right text-muted">
+                {position + 1}.
+              </span>
+              <span className="flex-1 font-medium text-ink">
                 {enrollment.studentName}
               </span>
-              <span className="text-xs text-slate-500">
+              <span className="text-xs text-muted">
                 {enrollmentService.sideLabel(enrollment.side)}
               </span>
             </li>
           ))}
-        </ul>
+        </ol>
       )}
       {onJoinWaitlist && (
-        <Button className="mt-3" onClick={onJoinWaitlist}>
+        <Button className="mt-4 sm:w-full" onClick={onJoinWaitlist}>
           Entrar na lista de espera
         </Button>
       )}

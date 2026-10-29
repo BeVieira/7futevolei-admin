@@ -18,18 +18,20 @@ export function CollapsibleSectionHeader({
       type="button"
       onClick={onToggle}
       aria-expanded={!collapsed}
-      className="flex w-full items-center justify-between gap-2 border-b border-slate-200 pb-2 text-left"
+      className="flex min-h-[44px] w-full items-center justify-between gap-3 border-b border-line pb-2 text-left"
     >
       <span className="flex items-center gap-2">
         <ChevronIcon
-          className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${
+          className={`h-4 w-4 shrink-0 text-muted transition-transform ${
             collapsed ? "-rotate-90" : ""
           }`}
         />
-        <span className="text-base font-semibold text-slate-700">{label}</span>
+        <span className="num text-lg font-semibold tracking-tight text-ink">
+          {label}
+        </span>
       </span>
       {meta && (
-        <span className="text-xs font-medium text-slate-400">{meta}</span>
+        <span className="num text-right text-[13px] text-muted">{meta}</span>
       )}
     </button>
   );

@@ -5,6 +5,7 @@ import {
   CalendarModal,
   Card,
   CollapsibleSectionHeader,
+  DatePickerButton,
 } from "@components";
 import {
   ClassLevel,
@@ -116,21 +117,15 @@ export function AdminPage() {
   const groups = aulaService.groupClassesByTimeSlot(sessions);
 
   return (
-    <div className="flex flex-col gap-8">
-      <AdminTabs />
-
-      <div>
-        <p className="mb-1 text-sm font-medium text-slate-600">Data</p>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => setCalendarOpen(true)}
-          disabled={!date}
-          className="text-left"
-        >
-          {date ? formatDateLabel(date) : "Carregando..."}
-        </Button>
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-4">
+        <h1 className="text-2xl font-bold tracking-tight text-ink sm:text-[32px]">
+          Admin
+        </h1>
+        <AdminTabs />
       </div>
+
+      <DatePickerButton date={date} onClick={() => setCalendarOpen(true)} />
 
       {calendarOpen && date && (
         <CalendarModal
@@ -151,14 +146,14 @@ export function AdminPage() {
         />
         {!formCollapsed && (
           <form onSubmit={handleCreateDay} className="mt-4 flex flex-col gap-4">
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-muted">
               Criando para{" "}
-              <span className="font-medium">{formatDateLabel(date)}</span>
+              <span className="font-medium text-ink">{formatDateLabel(date)}</span>
             </p>
 
             <div>
               <label
-                className="mb-1 block text-sm font-medium text-slate-600"
+                className="mb-2 block text-sm font-medium text-ink"
                 htmlFor="admin-lock-at"
               >
                 Trancar lista às (opcional)
@@ -167,7 +162,7 @@ export function AdminPage() {
                 id="admin-lock-at"
                 value={lockAt}
                 onChange={e => setLockAt(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-base"
+                className="field text-base"
               >
                 <option value="">Não trancar</option>
                 {buildLockTimeOptions().map(time => (
@@ -176,7 +171,7 @@ export function AdminPage() {
                   </option>
                 ))}
               </select>
-              <p className="mt-1 text-xs text-slate-400">
+              <p className="mt-1.5 text-xs text-muted">
                 A lista tranca no dia anterior ({formatPreviousDayLabel(date)}
                 ), no horário escolhido. Após isso, quem já estiver inscrito não
                 poderá mais cancelar. Vale para todas as turmas criadas neste
@@ -208,7 +203,7 @@ export function AdminPage() {
             </div>
 
             {createDayMutation.isError && (
-              <p className="text-sm text-red-600">
+              <p className="text-sm text-negative">
                 {createDayMutation.error.message}
               </p>
             )}
@@ -222,9 +217,9 @@ export function AdminPage() {
         )}
       </Card>
 
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-6 pt-2">
         <div className="flex items-start justify-between gap-3">
-          <h2 className="text-lg font-semibold text-slate-800">
+          <h2 className="text-xl font-semibold tracking-tight text-ink">
             Turmas do dia
           </h2>
           <NotifyClassesOpenedButton
@@ -232,9 +227,9 @@ export function AdminPage() {
             disabled={isLoading || sessions.length === 0}
           />
         </div>
-        {isLoading && <p className="text-slate-500">Carregando...</p>}
+        {isLoading && <p className="text-sm text-muted">Carregando...</p>}
         {!isLoading && sessions.length === 0 && (
-          <p className="text-slate-500">
+          <p className="rounded-lg border border-dashed border-control px-4 py-6 text-center text-sm text-muted">
             Ainda não há turmas cadastradas para esta data.
           </p>
         )}
@@ -254,7 +249,7 @@ export function AdminPage() {
                 onToggle={() => toggleSlot(slotKey)}
               />
               {!isCollapsed && (
-                <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-4">
+                <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2 xl:grid-cols-4">
                   {slotSessions.map(session => (
                     <AdminClassSessionCard
                       key={session.id}

@@ -3,15 +3,15 @@
 // convite pós-inscrição.
 export function PushInstallInstructions() {
   return (
-    <div className="flex flex-col gap-1 text-sm text-slate-600">
-      <p className="font-medium text-slate-700">
+    <div className="flex flex-col gap-1 text-sm text-muted">
+      <p className="font-medium text-ink">
         Quer receber notificações no iPhone?
       </p>
       <p>
         Adicione o app à tela de início: toque em{" "}
-        <span className="font-medium">Compartilhar</span> (o quadrado com a
+        <span className="font-medium text-ink">Compartilhar</span> (o quadrado com a
         seta) e depois em{" "}
-        <span className="font-medium">Adicionar à Tela de Início</span>. Abra o
+        <span className="font-medium text-ink">Adicionar à Tela de Início</span>. Abra o
         app pelo ícone novo, entre com sua conta e ative as notificações no seu
         perfil.
       </p>

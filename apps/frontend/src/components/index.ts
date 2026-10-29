@@ -4,6 +4,7 @@ export { BottomNav } from "./BottomNav";
 export { Button } from "./Button";
 export { CalendarModal } from "./CalendarModal";
 export { Card } from "./Card";
+export { DatePickerButton } from "./DatePickerButton";
 export { ClassSessionCard } from "./ClassSessionCard";
 export { CollapsibleSectionHeader } from "./CollapsibleSectionHeader";
 export { GuestBadge } from "./GuestBadge";

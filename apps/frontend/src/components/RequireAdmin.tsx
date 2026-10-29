@@ -8,11 +8,11 @@ export function RequireAdmin() {
   const { data: me, isLoading, isError, error } = useGetMe();
 
   if (isLoading) {
-    return <p className="text-slate-500">Carregando...</p>;
+    return <p className="text-muted">Carregando...</p>;
   }
 
   if (isError) {
-    return <p className="text-red-600">{error.message}</p>;
+    return <p className="text-negative">{error.message}</p>;
   }
 
   if (!me) {

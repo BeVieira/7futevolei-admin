@@ -66,14 +66,19 @@ export function LoginPage() {
       : (googleError?.message ?? null);
 
   if (isLoadingMe || me) {
-    return <p className="text-slate-500">Carregando...</p>;
+    return <p className="text-sm text-muted">Carregando...</p>;
   }
 
   return (
-    <div className="flex justify-center">
-      <Card className="flex w-full max-w-sm flex-col items-center gap-4">
-        <h1 className="text-lg font-semibold text-slate-800">Entrar</h1>
-        <p className="text-center text-sm text-slate-600">
+    <div className="flex justify-center pt-4 sm:pt-12">
+      <Card className="flex w-full max-w-sm flex-col items-center gap-4 p-6">
+        <img
+          src="/pwa-192x192.png"
+          alt=""
+          className="h-14 w-14 rounded-full"
+        />
+        <h1 className="text-2xl font-bold tracking-tight text-ink">Entrar</h1>
+        <p className="text-center text-sm text-muted">
           Use sua conta Google para se inscrever nas aulas, ver suas inscrições
           e enviar comprovantes.
         </p>
@@ -82,7 +87,7 @@ export function LoginPage() {
           className="flex min-h-[44px] w-full justify-center"
         />
         {errorMessage && (
-          <p className="text-center text-sm text-red-600">{errorMessage}</p>
+          <p className="text-center text-sm text-negative">{errorMessage}</p>
         )}
       </Card>
     </div>

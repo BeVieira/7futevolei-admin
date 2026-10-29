@@ -51,14 +51,14 @@ export function NotifyClassesOpenedButton({ date, disabled }: Props) {
       </Button>
 
       {notifyMutation.isSuccess && (
-        <p className="text-right text-xs text-slate-500">
+        <p className="text-right text-xs text-muted">
           Aviso enviado para{" "}
           {pluralize(notifyMutation.data.devicesNotified, "aparelho", "aparelhos")}
           .
         </p>
       )}
       {notifyMutation.isError && (
-        <p className="text-right text-xs text-red-600">
+        <p className="text-right text-xs text-negative">
           {notifyMutation.error.message}
         </p>
       )}
@@ -86,9 +86,9 @@ function NotifyAgainModal({
   return (
     <Modal title="Notificar novamente?" onClose={onClose}>
       <div className="flex flex-col gap-4">
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-muted">
           Já foi enviado um aviso de turmas abertas hoje às{" "}
-          <span className="font-medium">
+          <span className="num font-medium text-ink">
             {formatSentAt(lastSentToday.sentAt)}
           </span>{" "}
           (aulas de {formatDateLabel(lastSentToday.classDate)}). Enviar de novo

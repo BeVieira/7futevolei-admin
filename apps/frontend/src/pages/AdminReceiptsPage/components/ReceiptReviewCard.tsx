@@ -13,9 +13,9 @@ type Props = {
 };
 
 const STATUS_BADGE_CLASSES: Record<string, string> = {
-  APPROVED: "bg-emerald-100 text-emerald-700",
-  REJECTED: "bg-red-100 text-red-700",
-  PENDING: "bg-amber-100 text-amber-700",
+  APPROVED: "bg-positive-bg text-positive-ink",
+  REJECTED: "bg-negative-bg text-negative-ink",
+  PENDING: "border border-warning-border bg-warning-bg text-warning-ink",
 };
 
 type EntryWithListLabel = AdminEnrollmentSummary & {
@@ -28,7 +28,7 @@ export function ReceiptReviewCard({ sessionId }: Props) {
   if (isLoading || !detail) {
     return (
       <Card>
-        <p className="text-sm text-slate-400">Carregando...</p>
+        <p className="text-sm text-muted">Carregando...</p>
       </Card>
     );
   }
@@ -45,27 +45,28 @@ export function ReceiptReviewCard({ sessionId }: Props) {
   return (
     <ClassSessionCard
       title={detail.classLevel}
+      occupancy={{ filled: approvedCount, total: entries.length }}
       headerRight={
         <span
-          className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+          className={`num whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${
             allApproved
-              ? "bg-emerald-100 text-emerald-700"
-              : "bg-slate-100 text-slate-600"
+              ? "bg-positive-bg text-positive-ink"
+              : "bg-raised text-muted"
           }`}
         >
           {approvedCount}/{entries.length} aprovados
         </span>
       }
     >
-      <p className="text-sm text-slate-500">
+      <p className="num text-[13px] text-muted">
         {detail.startTime} - {detail.endTime}
       </p>
 
       {entries.length === 0 && (
-        <p className="text-xs text-slate-400">Ninguém inscrito.</p>
+        <p className="text-sm text-muted">Ninguém inscrito.</p>
       )}
 
-      <ul className="flex flex-col gap-2">
+      <ul className="flex flex-col divide-y divide-rule">
         {entries.map(enrollment => (
           <ReceiptReviewRow
             key={enrollment.id}
@@ -107,19 +108,19 @@ function ReceiptReviewRow({ sessionId, enrollment }: RowProps) {
   }
 
   return (
-    <li className="flex flex-col gap-1 border-b border-slate-100 pb-2 last:border-0 last:pb-0">
+    <li className="flex flex-col gap-1.5 py-2.5 first:pt-0 last:pb-0">
       <div className="flex items-center justify-between gap-2">
-        <span className="flex flex-wrap items-center gap-1 text-sm text-slate-700">
-          {enrollment.studentName}
+        <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm">
+          <span className="font-medium text-ink">{enrollment.studentName}</span>
           {enrollmentService.isGuest(enrollment) && <GuestBadge />}
-          <span className="text-xs text-slate-400">
-            ({enrollmentService.sideLabel(enrollment.side)} ·{" "}
-            {enrollment.listLabel})
+          <span className="text-xs text-muted">
+            {enrollmentService.sideLabel(enrollment.side)} ·{" "}
+            {enrollment.listLabel}
           </span>
         </span>
         {receipt && (
           <span
-            className={`inline-flex w-fit shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE_CLASSES[receipt.status]}`}
+            className={`flex-none whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE_CLASSES[receipt.status]}`}
           >
             {receiptService.receiptStatusLabel(receipt.status)}
           </span>
@@ -127,7 +128,7 @@ function ReceiptReviewRow({ sessionId, enrollment }: RowProps) {
       </div>
 
       {!receipt && (
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-muted">
           {enrollmentService.isGuest(enrollment)
             ? "Convidado — não envia comprovante pelo app."
             : "Sem comprovante enviado."}
@@ -140,29 +141,29 @@ function ReceiptReviewRow({ sessionId, enrollment }: RowProps) {
             href={receipt.filePath}
             target="_blank"
             rel="noreferrer"
-            className="w-fit text-xs text-teal-600 underline"
+            className="text-action w-fit text-accent-ink"
           >
             Ver comprovante
           </a>
 
           {receipt.status === "REJECTED" && receipt.adminComment && (
-            <p className="text-xs text-red-700">{receipt.adminComment}</p>
+            <p className="text-sm text-negative-ink">{receipt.adminComment}</p>
           )}
 
           {receipt.status === "PENDING" && (
             <>
               {reviewMutation.isError && (
-                <p className="text-xs text-red-600">
+                <p className="text-sm text-negative">
                   {reviewMutation.error.message}
                 </p>
               )}
               {!rejecting ? (
-                <div className="flex gap-3">
+                <div className="flex gap-4">
                   <button
                     type="button"
                     onClick={handleApprove}
                     disabled={reviewMutation.isPending}
-                    className="text-xs font-medium text-emerald-600 underline"
+                    className="text-action text-positive"
                   >
                     Aprovar
                   </button>
@@ -170,27 +171,28 @@ function ReceiptReviewRow({ sessionId, enrollment }: RowProps) {
                     type="button"
                     onClick={() => setRejecting(true)}
                     disabled={reviewMutation.isPending}
-                    className="text-xs font-medium text-red-600 underline"
+                    className="text-action text-negative"
                   >
                     Negar
                   </button>
                 </div>
               ) : (
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-2">
                   <textarea
                     autoFocus
                     value={comment}
                     onChange={e => setComment(e.target.value)}
                     placeholder="Motivo da recusa"
                     rows={2}
-                    className="w-full rounded-lg border border-slate-300 px-2 py-1 text-xs"
+                    aria-label="Motivo da recusa"
+                    className="field"
                   />
-                  <div className="flex gap-3">
+                  <div className="flex gap-4">
                     <button
                       type="button"
                       onClick={handleConfirmReject}
                       disabled={!comment.trim() || reviewMutation.isPending}
-                      className="text-xs font-medium text-red-600 underline disabled:text-slate-300"
+                      className="text-action text-negative"
                     >
                       Confirmar recusa
                     </button>
@@ -201,7 +203,7 @@ function ReceiptReviewRow({ sessionId, enrollment }: RowProps) {
                         setComment("");
                       }}
                       disabled={reviewMutation.isPending}
-                      className="text-xs font-medium text-slate-500 underline"
+                      className="text-action text-muted"
                     >
                       Cancelar
                     </button>

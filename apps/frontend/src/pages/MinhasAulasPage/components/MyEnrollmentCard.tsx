@@ -13,9 +13,9 @@ type Props = {
 };
 
 const STATUS_BADGE_CLASSES: Record<string, string> = {
-  APPROVED: "bg-emerald-100 text-emerald-700",
-  REJECTED: "bg-red-100 text-red-700",
-  PENDING: "bg-amber-100 text-amber-700",
+  APPROVED: "bg-positive-bg text-positive-ink",
+  REJECTED: "bg-negative-bg text-negative-ink",
+  PENDING: "border border-warning-border bg-warning-bg text-warning-ink",
 };
 
 export function MyEnrollmentCard({ entry }: Props) {
@@ -33,42 +33,53 @@ export function MyEnrollmentCard({ entry }: Props) {
   const canUpload = !receipt || receipt.status === "REJECTED";
 
   return (
-    <Card className="flex flex-col gap-2">
-      <div className="flex items-center justify-between gap-2">
-        <span className="font-semibold text-slate-800">
-          {classSession.classLevel}
-        </span>
-        <span className="text-xs text-slate-500">
-          {enrollment.status === "WAITLISTED"
-            ? "Lista de espera"
-            : "Confirmado"}
-        </span>
+    <Card className="flex flex-col gap-3">
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-base font-semibold text-ink">
+            {classSession.classLevel}
+          </span>
+          <span
+            className={`flex-none whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${
+              enrollment.status === "WAITLISTED"
+                ? "border border-warning-border bg-warning-bg text-warning-ink"
+                : "bg-accent-soft text-accent-ink"
+            }`}
+          >
+            {enrollment.status === "WAITLISTED"
+              ? "Lista de espera"
+              : "Confirmado"}
+          </span>
+        </div>
+        <p className="num text-[13px] text-muted">
+          {formatDateLabel(classSession.date)} ·{" "}
+          {classSession.startTime}-{classSession.endTime} ·{" "}
+          {enrollmentService.sideLabel(enrollment.side)}
+        </p>
       </div>
-      <p className="text-sm text-slate-600">
-        {formatDateLabel(classSession.date)} ·{" "}
-        {classSession.startTime}-{classSession.endTime} ·{" "}
-        {enrollmentService.sideLabel(enrollment.side)}
-      </p>
 
       {receipt && (
-        <div className="flex flex-col gap-1">
-          <span
-            className={`inline-flex w-fit rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE_CLASSES[receipt.status]}`}
-          >
-            {receiptService.receiptStatusLabel(receipt.status)}
+        <div className="flex flex-col gap-1.5 rounded-md bg-background p-3">
+          <span className="flex items-center justify-between gap-2 text-sm text-muted">
+            Comprovante
+            <span
+              className={`flex-none whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE_CLASSES[receipt.status]}`}
+            >
+              {receiptService.receiptStatusLabel(receipt.status)}
+            </span>
           </span>
           {receipt.status === "PENDING" && (
             <a
               href={receipt.filePath}
               target="_blank"
               rel="noreferrer"
-              className="text-xs text-teal-600 underline"
+              className="text-action w-fit text-accent-ink"
             >
               Ver comprovante enviado
             </a>
           )}
           {receipt.status === "REJECTED" && receipt.adminComment && (
-            <p className="text-xs text-red-700">{receipt.adminComment}</p>
+            <p className="text-sm text-negative-ink">{receipt.adminComment}</p>
           )}
         </div>
       )}
@@ -79,10 +90,10 @@ export function MyEnrollmentCard({ entry }: Props) {
             type="file"
             accept="image/*,application/pdf"
             onChange={e => setFile(e.target.files?.[0] ?? null)}
-            className="w-full text-sm text-slate-600"
+            className="w-full text-sm text-muted file:mr-3 file:min-h-[40px] file:cursor-pointer file:rounded-md file:border-0 file:bg-raised file:px-3 file:py-2 file:text-sm file:font-medium file:text-ink hover:file:bg-line"
           />
           {submitMutation.isError && (
-            <p className="text-xs text-red-600">
+            <p className="text-sm text-negative">
               {submitMutation.error.message}
             </p>
           )}

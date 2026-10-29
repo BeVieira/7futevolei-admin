@@ -8,6 +8,15 @@ import {
 import { Avatar } from "./Avatar";
 import { BottomNav } from "./BottomNav";
 
+// Link do cabeçalho: ativo ganha o fundo claro da marca.
+function headerLinkClass(active: boolean): string {
+  return `rounded-md px-2.5 py-1.5 transition-colors ${
+    active
+      ? "bg-accent-soft text-accent-ink"
+      : "text-muted hover:text-ink"
+  }`;
+}
+
 export function Layout() {
   const location = useLocation();
   const { data: me, isLoading } = useGetMe();
@@ -18,21 +27,26 @@ export function Layout() {
   useSyncPushSubscription(me?.id);
 
   return (
-    <div className="min-h-screen bg-background text-slate-900">
-      <header className="sticky top-0 z-10 border-b border-slate-200 bg-card">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
-          <Link to="/" className="text-lg font-bold text-teal-500">
-            7Futevôlei
+    <div className="min-h-screen bg-background text-ink">
+      <header className="sticky top-0 z-10 border-b border-line bg-card">
+        <div className="mx-auto flex h-14 max-w-[1440px] items-center justify-between px-4 sm:px-6">
+          <Link to="/" className="flex items-center gap-2">
+            <img
+              src="/favicon-64x64.png"
+              alt=""
+              className="h-7 w-7 rounded-full"
+            />
+            <span className="text-base font-semibold tracking-tight text-ink">
+              7Futevôlei
+            </span>
           </Link>
-          <nav className="flex items-center gap-4 text-sm font-medium">
+          <nav className="flex items-center gap-2 text-sm font-medium">
             {authService.isAdmin(me) && (
               <Link
                 to="/admin"
-                className={
-                  location.pathname.startsWith("/admin")
-                    ? "text-teal-500"
-                    : "text-slate-500"
-                }
+                className={headerLinkClass(
+                  location.pathname.startsWith("/admin"),
+                )}
               >
                 Admin
               </Link>
@@ -41,18 +55,22 @@ export function Layout() {
                 piscar "Entrar" pra quem já está logado. */}
             {!isLoading &&
               (me ? (
-                <Link to="/perfil" aria-label="Meu perfil">
+                <Link
+                  to="/perfil"
+                  aria-label="Meu perfil"
+                  className={`rounded-full p-0.5 ${
+                    location.pathname === "/perfil"
+                      ? "ring-2 ring-accent-mark"
+                      : ""
+                  }`}
+                >
                   <Avatar name={me.name} photoUrl={me.photoUrl} />
                 </Link>
               ) : (
                 <Link
                   to="/login"
                   state={{ from: location.pathname + location.search }}
-                  className={
-                    location.pathname === "/login"
-                      ? "text-teal-500"
-                      : "text-slate-500"
-                  }
+                  className={headerLinkClass(location.pathname === "/login")}
                 >
                   Entrar
                 </Link>
@@ -60,7 +78,7 @@ export function Layout() {
           </nav>
         </div>
       </header>
-      <main className="mx-auto max-w-7xl px-4 py-6 pb-20">
+      <main className="mx-auto max-w-[1440px] px-4 pb-28 sm:px-6 pt-6 sm:pt-8">
         <Outlet />
       </main>
       <BottomNav />

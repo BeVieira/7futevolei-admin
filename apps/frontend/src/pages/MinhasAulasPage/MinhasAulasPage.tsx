@@ -52,24 +52,30 @@ export function MinhasAulasPage() {
   }));
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
+      <h1 className="text-2xl font-bold tracking-tight text-ink sm:text-[32px]">
+        Comprovantes
+      </h1>
+
       <Tabs options={tabs} active={filter} onChange={setFilter} />
 
-      {isLoading && <p className="text-slate-500">Carregando...</p>}
-      {isError && <p className="text-red-600">{error?.message}</p>}
+      {isLoading && <p className="text-sm text-muted">Carregando...</p>}
+      {isError && <p className="text-sm text-negative">{error?.message}</p>}
       {!isLoading && !isError && entries.length === 0 && (
-        <p className="text-slate-500">Nenhuma inscrição encontrada.</p>
+        <p className="rounded-lg border border-dashed border-control px-4 py-6 text-center text-sm text-muted">
+          Nenhuma inscrição encontrada.
+        </p>
       )}
       {!isLoading &&
         !isError &&
         entries.length > 0 &&
         filteredEntries.length === 0 && (
-          <p className="text-slate-500">
+          <p className="rounded-lg border border-dashed border-control px-4 py-6 text-center text-sm text-muted">
             Nenhuma inscrição {FILTER_LABELS[filter]} no momento.
           </p>
         )}
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {filteredEntries.map(entry => (
           <MyEnrollmentCard key={entry.enrollment.id} entry={entry} />
         ))}

@@ -213,6 +213,7 @@ export function StudentClassSessionCard({
 
       <ClassSessionCard
         title={session.classLevel}
+        occupancy={{ filled: session.confirmedCount, total: session.capacity }}
         collapsed={collapsed}
         onToggle={() => setCollapsed(v => !v)}
         headerRight={
@@ -221,35 +222,52 @@ export function StudentClassSessionCard({
               <button
                 type="button"
                 onClick={() => setWaitlistOpen(true)}
-                className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 hover:bg-amber-200"
+                className="num whitespace-nowrap rounded-full border border-warning-border bg-warning-bg px-2 py-0.5 text-xs font-medium text-warning-ink"
               >
                 {session.waitlistCount} na espera
               </button>
             )}
-            <span className="flex items-center gap-1.5 text-sm text-slate-600">
+            <span
+              className="num flex items-center gap-1.5 text-sm text-muted"
+              aria-label={`${session.confirmedCount} de ${session.capacity} vagas preenchidas`}
+            >
               <PeopleIcon className="h-4 w-4" />
-              {session.confirmedCount}/{session.capacity}
+              <span>
+                <span className="font-semibold text-ink">
+                  {session.confirmedCount}
+                </span>
+                /{session.capacity}
+              </span>
             </span>
           </>
         }
       >
-        <SideSlots label="Esquerda" names={leftSlots} />
-        <SideSlots label="Direita" names={rightSlots} />
+        {/* A quadra: os dois lados lado a lado, a rede (linha branca) no meio. */}
+        <div className="grid grid-cols-2 divide-x-2 divide-card overflow-hidden rounded-md bg-accent-soft">
+          <SideSlots label="Esquerda" names={leftSlots} />
+          <SideSlots label="Direita" names={rightSlots} />
+        </div>
 
         {actionError && (
-          <p className="text-xs text-red-600">{actionError.message}</p>
+          <p className="text-sm text-negative">{actionError.message}</p>
         )}
 
         {enrolled ? (
           <div className="flex flex-col gap-2">
-            <p className="text-sm text-teal-500">
+            <p
+              className={`rounded-md px-3 py-2 text-sm font-medium ${
+                enrolled.status === "WAITLISTED"
+                  ? "border border-warning-border bg-warning-bg text-warning-ink"
+                  : "bg-accent-soft text-accent-ink"
+              }`}
+            >
               {enrolled.status === "WAITLISTED"
                 ? `${enrolled.name}, você está na lista de espera`
                 : `${enrolled.name}, você está inscrito`}
             </p>
             {showPushInvite && <PushNotificationsInvite />}
             {session.isLocked ? (
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-muted">
                 Lista trancada — não é mais possível cancelar. Fale com o
                 professor em caso de imprevisto.
               </p>
@@ -264,10 +282,10 @@ export function StudentClassSessionCard({
             )}
           </div>
         ) : showForm && (!me || mySide) ? (
-          <form onSubmit={handleSubmitForm} className="flex flex-col gap-2">
+          <form onSubmit={handleSubmitForm} className="flex flex-col gap-3">
             {me && mySide ? (
-              <p className="text-sm text-slate-600">
-                Inscrevendo <span className="font-medium">{me.name}</span> no
+              <p className="text-sm text-muted">
+                Inscrevendo <span className="font-medium text-ink">{me.name}</span> no
                 lado {enrollmentService.sideLabel(mySide).toLowerCase()}
                 {mySideFull ? " (lista de espera)" : ""}
               </p>
@@ -278,16 +296,14 @@ export function StudentClassSessionCard({
                   required
                   maxLength={100}
                   placeholder="Seu nome"
+                  aria-label="Seu nome"
                   value={guestName}
                   onChange={e => setGuestName(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  className="field"
                 />
-                <div className="flex flex-wrap gap-4">
+                <div className="grid grid-cols-2 gap-2">
                   {(["LEFT", "RIGHT"] as const).map(side => (
-                    <label
-                      key={side}
-                      className="flex items-center gap-1.5 text-sm text-slate-700"
-                    >
+                    <label key={side} className="option">
                       <input
                         type="radio"
                         required
@@ -296,21 +312,27 @@ export function StudentClassSessionCard({
                         checked={guestSide === side}
                         onChange={() => setGuestSide(side)}
                       />
-                      {enrollmentService.sideLabel(side)}
-                      {isSideFull(side) ? " (lista de espera)" : ""}
+                      <span className="flex flex-col leading-tight">
+                        {enrollmentService.sideLabel(side)}
+                        {isSideFull(side) && (
+                          <span className="text-xs font-normal text-muted">
+                            lista de espera
+                          </span>
+                        )}
+                      </span>
                     </label>
                   ))}
                 </div>
               </>
             )}
             {session.isLocked && (
-              <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800">
-                <p className="mb-2 font-medium">
+              <div className="rounded-md border border-warning-border bg-warning-bg p-3 text-sm text-warning-ink">
+                <p className="mb-2.5 font-medium">
                   A lista dessa aula já está trancada. Ao se inscrever agora
                   você não poderá mais cancelar e se compromete a participar,
                   mediante pagamento, mesmo em caso de ausência.
                 </p>
-                <label className="flex items-center gap-1.5">
+                <label className="flex items-center gap-2">
                   <input
                     type="checkbox"
                     required
@@ -338,7 +360,7 @@ export function StudentClassSessionCard({
             </div>
           </form>
         ) : (
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1.5">
             <Button onClick={participate} disabled={submitting}>
               {me && !mySide
                 ? "Escolher meu lado para participar"
@@ -347,7 +369,7 @@ export function StudentClassSessionCard({
                   : "Quero participar"}
             </Button>
             {mySide && (
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-muted">
                 Você entra no lado{" "}
                 {enrollmentService.sideLabel(mySide).toLowerCase()} — dá pra
                 trocar no perfil.

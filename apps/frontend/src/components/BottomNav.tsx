@@ -15,19 +15,26 @@ export function BottomNav() {
   const location = useLocation();
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-10 border-t border-slate-200 bg-card">
-      <div className="mx-auto flex max-w-7xl divide-x divide-slate-200">
+    <nav className="fixed inset-x-0 bottom-0 z-10 border-t border-line bg-card pb-[env(safe-area-inset-bottom)]">
+      <div className="mx-auto flex max-w-[1440px]">
         {TABS.map(({ to, label, Icon, isActive }) => {
           const active = isActive(location.pathname);
           return (
             <Link
               key={to}
               to={to}
-              className={`flex flex-1 flex-col items-center gap-1 py-2 text-xs font-medium ${
-                active ? "text-teal-500" : "text-slate-500"
+              aria-current={active ? "page" : undefined}
+              className={`flex flex-1 flex-col items-center gap-1 pb-2 pt-2.5 text-xs ${
+                active ? "font-semibold text-ink" : "font-medium text-muted"
               }`}
             >
-              <Icon className="h-6 w-6" />
+              <span
+                className={`flex h-7 w-14 items-center justify-center rounded-full transition-colors ${
+                  active ? "bg-accent-soft text-accent" : ""
+                }`}
+              >
+                <Icon className="h-5 w-5" />
+              </span>
               {label}
             </Link>
           );

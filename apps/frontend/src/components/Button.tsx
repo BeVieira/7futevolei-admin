@@ -8,12 +8,13 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 const VARIANT_CLASSES: Record<Variant, string> = {
   primary:
-    "bg-accent text-white hover:bg-accent-hover disabled:bg-accent-light",
+    "bg-accent text-white hover:bg-accent-hover disabled:bg-raised disabled:text-muted",
   secondary:
-    "bg-slate-100 text-slate-700 hover:bg-slate-200 disabled:text-slate-400",
-  danger: "bg-red-600 text-white hover:bg-red-700 disabled:bg-red-300",
+    "bg-raised text-ink hover:bg-line disabled:text-muted",
+  danger:
+    "border border-negative/30 bg-card text-negative hover:bg-negative-bg disabled:opacity-50",
   outline:
-    "border border-slate-300 bg-card text-slate-800 hover:bg-background disabled:text-slate-400",
+    "border border-control bg-card text-ink hover:bg-background disabled:text-muted",
 };
 
 export function Button({
@@ -23,7 +24,7 @@ export function Button({
 }: ButtonProps) {
   return (
     <button
-      className={`w-full rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed sm:w-auto ${VARIANT_CLASSES[variant]} ${className}`}
+      className={`inline-flex min-h-[40px] w-full items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed sm:w-auto ${VARIANT_CLASSES[variant]} ${className}`}
       {...props}
     />
   );

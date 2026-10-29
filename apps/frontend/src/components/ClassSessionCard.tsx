@@ -7,6 +7,9 @@ type Props = {
   headerRight?: ReactNode;
   children: ReactNode;
   className?: string;
+  // Lotação da turma: desenha uma barra fina na proporção real sob o
+  // cabeçalho, visível mesmo com o card recolhido.
+  occupancy?: { filled: number; total: number };
   // Sem `collapsed`/`onToggle`: o card controla seu próprio estado (caso da
   // maioria das telas). Passe os dois quando a tela precisar expandir o
   // card de fora (ex.: ao entrar na lista de espera pelo modal).
@@ -20,6 +23,7 @@ export function ClassSessionCard({
   headerRight,
   children,
   className = "",
+  occupancy,
   collapsed: collapsedProp,
   defaultCollapsed = true,
   onToggle,
@@ -53,26 +57,50 @@ export function ClassSessionCard({
     }
   }
 
+  const occupancyRatio =
+    occupancy && occupancy.total > 0
+      ? Math.min(occupancy.filled / occupancy.total, 1)
+      : 0;
+
   return (
-    <Card className={`flex flex-col gap-3 ${className}`}>
-      <div
-        role="button"
-        tabIndex={0}
-        aria-expanded={!collapsed}
-        onClick={handleHeaderClick}
-        onKeyDown={handleHeaderKeyDown}
-        className="flex cursor-pointer items-center justify-between gap-2"
-      >
-        <span className="flex items-center gap-1.5">
-          <ChevronIcon
-            className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${
-              collapsed ? "-rotate-90" : ""
-            }`}
-          />
-          <span className="font-semibold text-slate-800">{title}</span>
-        </span>
-        {headerRight && (
-          <span className="flex items-center gap-2">{headerRight}</span>
+    <Card className={`flex flex-col gap-4 ${className}`}>
+      <div className="flex flex-col gap-2.5">
+        <div
+          role="button"
+          tabIndex={0}
+          aria-expanded={!collapsed}
+          onClick={handleHeaderClick}
+          onKeyDown={handleHeaderKeyDown}
+          className="-m-1 flex cursor-pointer flex-wrap items-center justify-between gap-x-3 gap-y-1.5 rounded-md p-1"
+        >
+          {/* O nome nunca é cortado: sem espaço, o `headerRight` desce
+              pra linha de baixo em vez de sobrepor ou truncar o nome. */}
+          <span className="flex items-center gap-1.5">
+            <ChevronIcon
+              className={`h-4 w-4 shrink-0 text-muted transition-transform ${
+                collapsed ? "-rotate-90" : ""
+              }`}
+            />
+            <span className="whitespace-nowrap text-base font-semibold text-ink">
+              {title}
+            </span>
+          </span>
+          {headerRight && (
+            <span className="ml-auto flex shrink-0 items-center gap-2">
+              {headerRight}
+            </span>
+          )}
+        </div>
+        {occupancy && (
+          <div
+            className="h-1 overflow-hidden rounded-full bg-accent-track"
+            aria-hidden="true"
+          >
+            <div
+              className="h-full rounded-full bg-accent-mark"
+              style={{ width: `${occupancyRatio * 100}%` }}
+            />
+          </div>
         )}
       </div>
 

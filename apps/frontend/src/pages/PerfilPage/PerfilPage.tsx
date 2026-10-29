@@ -57,41 +57,59 @@ function Perfil({ me }: { me: Me }) {
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-4">
-      <Card className="flex flex-col items-center gap-3">
+      <div className="flex items-center gap-4 pb-2">
         <Avatar
           name={me.name}
           photoUrl={me.photoUrl}
-          className="h-20 w-20 text-2xl"
+          className="h-16 w-16 text-2xl"
         />
-        {me.email && <p className="text-sm text-slate-500">{me.email}</p>}
-      </Card>
+        <div className="flex min-w-0 flex-col">
+          <h1 className="truncate text-2xl font-bold tracking-tight text-ink">
+            {me.name}
+          </h1>
+          {me.email && (
+            <p className="truncate text-sm text-muted">{me.email}</p>
+          )}
+        </div>
+      </div>
 
-      <Card className="flex flex-col gap-2">
-        <p className="text-sm font-medium text-slate-600">Seu lado na quadra</p>
-        <p className="text-xs text-slate-500">
-          {me.preferredSide
-            ? "Você é inscrito sempre neste lado. Se marcou errado, é só trocar."
-            : "Escolha uma vez: todas as suas inscrições vão ser neste lado."}
-        </p>
-        <div className="flex gap-2">
-          {SIDES.map(side => (
-            <Button
-              key={side}
-              type="button"
-              variant={me.preferredSide === side ? "primary" : "outline"}
-              aria-pressed={me.preferredSide === side}
-              disabled={updateSideMutation.isPending}
-              onClick={() => {
-                if (me.preferredSide !== side) updateSideMutation.mutate(side);
-              }}
-              className="flex-1"
-            >
-              {enrollmentService.sideLabel(side)}
-            </Button>
-          ))}
+      <Card className="flex flex-col gap-3">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-base font-semibold text-ink">
+            Seu lado na quadra
+          </h2>
+          <p className="text-sm text-muted">
+            {me.preferredSide
+              ? "Você é inscrito sempre neste lado. Se marcou errado, é só trocar."
+              : "Escolha uma vez: todas as suas inscrições vão ser neste lado."}
+          </p>
+        </div>
+        {/* Os dois lados como as duas metades da quadra. */}
+        <div className="grid grid-cols-2 gap-1 rounded-md bg-raised p-1">
+          {SIDES.map(side => {
+            const selected = me.preferredSide === side;
+            return (
+              <button
+                key={side}
+                type="button"
+                aria-pressed={selected}
+                disabled={updateSideMutation.isPending}
+                onClick={() => {
+                  if (me.preferredSide !== side) updateSideMutation.mutate(side);
+                }}
+                className={`min-h-[40px] rounded px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed ${
+                  selected
+                    ? "bg-accent text-white"
+                    : "text-muted hover:bg-card hover:text-ink"
+                }`}
+              >
+                {enrollmentService.sideLabel(side)}
+              </button>
+            );
+          })}
         </div>
         {updateSideMutation.isError && (
-          <p className="text-sm text-red-600">
+          <p className="text-sm text-negative">
             {updateSideMutation.error.message}
           </p>
         )}
@@ -106,31 +124,33 @@ function Perfil({ me }: { me: Me }) {
       </Card>
 
       <Card>
-        <form onSubmit={handleSaveName} className="flex flex-col gap-2">
-          <label
-            htmlFor="profile-name"
-            className="text-sm font-medium text-slate-600"
-          >
-            Nome exibido nas listas
-          </label>
-          <input
-            id="profile-name"
-            required
-            maxLength={userService.MAX_NAME_LENGTH}
-            value={name}
-            onChange={e => {
-              setName(e.target.value);
-              setSaved(false);
-            }}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-base"
-          />
+        <form onSubmit={handleSaveName} className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2">
+            <label
+              htmlFor="profile-name"
+              className="text-base font-semibold text-ink"
+            >
+              Nome exibido nas listas
+            </label>
+            <input
+              id="profile-name"
+              required
+              maxLength={userService.MAX_NAME_LENGTH}
+              value={name}
+              onChange={e => {
+                setName(e.target.value);
+                setSaved(false);
+              }}
+              className="field text-base"
+            />
+          </div>
           {updateNameMutation.isError && (
-            <p className="text-sm text-red-600">
+            <p className="text-sm text-negative">
               {updateNameMutation.error.message}
             </p>
           )}
           {saved && !nameChanged && (
-            <p className="text-sm text-teal-600">Nome atualizado.</p>
+            <p className="text-sm text-positive">Nome atualizado.</p>
           )}
           <Button
             type="submit"
@@ -139,6 +159,7 @@ function Perfil({ me }: { me: Me }) {
               !userService.isValidName(name) ||
               updateNameMutation.isPending
             }
+            className="sm:self-end"
           >
             {updateNameMutation.isPending ? "Salvando..." : "Salvar nome"}
           </Button>
@@ -146,12 +167,12 @@ function Perfil({ me }: { me: Me }) {
       </Card>
 
       <Card className="flex flex-col gap-2">
-        <p className="text-sm font-medium text-slate-700">Notificações</p>
+        <h2 className="text-base font-semibold text-ink">Notificações</h2>
         <PushNotificationsControl />
       </Card>
 
       {logoutMutation.isError && (
-        <p className="text-sm text-red-600">{logoutMutation.error.message}</p>
+        <p className="text-sm text-negative">{logoutMutation.error.message}</p>
       )}
       <Button
         type="button"

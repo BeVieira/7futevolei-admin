@@ -25,6 +25,14 @@ const INSTALL_STEPS: Record<InstallPlatform, string> = {
   desktop: "",
 };
 
+// O que a conta dá a mais que a inscrição como convidado.
+const ACCOUNT_BENEFITS = [
+  "Aviso no celular na hora em que você sai da lista de espera",
+  "Inscrição em 1 toque, sem digitar nome e lado toda vez",
+  "Comprovante enviado pelo app, com lembrete",
+  "Todas as suas aulas num lugar só",
+];
+
 // Mostrado ao convidado logo depois de se inscrever sem conta (no máximo uma
 // vez a cada 24h — ver `authService.takeSignupInvite`): confirma a vaga e
 // puxa pra criar a conta com o Google e instalar o app.
@@ -55,49 +63,52 @@ export function SignupInviteModal({
       onClose={onClose}
     >
       <div className="flex flex-col gap-4">
-        <p className="text-sm text-slate-700">
+        <p className="text-sm text-ink">
           {firstName}, sua inscrição na turma{" "}
           <span className="font-medium">{session.classLevel}</span> de{" "}
           {formatDateLabel(session.date)} às {session.startTime}{" "}
           {waitlisted ? "entrou na lista de espera." : "está confirmada."}
         </p>
 
-        <div className="flex flex-col gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
-          <p className="text-sm font-semibold text-slate-800">
+        <div className="flex flex-col gap-2.5 rounded-md bg-accent-soft p-4">
+          <p className="text-sm font-semibold text-accent-ink">
             {waitlisted
               ? "Mas... se abrir uma vaga, como você vai ficar sabendo?"
               : "Mas... como convidado, você está jogando no modo difícil"}
           </p>
-          <ul className="flex flex-col gap-1 text-sm text-slate-700">
-            <li>
-              🔔 Aviso no celular na hora em que você sai da lista de espera
-            </li>
-            <li>⚡ Inscrição em 1 toque, sem digitar nome e lado toda vez</li>
-            <li>🧾 Comprovante enviado pelo app, com lembrete</li>
-            <li>📅 Todas as suas aulas num lugar só</li>
+          <ul className="flex flex-col gap-1.5 text-sm text-ink">
+            {ACCOUNT_BENEFITS.map(benefit => (
+              <li key={benefit} className="flex gap-2.5">
+                <span
+                  className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-accent-mark"
+                  aria-hidden="true"
+                />
+                {benefit}
+              </li>
+            ))}
           </ul>
         </div>
 
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1.5">
           <Button type="button" onClick={onLogin} className="sm:w-full">
             Criar minha conta com o Google
           </Button>
-          <p className="text-center text-xs text-slate-500">
+          <p className="text-center text-xs text-muted">
             Leva 10 segundos — sua vaga continua garantida.
           </p>
         </div>
 
         {showInstall && (
-          <div className="flex flex-col gap-2 border-t border-slate-200 pt-3">
-            <p className="text-sm font-semibold text-slate-800">
-              📲 E deixe o app na tela de início
+          <div className="flex flex-col gap-2 border-t border-line pt-4">
+            <p className="text-sm font-semibold text-ink">
+              E deixe o app na tela de início
             </p>
             {promptInstallMutation.data === true ? (
               // O Android pode passar por uma verificação de segurança
               // (Play Protect) antes de o ícone aparecer.
-              <div className="flex flex-col gap-1 rounded-lg border border-teal-200 bg-teal-50 p-3 text-sm text-slate-700">
-                <p className="font-medium text-slate-800">
-                  Instalando o app! ✅
+              <div className="flex flex-col gap-1 rounded-md bg-accent-soft p-3 text-sm text-ink">
+                <p className="font-medium text-accent-ink">
+                  Instalando o app!
                 </p>
                 <p>
                   Se aparecer uma verificação de segurança do Google, toque em
@@ -120,11 +131,11 @@ export function SignupInviteModal({
               </Button>
             ) : (
               <>
-                <p className="text-sm text-slate-600">
+                <p className="text-sm text-muted">
                   {INSTALL_STEPS[platform]}
                 </p>
                 {platform === "ios" && (
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-muted">
                     No iPhone, o app não compartilha o login com o Safari: abra
                     pelo ícone novo e entre com o Google por lá.
                   </p>
@@ -137,13 +148,13 @@ export function SignupInviteModal({
                       autoPlay
                       muted
                       playsInline
-                      className="max-h-[60vh] w-full rounded-lg bg-slate-900"
+                      className="max-h-[60vh] w-full rounded-md bg-ink"
                     />
                   ) : (
                     <button
                       type="button"
                       onClick={() => setShowVideo(true)}
-                      className="self-start text-sm font-medium text-teal-500 underline"
+                      className="text-action self-start text-accent-ink"
                     >
                       Ver o vídeo de como instalar
                     </button>
@@ -156,7 +167,7 @@ export function SignupInviteModal({
         <button
           type="button"
           onClick={onClose}
-          className="text-center text-xs text-slate-400 hover:text-slate-600"
+          className="py-1 text-center text-sm text-muted hover:text-ink"
         >
           Agora não, continuar como convidado
         </button>

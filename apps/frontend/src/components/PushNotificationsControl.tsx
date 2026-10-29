@@ -13,7 +13,7 @@ export function PushNotificationsControl() {
 
   if (status === "unsupported") {
     return (
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-muted">
         Este navegador não suporta notificações.
       </p>
     );
@@ -25,7 +25,7 @@ export function PushNotificationsControl() {
 
   if (status === "denied") {
     return (
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-muted">
         As notificações estão bloqueadas neste aparelho. Para receber, libere
         nas configurações do navegador para este site.
       </p>
@@ -39,7 +39,7 @@ export function PushNotificationsControl() {
     <div className="flex flex-col gap-2">
       {status === "enabled" ? (
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-muted">
             Notificações ativadas neste aparelho.
           </p>
           <Button
@@ -53,7 +53,7 @@ export function PushNotificationsControl() {
         </div>
       ) : (
         <>
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-muted">
             Receba um aviso quando sair da lista de espera, se sua inscrição
             mudar e na hora de enviar o comprovante.
           </p>
@@ -66,7 +66,7 @@ export function PushNotificationsControl() {
           </Button>
         </>
       )}
-      {error && <p className="text-sm text-red-600">{error.message}</p>}
+      {error && <p className="text-sm text-negative">{error.message}</p>}
     </div>
   );
 }

@@ -1,16 +1,16 @@
 import { useState } from "react";
 import {
   AdminTabs,
-  Button,
   CalendarModal,
   CollapsibleSectionHeader,
+  DatePickerButton,
 } from "@components";
 import {
   aulaService,
   useGetClassesByDate,
   useGetNextAvailableDate,
 } from "@domain";
-import { formatDateLabel, pluralize } from "@utils";
+import { pluralize } from "@utils";
 
 import { ReceiptReviewCard } from "./components/ReceiptReviewCard";
 
@@ -42,21 +42,15 @@ export function AdminReceiptsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-8">
-      <AdminTabs />
-
-      <div>
-        <p className="mb-1 text-sm font-medium text-slate-600">Data</p>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => setCalendarOpen(true)}
-          disabled={!date}
-          className="text-left"
-        >
-          {date ? formatDateLabel(date) : "Carregando..."}
-        </Button>
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-4">
+        <h1 className="text-2xl font-bold tracking-tight text-ink sm:text-[32px]">
+          Admin
+        </h1>
+        <AdminTabs />
       </div>
+
+      <DatePickerButton date={date} onClick={() => setCalendarOpen(true)} />
 
       {calendarOpen && date && (
         <CalendarModal
@@ -70,9 +64,9 @@ export function AdminReceiptsPage() {
       )}
 
       <div className="flex flex-col gap-6">
-        {isLoading && <p className="text-slate-500">Carregando...</p>}
+        {isLoading && <p className="text-sm text-muted">Carregando...</p>}
         {!isLoading && sessions.length === 0 && (
-          <p className="text-slate-500">
+          <p className="rounded-lg border border-dashed border-control px-4 py-6 text-center text-sm text-muted">
             Ainda não há turmas cadastradas para esta data.
           </p>
         )}
@@ -88,7 +82,7 @@ export function AdminReceiptsPage() {
                 onToggle={() => toggleSlot(slotKey)}
               />
               {!isCollapsed && (
-                <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-4">
+                <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2 xl:grid-cols-4">
                   {slotSessions.map((session) => (
                     <ReceiptReviewCard
                       key={session.id}

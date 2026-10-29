@@ -74,9 +74,12 @@ export function AdminEnrollForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-2">
-      <div className="flex gap-4 text-sm">
-        <label className="flex items-center gap-1.5 text-slate-700">
+    <form
+      onSubmit={handleSubmit}
+      className="flex flex-col gap-3 rounded-md bg-background p-3"
+    >
+      <div className="grid grid-cols-2 gap-2">
+        <label className="option">
           <input
             type="radio"
             name={`enroll-mode-${sessionId}`}
@@ -85,7 +88,7 @@ export function AdminEnrollForm({
           />
           Aluno cadastrado
         </label>
-        <label className="flex items-center gap-1.5 text-slate-700">
+        <label className="option">
           <input
             type="radio"
             name={`enroll-mode-${sessionId}`}
@@ -98,24 +101,24 @@ export function AdminEnrollForm({
 
       {mode === "user" ? (
         selectedUser ? (
-          <div className="flex items-center justify-between gap-2 rounded-lg bg-background px-3 py-2">
-            <span className="flex min-w-0 items-center gap-2 text-sm text-slate-800">
+          <div className="flex items-center justify-between gap-2 rounded-md border border-line bg-card px-3 py-2">
+            <span className="flex min-w-0 items-center gap-2 text-sm text-ink">
               <Avatar
                 name={selectedUser.name}
                 photoUrl={selectedUser.photoUrl}
                 className="h-6 w-6 text-xs"
               />
               <span className="flex min-w-0 flex-col">
-                <span className="truncate">{selectedUser.name}</span>
+                <span className="truncate font-medium">{selectedUser.name}</span>
                 {selectedUser.preferredSide ? (
-                  <span className="text-xs text-slate-500">
+                  <span className="text-xs text-muted">
                     Lado{" "}
                     {enrollmentService
                       .sideLabel(selectedUser.preferredSide)
                       .toLowerCase()}
                   </span>
                 ) : (
-                  <span className="text-xs text-red-600">
+                  <span className="text-xs text-negative">
                     Ainda não escolheu o lado no perfil — peça pra escolher
                     antes de inscrever.
                   </span>
@@ -125,7 +128,7 @@ export function AdminEnrollForm({
             <button
               type="button"
               onClick={() => setSelectedUser(null)}
-              className="text-xs font-medium text-teal-500 underline"
+              className="text-action shrink-0 text-ink"
             >
               Trocar
             </button>
@@ -137,35 +140,36 @@ export function AdminEnrollForm({
               value={searchInput}
               onChange={e => setSearchInput(e.target.value)}
               placeholder="Buscar por nome ou e-mail completo"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              aria-label="Buscar aluno"
+              className="field"
             />
             {searchFailed && (
-              <p className="text-xs text-red-600">{searchError.message}</p>
+              <p className="text-xs text-negative">{searchError.message}</p>
             )}
             {search.trim().length >= 2 &&
               !searching &&
               !searchFailed &&
               results.length === 0 && (
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-muted">
                   Ninguém encontrado. Quem ainda não tem conta pode entrar como
                   convidado.
                 </p>
               )}
             {results.length > 0 && (
-              <ul className="flex max-h-48 flex-col overflow-y-auto rounded-lg border border-slate-200">
+              <ul className="flex max-h-48 flex-col divide-y divide-rule overflow-y-auto rounded-md border border-line bg-card">
                 {results.map(user => (
                   <li key={user.id}>
                     <button
                       type="button"
                       onClick={() => setSelectedUser(user)}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-background"
+                      className="flex min-h-[44px] w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-background"
                     >
                       <Avatar
                         name={user.name}
                         photoUrl={user.photoUrl}
                         className="h-6 w-6 text-xs"
                       />
-                      <span className="truncate text-slate-800">
+                      <span className="truncate text-ink">
                         {user.name}
                       </span>
                     </button>
@@ -183,13 +187,14 @@ export function AdminEnrollForm({
           value={guestName}
           onChange={e => setGuestName(e.target.value)}
           placeholder="Nome do convidado"
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          aria-label="Nome do convidado"
+          className="field"
         />
       )}
 
       {mode === "guest" && (
-        <div className="flex flex-wrap gap-4">
-          <label className="flex items-center gap-1.5 text-sm text-slate-700">
+        <div className="grid grid-cols-2 gap-2">
+          <label className="option num">
             <input
               type="radio"
               name={`add-side-${sessionId}`}
@@ -201,7 +206,7 @@ export function AdminEnrollForm({
             Esquerda ({leftCount}/{sideCapacity}
             {leftCount >= sideCapacity ? " — lista de espera" : ""})
           </label>
-          <label className="flex items-center gap-1.5 text-sm text-slate-700">
+          <label className="option num">
             <input
               type="radio"
               name={`add-side-${sessionId}`}
@@ -217,7 +222,7 @@ export function AdminEnrollForm({
       )}
 
       {enrollMutation.isError && (
-        <p className="text-xs text-red-600">{enrollMutation.error.message}</p>
+        <p className="text-sm text-negative">{enrollMutation.error.message}</p>
       )}
 
       <div className="flex gap-2">
